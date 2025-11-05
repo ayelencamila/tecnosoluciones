@@ -3,7 +3,7 @@ services:
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     ports:
-      - "${PHPMYADMIN_PORT:-65004}:80"
+      - "${PHPMYADMIN_PORT:-8081}:80"
     environment:
       PMA_HOST: mysql
       PMA_USER: "${DB_USERNAME}"
