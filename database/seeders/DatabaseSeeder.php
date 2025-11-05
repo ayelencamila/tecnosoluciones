@@ -29,6 +29,7 @@ class DatabaseSeeder extends Seeder
         // 1. Datos geográficos primero (requeridos por direcciones)
         $this->call([
             ProvinciaSeeder::class,
+            LocalidadSeeder::class,
         ]);
         
         // 2. Datos de configuración del sistema
