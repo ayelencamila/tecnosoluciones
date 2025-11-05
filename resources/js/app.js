@@ -5,6 +5,7 @@ import { createApp, h } from 'vue';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { createPinia } from 'pinia';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
+import { route as ziggyRoute } from 'ziggy-js';
 
 const pinia = createPinia();
 
@@ -15,10 +16,15 @@ createInertiaApp({
         return pages[`./Pages/${name}.vue`];
     },
     setup({ el, App, props, plugin }) {
+        const ziggyConfig = props.initialPage.props.ziggy;
+        
+        // Make route helper available globally
+        window.route = (name, params, absolute) => ziggyRoute(name, params, absolute, ziggyConfig);
+        
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(pinia)
-            .use(ZiggyVue)
+            .use(ZiggyVue, ziggyConfig)
             .mount(el);
     },
     progress: {
