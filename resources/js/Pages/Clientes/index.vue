@@ -94,60 +94,88 @@
               </div>
             </div>
 
-            <div class="mt-6 grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <button 
-                @click="setQuickFilter('todos')"
-                :class="quickFilter === 'todos' ? 'bg-blue-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                class="flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors"
-              >
-                <div class="flex items-center">
-                  <svg class="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h-4v-7H7V4m0 0L4 7m3-3l3 3m10 3a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                  Total Clientes
-                </div>
-                <span class="text-lg font-semibold">{{ props.counts.total }}</span>
-              </button>
 
-              <button 
-                @click="setQuickFilter('activos')"
-                :class="quickFilter === 'activos' ? 'bg-green-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                class="flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors"
-              >
-                <div class="flex items-center">
-                  <svg class="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
-                  Activos
-                </div>
-                <span class="text-lg font-semibold">{{ props.counts.activos }}</span>
-              </button>
-
-              <button
-                @click="setQuickFilter('mayoristas')"
-                :class="quickFilter === 'mayoristas' ? 'bg-purple-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                class="flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors"
-              >
-                <div class="flex items-center">
-                  <svg class="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
-                  Mayoristas
-                </div>
-                <span class="text-lg font-semibold">{{ props.counts.mayoristas }}</span>
-              </button>
-
-              <button
-                @click="setQuickFilter('minoristas')"
-                :class="quickFilter === 'minoristas' ? 'bg-indigo-600 text-white shadow-md' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-                class="flex items-center justify-between px-4 py-3 rounded-lg text-sm font-medium transition-colors"
-              >
-                <div class="flex items-center">
-                  <svg class="h-6 w-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354l.011.001 3.535 3.536A4 4 0 0116.5 9h-3a1 1 0 00-1 1v3.586a1 1 0 00.293.707l3.535 3.536A4 4 0 0119 16.5v-3a1 1 0 00-1-1h-3.586a1 1 0 00-.707.293l-3.536 3.535A4 4 0 017.5 19h3a1 1 0 001-1v-3.586a1 1 0 00-.293-.707l-3.535-3.536A4 4 0 014 7.5v3a1 1 0 001 1h3.586a1 1 0 00.707-.293z"></path></svg>
-                  Minoristas
-                </div>
-                <span class="text-lg font-semibold">{{ props.counts.minoristas }}</span>
-              </button>
-            </div>
 
           </div>
         </div>
 
-        <div class="bg-white shadow rounded-lg">
+        <!-- Estadísticas -->
+        <div class="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-4">
+          <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+              <div class="flex items-center">
+                <div class="flex-shrink-0">
+                  <svg class="h-6 w-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                  </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Total Clientes</dt>
+                    <dd class="text-lg font-semibold text-gray-900">{{ counts?.total || 0 }}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+              <div class="flex items-center">
+                <div class="flex-shrink-0">
+                  <svg class="h-6 w-6 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                  </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Activos</dt>
+                    <dd class="text-lg font-semibold text-gray-900">{{ counts?.activos || 0 }}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+              <div class="flex items-center">
+                <div class="flex-shrink-0">
+                  <svg class="h-6 w-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path>
+                  </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Mayoristas</dt>
+                    <dd class="text-lg font-semibold text-gray-900">{{ counts?.mayoristas || 0 }}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+              <div class="flex items-center">
+                <div class="flex-shrink-0">
+                  <svg class="h-6 w-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path>
+                  </svg>
+                </div>
+                <div class="ml-5 w-0 flex-1">
+                  <dl>
+                    <dt class="text-sm font-medium text-gray-500 truncate">Minoristas</dt>
+                    <dd class="text-lg font-semibold text-gray-900">{{ counts?.minoristas || 0 }}</dd>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lista de Clientes -->
+        <div class="bg-white shadow rounded-lg mt-6 overflow-hidden">
           <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h3 class="text-lg font-medium text-gray-900">Lista de Clientes</h3>
              <div v-if="isLoading" class="flex items-center text-blue-600">
@@ -159,126 +187,178 @@
             </div>
           </div>
 
-          <div class="px-6 py-3 bg-gray-50 border-b border-gray-200">
-            <div class="grid grid-cols-1 md:grid-cols-6 gap-4 text-xs font-medium text-gray-500 uppercase tracking-wider">
-              <div class="col-span-2 flex items-center cursor-pointer hover:text-gray-700" @click="sortBy('nombre')">
-                CLIENTE
-                <svg v-if="sort.column === 'nombre' && sort.direction === 'asc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                <svg v-if="sort.column === 'nombre' && sort.direction === 'desc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                <svg v-if="sort.column !== 'nombre'" class="ml-1 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
-              </div>
-              <div class="flex items-center cursor-pointer hover:text-gray-700" @click="sortBy('tipo_cliente_id')">
-                TIPO
-                <svg v-if="sort.column === 'tipo_cliente_id' && sort.direction === 'asc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                <svg v-if="sort.column === 'tipo_cliente_id' && sort.direction === 'desc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                <svg v-if="sort.column !== 'tipo_cliente_id'" class="ml-1 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
-              </div>
-              <div class="flex items-center cursor-pointer hover:text-gray-700" @click="sortBy('estado_cliente_id')">
-                ESTADO
-                <svg v-if="sort.column === 'estado_cliente_id' && sort.direction === 'asc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
-                <svg v-if="sort.column === 'estado_cliente_id' && sort.direction === 'desc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-                <svg v-if="sort.column !== 'estado_cliente_id'" class="ml-1 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
-              </div>
-              <div class="text-center">CUENTA</div>
-              <div class="text-center">ACCIONES</div>
-              <div></div>
-            </div>
-          </div>
-
-          <div class="divide-y divide-gray-200" v-if="clientesDisplay.length">
-            <div v-for="cliente in clientesDisplay" :key="cliente.clienteID" class="px-6 py-4 hover:bg-gray-50">
-              <div class="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
-                <div class="col-span-2 flex items-center">
-                  <div class="flex-shrink-0 h-10 w-10">
-                    <div class="h-10 w-10 rounded-full flex items-center justify-center text-white font-medium"
-                         :style="{ backgroundColor: getAvatarColor(cliente.nombre) }">
-                      {{ getInitials(cliente.nombre, cliente.apellido) }}
+          <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+              <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" @click="sortBy('nombre')">
+                  <div class="flex items-center">
+                    Cliente
+                    <svg v-if="sort.column === 'nombre' && sort.direction === 'asc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                    <svg v-else-if="sort.column === 'nombre' && sort.direction === 'desc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg v-else class="ml-1 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                  </div>
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Contacto
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" @click="sortBy('tipo_cliente_id')">
+                  <div class="flex items-center">
+                    Tipo
+                    <svg v-if="sort.column === 'tipo_cliente_id' && sort.direction === 'asc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                    <svg v-else-if="sort.column === 'tipo_cliente_id' && sort.direction === 'desc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg v-else class="ml-1 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                  </div>
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100" @click="sortBy('estado_cliente_id')">
+                  <div class="flex items-center">
+                    Estado
+                    <svg v-if="sort.column === 'estado_cliente_id' && sort.direction === 'asc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+                    <svg v-else-if="sort.column === 'estado_cliente_id' && sort.direction === 'desc'" class="ml-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                    <svg v-else class="ml-1 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path></svg>
+                  </div>
+                </th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Ubicación
+                </th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+              <tr v-if="!clientesDisplay.length">
+                <td colspan="6" class="px-6 py-10 text-center text-gray-500">
+                  <div class="flex flex-col items-center">
+                    <svg class="h-12 w-12 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                    </svg>
+                    <p class="text-sm font-medium">No se encontraron clientes</p>
+                    <button @click="clearFilters" class="mt-2 text-blue-600 hover:underline text-sm">Limpiar filtros</button>
+                  </div>
+                </td>
+              </tr>
+              <tr v-for="cliente in clientesDisplay" :key="cliente.clienteID" class="hover:bg-gray-50">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="flex items-center">
+                    <div class="flex-shrink-0 h-10 w-10">
+                      <div class="h-10 w-10 rounded-full flex items-center justify-center text-white font-medium text-sm"
+                           :style="{ backgroundColor: getAvatarColor(cliente.nombre) }">
+                        {{ getInitials(cliente.nombre, cliente.apellido) }}
+                      </div>
+                    </div>
+                    <div class="ml-4">
+                      <div class="text-sm font-medium text-gray-900">
+                        {{ cliente.nombre }} {{ cliente.apellido }}
+                      </div>
+                      <div class="text-sm text-gray-500">
+                        DNI: {{ cliente.DNI }}
+                      </div>
                     </div>
                   </div>
-                  <div class="ml-4">
-                    <div class="text-sm font-medium text-gray-900">
-                      {{ cliente.nombre }} {{ cliente.apellido }}
-                    </div>
-                    <div class="text-sm text-gray-500">
-                      DNI: {{ cliente.DNI }}<br>
-                      WhatApp: {{ cliente.whatsapp }}<br>
-                      Email: {{ cliente.mail }}<br>
-                      <span v-if="cliente.direccion?.localidad?.provincia?.nombre">
-                        Provincia: {{ cliente.direccion.localidad.provincia.nombre }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <span :class="getTipoBadgeClass(cliente.tipo_cliente?.nombreTipo)" 
-                        class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900">{{ cliente.whatsapp }}</div>
+                  <div class="text-sm text-gray-500">{{ cliente.mail }}</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span 
+                    :class="getTipoBadgeClass(cliente.tipo_cliente?.nombreTipo)" 
+                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  >
                     {{ cliente.tipo_cliente?.nombreTipo }}
                   </span>
-                </div>
-
-                <div>
-                  <span :class="getEstadoBadgeClass(cliente.estado_cliente?.nombreEstado)" 
-                        class="inline-flex px-2 py-1 text-xs font-semibold rounded-full">
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span 
+                    :class="getEstadoBadgeClass(cliente.estado_cliente?.nombreEstado)" 
+                    class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"
+                  >
                     {{ cliente.estado_cliente?.nombreEstado }}
                   </span>
-                </div>
-
-                <div class="text-center">
-                  <span v-if="cliente.cuenta_corriente_id" class="text-blue-600 hover:text-blue-800 cursor-pointer font-medium">
-                    Activa
-                  </span>
-                  <span v-else class="text-gray-500">
-                    Inactiva
-                  </span>
-                </div>
-
-                <div class="text-center flex justify-center space-x-2">
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <div v-if="cliente.direccion?.localidad?.provincia?.nombre">
+                    {{ cliente.direccion.localidad.provincia.nombre }}
+                  </div>
+                  <div v-else class="text-gray-400">-</div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
                   <Link 
                     :href="route('clientes.show', cliente.clienteID)"
-                    class="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    class="text-indigo-600 hover:text-indigo-900"
                   >
                     Ver
                   </Link>
                   <Link 
                     :href="route('clientes.edit', cliente.clienteID)"
-                    class="text-green-600 hover:text-green-800 text-sm font-medium"
+                    class="text-blue-600 hover:text-blue-900"
                   >
                     Editar
                   </Link>
-                  <button @click="confirmDelete(cliente.clienteID)"
-                          class="text-red-600 hover:text-red-800 text-sm font-medium">
+                  <button 
+                    @click="confirmDelete(cliente.clienteID)"
+                    class="text-red-600 hover:text-red-900"
+                  >
                     Eliminar
                   </button>
-                </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
-                <div>
-                    <label class="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" :checked="cliente.activo" @change="toggleClienteActivo(cliente.clienteID, $event.target.checked)" class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                    </label>
-                </div>
+          <!-- Paginación -->
+          <div class="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+            <div class="flex-1 flex justify-between sm:hidden">
+              <Link
+                v-if="clientes?.prev_page_url"
+                :href="clientes.prev_page_url"
+                class="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Anterior
+              </Link>
+              <Link
+                v-if="clientes?.next_page_url"
+                :href="clientes.next_page_url"
+                class="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                Siguiente
+              </Link>
+            </div>
+            <div class="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div>
+                <p class="text-sm text-gray-700">
+                  Mostrando
+                  <span class="font-medium">{{ clientes?.from || 0 }}</span>
+                  a
+                  <span class="font-medium">{{ clientes?.to || 0 }}</span>
+                  de
+                  <span class="font-medium">{{ clientes?.total || 0 }}</span>
+                  clientes
+                </p>
               </div>
-            </div>
-          </div>
-
-          <div v-else class="text-center py-10 text-gray-500">
-            <p>No se encontraron clientes que coincidan con los filtros.</p>
-            <button @click="clearFilters" class="mt-4 text-blue-600 hover:underline">Limpiar filtros</button>
-          </div>
-
-          <div class="px-6 py-4 border-t border-gray-200 flex justify-between items-center" v-if="clientes.data.length && clientes.last_page > 1">
-            <div class="text-sm text-gray-700">
-              Mostrando {{ clientes.from }} a {{ clientes.to }} de {{ clientes.total }} clientes
-            </div>
-            <div class="flex space-x-1">
-              <button v-for="(link, index) in clientes.links" :key="index"
-                      @click="goToPage(link.url)"
-                      :disabled="!link.url"
-                      :class="{ 'bg-blue-600 text-white': link.active, 'bg-gray-200 text-gray-700 hover:bg-gray-300': !link.active && link.url }"
-                      class="px-3 py-1 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      v-html="link.label">
-              </button>
+              <div>
+                <nav class="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+                  <template v-for="link in clientes?.links || []" :key="link.label">
+                    <Link
+                      v-if="link.url"
+                      :href="link.url"
+                      :class="[
+                        link.active ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50',
+                        'relative inline-flex items-center px-4 py-2 border text-sm font-medium'
+                      ]"
+                      v-html="link.label"
+                    />
+                    <span
+                      v-else
+                      :class="[
+                        'bg-white border-gray-300 text-gray-400 cursor-not-allowed',
+                        'relative inline-flex items-center px-4 py-2 border text-sm font-medium'
+                      ]"
+                      v-html="link.label"
+                    ></span>
+                  </template>
+                </nav>
+              </div>
             </div>
           </div>
         </div>
@@ -312,11 +392,10 @@ const formFilters = reactive({ // Renombrado a formFilters para evitar conflicto
     search: props.filters.search || '',
     estado_cliente_id: props.filters.estado_cliente_id || '',
     tipo_cliente_id: props.filters.tipo_cliente_id || '',
-    provincia_id: props.filters.provincia_id || '' // Añadido filtro por provincia
+    provincia_id: props.filters.provincia_id || ''
 })
 
-const quickFilter = ref('todos') // Para resaltar el botón de filtro rápido activo
-const isLoading = ref(false) // Nuevo: estado de carga para feedback visual
+const isLoading = ref(false)
 
 // Estado para el ordenamiento
 const sort = reactive({
@@ -343,77 +422,44 @@ const hasActiveFilters = computed(() => {
 let timeout = null
 watch(formFilters, (newFilters) => {
     clearTimeout(timeout)
-    isLoading.value = true; // Activar el spinner de carga
+    isLoading.value = true
     timeout = setTimeout(() => {
         router.get('/clientes', { ...newFilters, sort_column: sort.column, sort_direction: sort.direction }, {
             preserveState: true,
-            replace: true,
-            onFinish: () => { isLoading.value = false; } // Desactivar el spinner al terminar
+            preserveScroll: true,
+            onFinish: () => { isLoading.value = false; }
         })
-    }, 300) // Espera 300ms antes de enviar la petición
-}, { deep: true }) // Observa cambios profundos en el objeto formFilters
+    }, 300)
+}, { deep: true })
 
-// Watch para el ordenamiento (también dispara una petición a Inertia)
+// Watch para el ordenamiento
 watch(sort, (newSort) => {
-    isLoading.value = true;
+    isLoading.value = true
     router.get('/clientes', { ...formFilters, sort_column: newSort.column, sort_direction: newSort.direction }, {
         preserveState: true,
-        replace: true,
+        preserveScroll: true,
         onFinish: () => { isLoading.value = false; }
-    });
-}, { deep: true });
-
-
-// Método para aplicar los filtros rápidos (actualiza formFilters y dispara el watch)
-const setQuickFilter = (filter) => {
-    quickFilter.value = filter; // Resalta el botón
-    // Resetear todos los filtros de estado/tipo/provincia antes de aplicar el rápido
-    formFilters.estado_cliente_id = '';
-    formFilters.tipo_cliente_id = '';
-    formFilters.provincia_id = '';
-
-    if (filter === 'todos') {
-        // Nada más que hacer, los filtros ya se resetearon
-    } else if (filter === 'activos') {
-        const estadoActivo = props.estadosCliente.find(e => e.nombreEstado === 'Activo');
-        formFilters.estado_cliente_id = estadoActivo ? estadoActivo.estadoClienteID : '';
-    } else if (filter === 'morosos') {
-        const estadoMoroso = props.estadosCliente.find(e => e.nombreEstado === 'Moroso');
-        formFilters.estado_cliente_id = estadoMoroso ? estadoMoroso.estadoClienteID : '';
-    } else if (filter === 'convenio') {
-        const estadoConvenio = props.estadosCliente.find(e => e.nombreEstado === 'Convenio');
-        formFilters.estado_cliente_id = estadoConvenio ? estadoConvenio.estadoClienteID : '';
-    } else if (filter === 'mayoristas') {
-        const tipoMayorista = props.tiposCliente.find(t => t.nombreTipo === 'Mayorista');
-        formFilters.tipo_cliente_id = tipoMayorista ? tipoMayorista.tipoClienteID : '';
-    } else if (filter === 'minoristas') {
-        const tipoMinorista = props.tiposCliente.find(t => t.nombreTipo === 'Consumidor Final'); // Ajusta según el nombre real de tu tipo minorista
-        formFilters.tipo_cliente_id = tipoMinorista ? tipoMinorista.tipoClienteID : '';
-    }
-    // El `watch(formFilters)` se encargará de enviar la petición a Inertia
-}
+    })
+}, { deep: true })
 
 // Método para limpiar todos los filtros
 const clearFilters = () => {
-    formFilters.search = '';
-    formFilters.estado_cliente_id = '';
-    formFilters.tipo_cliente_id = '';
-    formFilters.provincia_id = '';
-    quickFilter.value = 'todos'; // Restablece el filtro rápido
-    sort.column = 'nombre'; // Restablece el ordenamiento
-    sort.direction = 'asc';
-    // El `watch` se encargará de enviar la petición con los filtros limpios
+    formFilters.search = ''
+    formFilters.estado_cliente_id = ''
+    formFilters.tipo_cliente_id = ''
+    formFilters.provincia_id = ''
+    sort.column = 'nombre'
+    sort.direction = 'asc'
 }
 
 // Método para ordenar
 const sortBy = (column) => {
     if (sort.column === column) {
-        sort.direction = sort.direction === 'asc' ? 'desc' : 'asc';
+        sort.direction = sort.direction === 'asc' ? 'desc' : 'asc'
     } else {
-        sort.column = column;
-        sort.direction = 'asc'; // Por defecto ascendente cuando se cambia de columna
+        sort.column = column
+        sort.direction = 'asc'
     }
-    // El `watch(sort)` se encargará de enviar la petición a Inertia
 }
 
 // Métodos auxiliares
@@ -447,56 +493,19 @@ const getEstadoBadgeClass = (estado) => {
     return classes[estado] || 'bg-gray-100 text-gray-800'
 }
 
-// Funciones para la paginación (si usas la paginación de Laravel, props.clientes.links, props.clientes.current_page, etc.)
-const goToPage = (url) => {
-    // router.get(url, formFilters, { preserveState: true, replace: true });
-    // Al hacer click en la paginación, queremos mantener los filtros actuales y el ordenamiento
-    router.get(url, { ...formFilters, sort_column: sort.column, sort_direction: sort.direction }, { preserveState: true, replace: true });
-}
-
-// Función para togglear el estado activo/inactivo del cliente
-const toggleClienteActivo = (clienteID, isChecked) => {
-    // Aquí puedes llamar a una ruta de Inertia/Laravel para actualizar el estado 'activo' del cliente
-    // Por ejemplo:
-    router.post(route('clientes.toggleActivo', clienteID), { activo: isChecked }, {
-        preserveScroll: true,
-        onSuccess: () => {
-            // Manejar éxito, por ejemplo, recargando la página o actualizando el cliente en la UI
-            router.reload({ preserveState: true });
-        },
-        onError: (errors) => {
-            console.error('Error al actualizar estado activo:', errors);
-            // Revertir el estado del toggle en caso de error
-            // También podrías mostrar un mensaje de error al usuario
-            alert('Hubo un error al cambiar el estado del cliente.');
-            router.reload({ preserveState: true }); // Para asegurar que la UI se sincronice
-        }
-    });
-}
-
-
 // Función para confirmar la eliminación
 const confirmDelete = (clienteID) => {
     if (confirm('¿Estás seguro de que quieres eliminar este cliente? Esta acción no se puede deshacer.')) {
         router.delete(route('clientes.destroy', clienteID), {
             onSuccess: () => {
-                // Mensaje de éxito o recargar la lista
-                alert('Cliente eliminado exitosamente.');
+                alert('Cliente eliminado exitosamente.')
             },
             onError: (errors) => {
-                console.error('Error al eliminar cliente:', errors);
-                alert('Hubo un error al eliminar el cliente.');
+                console.error('Error al eliminar cliente:', errors)
+                alert('Hubo un error al eliminar el cliente.')
             }
-        });
+        })
     }
-};
-
-// Implementar el método para dar de baja, que es diferente a eliminar
-const darDeBajaCliente = (clienteID) => {
-    // Esta función debería redirigir a una página de confirmación con motivo
-    // o abrir un modal para solicitar el motivo antes de llamar a la ruta darDeBaja.
-    // Por ahora, solo redirigimos a la página de confirmación.
-    router.get(route('clientes.confirmDelete', clienteID));
-};
+}
 
 </script>

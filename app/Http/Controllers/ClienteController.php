@@ -84,37 +84,10 @@ class ClienteController extends Controller
 
         $clientes = $query->orderBy($sortColumn, $sortDirection)->paginate(10);
 
-        // Preparar datos para Vue - formato simple y directo
-        $estadosClienteFormateados = EstadoCliente::all(['estadoClienteID', 'nombreEstado'])->map(function ($estado) {
-            return [
-                'id' => $estado->estadoClienteID,
-                'nombre' => $estado->nombreEstado
-            ];
-        })->values()->all();
-
-        $tiposClienteFormateados = TipoCliente::all(['tipoClienteID', 'nombreTipo'])->map(function ($tipo) {
-            return [
-                'id' => $tipo->tipoClienteID,
-                'nombre' => $tipo->nombreTipo
-            ];
-        })->values()->all();
-
-        $provinciasFormateadas = Provincia::all(['provinciaID', 'nombre'])->map(function ($provincia) {
-            return [
-                'id' => $provincia->provinciaID,
-                'nombre' => $provincia->nombre
-            ];
-        })->values()->all();
-
-        // Asegúrate de que los IDs que envías de clientes también sean 'clienteID' y no 'id'
-        // Esto es crucial para que los enlaces de 'ver', 'editar', 'eliminar' funcionen
-        $clientes->getCollection()->transform(function ($cliente) {
-            $cliente->id = $cliente->clienteID; // Alias para compatibilidad con Vue, si lo necesitas
-            $cliente->tipo_cliente = ['id' => $cliente->tipoClienteID, 'nombre' => $cliente->tipoCliente->nombreTipo ?? 'N/A'];
-            $cliente->estado_cliente = ['id' => $cliente->estadoClienteID, 'nombre' => $cliente->estadoCliente->nombreEstado ?? 'N/A'];
-            return $cliente;
-        });
-
+        // Preparar datos para Vue - mantener los nombres de columnas originales
+        $estadosClienteFormateados = EstadoCliente::all(['estadoClienteID', 'nombreEstado'])->values()->all();
+        $tiposClienteFormateados = TipoCliente::all(['tipoClienteID', 'nombreTipo'])->values()->all();
+        $provinciasFormateadas = Provincia::all(['provinciaID', 'nombre'])->values()->all();
 
         return Inertia::render('Clientes/index', [
             'clientes' => $clientes,
@@ -122,13 +95,13 @@ class ClienteController extends Controller
             'tiposCliente' => $tiposClienteFormateados,
             'provincias' => $provinciasFormateadas,
             'filters' => $request->only(['search', 'tipo_cliente_id', 'estado_cliente_id', 'provincia_id', 'sort_column', 'sort_direction']),
-            'stats' => [
+            'counts' => [
                 'total' => Cliente::count(),
                 'activos' => $activeClientsCount,
                 'morosos' => $morosoClientsCount,
                 'suspendidos' => $suspendidoClientsCount,
                 'mayoristas' => $tiposClienteCounts->get('mayorista', 0),
-                'minoristas' => $tiposClienteCounts->get('minorista', 0),
+                'minoristas' => $tiposClienteCounts->get('minorista', 0) + $tiposClienteCounts->get('consumidorfinal', 0),
             ],
         ]);
     }
@@ -143,20 +116,12 @@ class ClienteController extends Controller
         $estadosCliente = EstadoCliente::orderBy('nombreEstado')->get();
         $estadosCuentaCorriente = EstadoCuentaCorriente::orderBy('nombreEstado')->get();
 
-        if ($request->header('X-Inertia')) {
-            return Inertia::render('Clientes/Create', [
-                'provincias' => $provincias,
-                'tiposCliente' => $tiposCliente,
-                'estadosCliente' => $estadosCliente,
-                'estadosCuentaCorriente' => $estadosCuentaCorriente,
-            ]);
-        }
-        return view('clientes.create', compact(
-            'provincias',
-            'tiposCliente',
-            'estadosCliente',
-            'estadosCuentaCorriente'
-        ));
+        return Inertia::render('Clientes/Create', [
+            'provincias' => $provincias,
+            'tiposCliente' => $tiposCliente,
+            'estadosCliente' => $estadosCliente,
+            'estadosCuentaCorriente' => $estadosCuentaCorriente,
+        ]);
     }
 
     /**
@@ -261,23 +226,14 @@ class ClienteController extends Controller
             }
 
             DB::commit(); 
-            if ($request->header('X-Inertia')) {
-                return redirect()->route('clientes.index')->with('success', 'Cliente registrado exitosamente. ID: ' . $cliente->clienteID);
-            }
             return redirect()->route('clientes.index')->with('success', 'Cliente registrado exitosamente. ID: ' . $cliente->clienteID);
 
         } catch (\Exception $e) {
             DB::rollBack(); 
             if ($auditoria && $e->getMessage() === 'No se pudo registrar la auditoría: usuario no autenticado.') {
-                if ($request->header('X-Inertia')) {
-                    return back()->with('warning', 'Cliente registrado, pero hubo un problema al registrar la auditoría: ' . $e->getMessage());
-                }
-                return redirect()->route('clientes.index')->with('warning', 'Cliente registrado, pero hubo un problema al registrar la auditoría: ' . $e->getMessage());
+                return back()->with('warning', 'Cliente registrado, pero hubo un problema al registrar la auditoría: ' . $e->getMessage());
             }
-            if ($request->header('X-Inertia')) {
-                return back()->withInput()->withErrors(['error' => 'Error al registrar el cliente: ' . $e->getMessage()]);
-            }
-            return redirect()->back()->withInput()->withErrors(['error' => 'Error al registrar el cliente: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['error' => 'Error al registrar el cliente: ' . $e->getMessage()]);
         }
     }
 
@@ -298,13 +254,10 @@ class ClienteController extends Controller
 
         $historialAuditoria = Auditoria::historialCliente($cliente->clienteID);
 
-        if ($request->header('X-Inertia')) {
-            return Inertia::render('Clientes/Show', [
-                'cliente' => $cliente,
-                'historialAuditoria' => $historialAuditoria,
-            ]);
-        }
-        return view('clientes.show', compact('cliente', 'historialAuditoria'));
+        return Inertia::render('Clientes/Show', [
+            'cliente' => $cliente,
+            'historialAuditoria' => $historialAuditoria,
+        ]);
     }
 
     /**
@@ -330,22 +283,13 @@ class ClienteController extends Controller
         // Ajustar el ID para Vue
         $cliente->id = $cliente->clienteID;
 
-        if ($request->header('X-Inertia')) {
-            return Inertia::render('Clientes/Edit', [
-                'cliente' => $cliente,
-                'provincias' => $provincias,
-                'tiposCliente' => $tiposCliente,
-                'estadosCliente' => $estadosCliente,
-                'estadosCuentaCorriente' => $estadosCuentaCorriente,
-            ]);
-        }
-        return view('clientes.edit', compact(
-            'cliente',
-            'provincias',
-            'tiposCliente',
-            'estadosCliente',
-            'estadosCuentaCorriente'
-        ));
+        return Inertia::render('Clientes/Edit', [
+            'cliente' => $cliente,
+            'provincias' => $provincias,
+            'tiposCliente' => $tiposCliente,
+            'estadosCliente' => $estadosCliente,
+            'estadosCuentaCorriente' => $estadosCuentaCorriente,
+        ]);
     }
 
     /**
@@ -476,17 +420,11 @@ class ClienteController extends Controller
             }
 
             DB::commit();
-            if ($request->header('X-Inertia')) {
-                return redirect()->route('clientes.index')->with('success', 'Cliente actualizado exitosamente.');
-            }
             return redirect()->route('clientes.index')->with('success', 'Cliente actualizado exitosamente.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            if ($request->header('X-Inertia')) {
-                return back()->withInput()->withErrors(['error' => 'Error al actualizar el cliente: ' . $e->getMessage()]);
-            }
-            return redirect()->back()->withInput()->withErrors(['error' => 'Error al actualizar el cliente: ' . $e->getMessage()]);
+            return back()->withInput()->withErrors(['error' => 'Error al actualizar el cliente: ' . $e->getMessage()]);
         }
     }
 
@@ -501,13 +439,10 @@ class ClienteController extends Controller
         // Ajustar el ID para Vue
         $cliente->id = $cliente->clienteID;
 
-        if ($request->header('X-Inertia')) {
-            return Inertia::render('Clientes/ConfirmDelete', [
-                'cliente' => $cliente,
-                'operacionesPendientes' => $operacionesPendientes,
-            ]);
-        }
-        return view('clientes.confirm-delete', compact('cliente', 'operacionesPendientes'));
+        return Inertia::render('Clientes/ConfirmDelete', [
+            'cliente' => $cliente,
+            'operacionesPendientes' => $operacionesPendientes,
+        ]);
     }
 
     /**
@@ -524,13 +459,7 @@ class ClienteController extends Controller
             $operacionesPendientes = false; 
             
             if ($operacionesPendientes) {
-                if ($request->header('X-Inertia')) {
-                    return back()->withErrors([
-                        'error' => 'No es posible dar de baja al cliente ' . $cliente->nombre . ' ' . $cliente->apellido . 
-                                     ' porque tiene operaciones activas pendientes. Por favor, complete o cancele estas operaciones antes de continuar.'
-                    ]);
-                }
-                return redirect()->back()->withErrors([
+                return back()->withErrors([
                     'error' => 'No es posible dar de baja al cliente ' . $cliente->nombre . ' ' . $cliente->apellido . 
                                      ' porque tiene operaciones activas pendientes. Por favor, complete o cancele estas operaciones antes de continuar.'
                 ]);
@@ -581,17 +510,11 @@ class ClienteController extends Controller
             }
 
             DB::commit();
-            if ($request->header('X-Inertia')) {
-                return redirect()->route('clientes.index')->with('success', 'Cliente dado de baja exitosamente.');
-            }
             return redirect()->route('clientes.index')->with('success', 'Cliente dado de baja exitosamente.');
 
         } catch (\Exception $e) {
             DB::rollBack();
-            if ($request->header('X-Inertia')) {
-                return back()->withErrors(['error' => 'Error al dar de baja el cliente: ' . $e->getMessage()]);
-            }
-            return redirect()->back()->withErrors(['error' => 'Error al dar de baja el cliente: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Error al dar de baja el cliente: ' . $e->getMessage()]);
         }
     }
 
