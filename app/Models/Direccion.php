@@ -10,12 +10,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Modelo para gestionar las direcciones del sistema
- * 
+ *
  * Esta clase representa las direcciones físicas completas de los clientes,
  * incluyendo calle, altura, piso/depto, barrio y código postal.
  * Cada dirección pertenece a una localidad específica.
- * 
- * @package App\Models
+ *
  * @property int $direccionID Identificador único de la dirección
  * @property string $calle Nombre de la calle
  * @property string $altura Número de la altura/numeración
@@ -26,7 +25,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property \Carbon\Carbon $created_at Fecha de creación
  * @property \Carbon\Carbon $updated_at Fecha de última actualización
  * @property \Carbon\Carbon|null $deleted_at Fecha de eliminación (soft delete)
- * 
  * @property-read \App\Models\Localidad $localidad Localidad a la que pertenece la dirección
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Cliente> $clientes Clientes que tienen esta dirección
  */
@@ -36,35 +34,35 @@ class Direccion extends Model
 
     /**
      * Nombre de la tabla en la base de datos
-     * 
+     *
      * @var string
      */
     protected $table = 'direcciones';
-    
+
     /**
      * Clave primaria personalizada
-     * 
+     *
      * @var string
      */
     protected $primaryKey = 'direccionID';
-    
+
     /**
      * Indica que la clave primaria es auto-incremental
-     * 
+     *
      * @var bool
      */
     public $incrementing = true;
-    
+
     /**
      * Tipo de la clave primaria
-     * 
+     *
      * @var string
      */
     protected $keyType = 'int';
 
     /**
      * Atributos que se pueden asignar de forma masiva
-     * 
+     *
      * @var array<int, string>
      */
     protected $fillable = [
@@ -78,8 +76,6 @@ class Direccion extends Model
 
     /**
      * Obtiene la localidad a la que pertenece esta dirección
-     * 
-     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
     public function localidad(): BelongsTo
     {
@@ -88,11 +84,9 @@ class Direccion extends Model
 
     /**
      * Obtiene todos los clientes que tienen esta dirección
-     * 
+     *
      * Una dirección puede estar asociada a múltiples clientes.
      * Útil para familias, empresas con múltiples contactos, etc.
-     * 
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function clientes(): HasMany
     {
@@ -101,45 +95,45 @@ class Direccion extends Model
 
     /**
      * Genera la dirección completa formateada como string
-     * 
+     *
      * @return string Dirección completa formateada
      */
     public function getDireccionCompletaAttribute(): string
     {
         $direccion = "{$this->calle} {$this->altura}";
-        
+
         if ($this->pisoDepto) {
             $direccion .= ", {$this->pisoDepto}";
         }
-        
+
         if ($this->barrio) {
             $direccion .= ", {$this->barrio}";
         }
-        
+
         if ($this->codigoPostal) {
             $direccion .= " (CP: {$this->codigoPostal})";
         }
-        
+
         return $direccion;
     }
 
     /**
      * Obtiene la dirección completa incluyendo localidad y provincia
-     * 
+     *
      * @return string Dirección completa con ubicación geográfica
      */
     public function getDireccionCompletaConUbicacionAttribute(): string
     {
         $direccion = $this->direccion_completa;
-        
+
         if ($this->localidad) {
             $direccion .= ", {$this->localidad->nombre}";
-            
+
             if ($this->localidad->provincia) {
                 $direccion .= ", {$this->localidad->provincia->nombre}";
             }
         }
-        
+
         return $direccion;
     }
 }

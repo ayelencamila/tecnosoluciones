@@ -3,12 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\EstadoCliente;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 /**
  * Seeder para poblar los estados de cliente del sistema
- * 
+ *
  * Este seeder crea los diferentes estados en los que puede estar un cliente:
  * - Activo: Cliente habilitado para realizar operaciones
  * - Inactivo: Cliente temporalmente deshabilitado

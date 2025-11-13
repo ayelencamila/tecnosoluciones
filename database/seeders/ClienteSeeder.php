@@ -2,14 +2,14 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
 use App\Models\Cliente;
-use App\Models\Direccion;
 use App\Models\CuentaCorriente;
-use App\Models\TipoCliente;
+use App\Models\Direccion;
 use App\Models\EstadoCliente;
 use App\Models\EstadoCuentaCorriente;
 use App\Models\Localidad;
+use App\Models\TipoCliente;
+use Illuminate\Database\Seeder;
 
 class ClienteSeeder extends Seeder
 {
@@ -18,15 +18,15 @@ class ClienteSeeder extends Seeder
         // Obtener datos necesarios
         $tipoMayorista = TipoCliente::where('nombreTipo', 'Mayorista')->first();
         $tipoMinorista = TipoCliente::where('nombreTipo', 'Minorista')->first();
-        
+
         $estadoActivo = EstadoCliente::where('nombreEstado', 'Activo')->first();
         $estadoInactivo = EstadoCliente::where('nombreEstado', 'Inactivo')->first();
         $estadoMoroso = EstadoCliente::where('nombreEstado', 'Moroso')->first();
         $estadoSuspendido = EstadoCliente::where('nombreEstado', 'Suspendido')->first();
-        
+
         $estadoCuentaActiva = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->first();
         $estadoCuentaBloqueada = EstadoCuentaCorriente::where('nombreEstado', 'Bloqueada')->first();
-        
+
         $localidades = Localidad::all();
 
         // Datos de ejemplo
@@ -76,12 +76,12 @@ class ClienteSeeder extends Seeder
             $piso = rand(0, 10) > 7 ? rand(1, 20) : null;
             $depto = rand(0, 10) > 7 ? chr(65 + rand(0, 10)) : null;
             $pisoDepto = $piso ? ($depto ? "Piso {$piso} Dto {$depto}" : "Piso {$piso}") : null;
-            
+
             $direccion = Direccion::create([
-                'calle' => 'Calle ' . ($index + 1),
-                'altura' => (string)rand(100, 9999),
+                'calle' => 'Calle '.($index + 1),
+                'altura' => (string) rand(100, 9999),
                 'pisoDepto' => $pisoDepto,
-                'barrio' => 'Barrio ' . ($index % 5 + 1),
+                'barrio' => 'Barrio '.($index % 5 + 1),
                 'codigoPostal' => '4000',
                 'localidadID' => $localidad->localidadID,
             ]);
@@ -103,7 +103,7 @@ class ClienteSeeder extends Seeder
             $suffix = 1;
             while (Cliente::where('DNI', $dni)->exists()) {
                 // agregar sufijo incremental hasta que quede único
-                $dni = $originalDni . $suffix;
+                $dni = $originalDni.$suffix;
                 $suffix++;
             }
 
@@ -115,7 +115,7 @@ class ClienteSeeder extends Seeder
             $domain = $atPos !== false ? substr($originalMail, $atPos) : '';
             $mailSuffix = 1;
             while (Cliente::where('mail', $mail)->exists()) {
-                $mail = $local . '+' . $mailSuffix . $domain;
+                $mail = $local.'+'.$mailSuffix.$domain;
                 $mailSuffix++;
             }
 
