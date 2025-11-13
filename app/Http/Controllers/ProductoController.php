@@ -2,18 +2,33 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Producto;
+// Modelos
+use App\Models\Auditoria;
 use App\Models\CategoriaProducto;
 use App\Models\EstadoProducto;
-use App\Models\TipoCliente;
-use App\Models\PrecioProducto;
 use App\Models\MovimientoStock;
-use App\Models\Auditoria;
+use App\Models\PrecioProducto;
+use App\Models\Producto;
+use App\Models\TipoCliente;
+
+// --- ARQUITECTURA LARMAN (BCE) ---
+// 1. Boundaries (Validación)
+use App\Http\Requests\Productos\StoreProductoRequest;
+use App\Http\Requests\Productos\UpdateProductoRequest;
+use App\Http\Requests\Productos\DarDeBajaProductoRequest;
+
+// 2. Controls (Lógica de Negocio)
+use App\Services\Productos\RegistrarProductoService;
+use App\Services\Productos\UpdateProductoService;
+// --- FIN ARQUITECTURA LARMAN ---
+
+// Clases de Laravel
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use Illuminate\Database\Eloquent\Builder; // Importar Builder
 
 class ProductoController extends Controller
 {
@@ -23,6 +38,7 @@ class ProductoController extends Controller
      */
     public function index(Request $request)
     {
+        // Esta lógica de consulta (lectura) está bien en el controlador
         $query = Producto::query()
             ->with(['categoria', 'estado']);
 
@@ -30,9 +46,9 @@ class ProductoController extends Controller
         if ($request->has('search') && $request->input('search')) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
-                $q->where('nombre', 'like', '%' . $searchTerm . '%')
-                    ->orWhere('codigo', 'like', '%' . $searchTerm . '%')
-                    ->orWhere('marca', 'like', '%' . $searchTerm . '%');
+                $q->where('nombre', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('codigo', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('marca', 'like', '%'.$searchTerm.'%');
             });
         }
 
@@ -44,7 +60,7 @@ class ProductoController extends Controller
             $query->where('estadoProductoID', $request->input('estado_id'));
         }
 
-        // Filtro de stock bajo
+        // CORREGIDO: Usar la columna 'stockActual' (Single Depot)
         if ($request->has('stock_bajo') && $request->input('stock_bajo') === 'true') {
             $query->whereRaw('stockActual <= stockMinimo');
         }
@@ -54,52 +70,35 @@ class ProductoController extends Controller
         $productosActivos = Producto::whereHas('estado', function ($q) {
             $q->where('nombre', 'Activo');
         })->count();
+        // CORREGIDO: Usar la columna 'stockActual'
         $stockBajo = Producto::whereRaw('stockActual <= stockMinimo')->count();
 
         // Ordenamiento
         $sortColumn = $request->input('sort_column', 'nombre');
         $sortDirection = $request->input('sort_direction', 'asc');
-        
+
         $allowedSortColumns = ['nombre', 'codigo', 'marca', 'stockActual', 'created_at'];
-        if (!in_array($sortColumn, $allowedSortColumns)) {
+        if (! in_array($sortColumn, $allowedSortColumns)) {
             $sortColumn = 'nombre';
         }
 
-        $productos = $query->orderBy($sortColumn, $sortDirection)->paginate(10);
+        $productos = $query->orderBy($sortColumn, $sortDirection)->paginate(10)->withQueryString();
 
         // Formatear datos para Vue
         $categoriasFormateadas = CategoriaProducto::where('activo', true)
             ->get(['id', 'nombre'])
-            ->map(function ($cat) {
-                return [
-                    'id' => $cat->id,
-                    'nombre' => $cat->nombre
-                ];
-            })->values()->all();
+            ->map(fn($cat) => ['id' => $cat->id, 'nombre' => $cat->nombre])
+            ->values()->all();
 
         $estadosFormateados = EstadoProducto::all(['id', 'nombre'])
-            ->map(function ($est) {
-                return [
-                    'id' => $est->id,
-                    'nombre' => $est->nombre
-                ];
-            })->values()->all();
+            ->map(fn($est) => ['id' => $est->id, 'nombre' => $est->nombre])
+            ->values()->all();
 
         return Inertia::render('Productos/Index', [
             'productos' => $productos,
             'categorias' => $categoriasFormateadas,
             'estados' => $estadosFormateados,
-            'filters' => array_merge(
-                [
-                    'search' => '',
-                    'categoria_id' => '',
-                    'estado_id' => '',
-                    'stock_bajo' => false,
-                    'sort_column' => $sortColumn,
-                    'sort_direction' => $sortDirection,
-                ],
-                $request->only(['search', 'categoria_id', 'estado_id', 'stock_bajo', 'sort_column', 'sort_direction'])
-            ),
+            'filters' => $request->only(['search', 'categoria_id', 'estado_id', 'stock_bajo', 'sort_column', 'sort_direction']),
             'stats' => [
                 'total' => $totalProductos,
                 'activos' => $productosActivos,
@@ -113,6 +112,7 @@ class ProductoController extends Controller
      */
     public function create()
     {
+        // Esta lógica está bien, solo prepara datos para la vista
         $categorias = CategoriaProducto::where('activo', true)->get(['id', 'nombre']);
         $estados = EstadoProducto::all(['id', 'nombre']);
         $tiposCliente = TipoCliente::all(['tipoClienteID as id', 'nombreTipo as nombre']);
@@ -126,101 +126,40 @@ class ProductoController extends Controller
 
     /**
      * CU-25: Registrar Producto
-     * Almacena un nuevo producto con sus precios
+     * ¡REFACTORIZADO!
      */
-    public function store(Request $request)
+    public function store(StoreProductoRequest $request, RegistrarProductoService $service)
     {
-        $validated = $request->validate([
-            'codigo' => 'required|string|max:50|unique:productos,codigo',
-            'nombre' => 'required|string|max:100',
-            'descripcion' => 'nullable|string',
-            'marca' => 'nullable|string|max:100',
-            'unidadMedida' => 'required|string|max:20',
-            'categoriaProductoID' => 'required|exists:categorias_producto,id',
-            'estadoProductoID' => 'required|exists:estados_producto,id',
-            'stockActual' => 'nullable|integer|min:0',
-            'stockMinimo' => 'nullable|integer|min:0',
-            'precios' => 'required|array|min:1',
-            'precios.*.tipoClienteID' => 'required|exists:tipos_cliente,tipoClienteID',
-            'precios.*.precio' => 'required|numeric|min:0',
-        ], [
-            'codigo.unique' => 'El código/SKU ya existe en el sistema',
-            'precios.required' => 'Debe ingresar al menos un precio (minorista o mayorista)',
-        ]);
-
-        DB::beginTransaction();
+        // 1. Validado por StoreProductoRequest
+        // 2. Lógica de Negocio delegada al Servicio
         try {
-            // Crear producto
-            $producto = Producto::create([
-                'codigo' => $validated['codigo'],
-                'nombre' => $validated['nombre'],
-                'descripcion' => $validated['descripcion'] ?? null,
-                'marca' => $validated['marca'] ?? null,
-                'unidadMedida' => $validated['unidadMedida'],
-                'categoriaProductoID' => $validated['categoriaProductoID'],
-                'estadoProductoID' => $validated['estadoProductoID'],
-                'stockActual' => $validated['stockActual'] ?? 0,
-                'stockMinimo' => $validated['stockMinimo'] ?? 0,
-            ]);
+            $producto = $service->handle($request->validated(), auth()->id());
 
-            // Crear precios
-            $fechaActual = now()->toDateString();
-            foreach ($validated['precios'] as $precioData) {
-                PrecioProducto::create([
-                    'productoID' => $producto->id,
-                    'tipoClienteID' => $precioData['tipoClienteID'],
-                    'precio' => $precioData['precio'],
-                    'fechaDesde' => $fechaActual,
-                    'fechaHasta' => null, // Vigente
-                ]);
-            }
-
-            // Registrar en auditoría
-            Auditoria::create([
-                'tablaAfectada' => 'productos',
-                'registroID' => $producto->id,
-                'accion' => 'CREAR',
-                'datosNuevos' => json_encode($producto->toArray()),
-                'usuarioID' => auth()->id(),
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('productos.index')
-                ->with('success', 'Producto registrado exitosamente');
+            return redirect()->route('productos.show', $producto->id)
+                             ->with('success', 'Producto registrado exitosamente');
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error al registrar producto: ' . $e->getMessage());
-            
-            return back()->withErrors([
-                'error' => 'Error al registrar el producto. Intente nuevamente.'
-            ])->withInput();
+            Log::error('Error al registrar producto: '.$e->getMessage(), ['exception' => $e]);
+            return back()->withInput()->withErrors(['error' => 'Error al registrar el producto: '.$e->getMessage()]);
         }
     }
 
     /**
      * CU-28: Consultar Producto (detalle completo)
-     * Muestra la ficha completa de un producto
      */
     public function show(Producto $producto)
     {
+        // Lógica de lectura, está bien aquí
         $producto->load(['categoria', 'estado', 'precios.tipoCliente']);
 
-        // Obtener historial de movimientos de stock
+        // CORREGIDO: Usar la FK correcta 'productoID'
         $movimientos = MovimientoStock::where('productoID', $producto->id)
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();
-
-        // Registrar consulta en auditoría
-        Auditoria::create([
-            'tablaAfectada' => 'productos',
-            'registroID' => $producto->id,
-            'accion' => 'CONSULTAR',
-            'usuarioID' => auth()->id(),
-        ]);
-
+            
+        // (La auditoría de consulta la quitamos, es mucho ruido. La auditoría de C/U/D es la importante)
+        
         return Inertia::render('Productos/Show', [
             'producto' => $producto,
             'movimientos' => $movimientos,
@@ -233,7 +172,7 @@ class ProductoController extends Controller
     public function edit(Producto $producto)
     {
         $producto->load(['precios.tipoCliente']);
-        
+
         $categorias = CategoriaProducto::where('activo', true)->get(['id', 'nombre']);
         $estados = EstadoProducto::all(['id', 'nombre']);
         $tiposCliente = TipoCliente::all(['tipoClienteID as id', 'nombreTipo as nombre']);
@@ -248,231 +187,79 @@ class ProductoController extends Controller
 
     /**
      * CU-26: Modificar Producto
-     * Actualiza un producto existente
+     * ¡REFACTORIZADO!
      */
-    public function update(Request $request, Producto $producto)
+    public function update(UpdateProductoRequest $request, Producto $producto, UpdateProductoService $service)
     {
-        $validated = $request->validate([
-            'codigo' => ['required', 'string', 'max:50', Rule::unique('productos')->ignore($producto->id)],
-            'nombre' => 'required|string|max:100',
-            'descripcion' => 'nullable|string',
-            'marca' => 'nullable|string|max:100',
-            'unidadMedida' => 'required|string|max:20',
-            'categoriaProductoID' => 'required|exists:categorias_producto,id',
-            'estadoProductoID' => 'required|exists:estados_producto,id',
-            'stockActual' => 'nullable|integer|min:0',
-            'stockMinimo' => 'nullable|integer|min:0',
-            'motivo' => 'required|string|min:5|max:255',
-            'precios' => 'required|array|min:1',
-            'precios.*.tipoClienteID' => 'required|exists:tipos_cliente,tipoClienteID',
-            'precios.*.precio' => 'required|numeric|min:0',
-        ], [
-            'motivo.required' => 'Debe ingresar un motivo para la modificación',
-            'motivo.min' => 'El motivo debe tener al menos 5 caracteres',
-        ]);
-
-        DB::beginTransaction();
+        // 1. Validado por UpdateProductoRequest
+        // 2. Lógica de Precios/Auditoría delegada al Servicio
         try {
-            $datosAnteriores = $producto->toArray();
+            $service->handle($producto, $request->validated(), auth()->id());
 
-            // Actualizar producto
-            $producto->update([
-                'codigo' => $validated['codigo'],
-                'nombre' => $validated['nombre'],
-                'descripcion' => $validated['descripcion'] ?? null,
-                'marca' => $validated['marca'] ?? null,
-                'unidadMedida' => $validated['unidadMedida'],
-                'categoriaProductoID' => $validated['categoriaProductoID'],
-                'estadoProductoID' => $validated['estadoProductoID'],
-                'stockActual' => $validated['stockActual'] ?? 0,
-                'stockMinimo' => $validated['stockMinimo'] ?? 0,
-            ]);
-
-            // Actualizar precios: cerrar vigentes y crear nuevos si cambiaron
-            $fechaActual = now()->toDateString();
-            foreach ($validated['precios'] as $precioData) {
-                $precioVigente = $producto->precioVigente($precioData['tipoClienteID']);
-                
-                if ($precioVigente && $precioVigente->precio != $precioData['precio']) {
-                    // Cerrar precio anterior
-                    $precioVigente->update(['fechaHasta' => $fechaActual]);
-                    
-                    // Crear nuevo precio
-                    PrecioProducto::create([
-                        'productoID' => $producto->id,
-                        'tipoClienteID' => $precioData['tipoClienteID'],
-                        'precio' => $precioData['precio'],
-                        'fechaDesde' => $fechaActual,
-                        'fechaHasta' => null,
-                    ]);
-                } elseif (!$precioVigente) {
-                    // Crear precio si no existía
-                    PrecioProducto::create([
-                        'productoID' => $producto->id,
-                        'tipoClienteID' => $precioData['tipoClienteID'],
-                        'precio' => $precioData['precio'],
-                        'fechaDesde' => $fechaActual,
-                        'fechaHasta' => null,
-                    ]);
-                }
-            }
-
-            // Registrar en auditoría con motivo
-            Auditoria::create([
-                'tablaAfectada' => 'productos',
-                'registroID' => $producto->id,
-                'accion' => 'MODIFICAR',
-                'datosAnteriores' => json_encode($datosAnteriores),
-                'datosNuevos' => json_encode($producto->fresh()->toArray()),
-                'motivo' => $validated['motivo'],
-                'usuarioID' => auth()->id(),
-            ]);
-
-            DB::commit();
-
-            return redirect()->route('productos.show', $producto)
-                ->with('success', 'Producto modificado exitosamente');
+            return redirect()->route('productos.show', $producto->id)
+                             ->with('success', 'Producto modificado exitosamente');
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error al modificar producto: ' . $e->getMessage());
-            
-            return back()->withErrors([
-                'error' => 'Error al modificar el producto. Intente nuevamente.'
-            ])->withInput();
+            Log::error('Error al modificar producto: '.$e->getMessage(), ['exception' => $e]);
+            return back()->withInput()->withErrors(['error' => 'Error al modificar el producto: '.$e->getMessage()]);
         }
     }
 
     /**
      * CU-27: Dar de Baja un Producto
-     * Cambia el estado del producto a "Inactivo"
+     * ¡REFACTORIZADO!
      */
-    public function destroy(Request $request, Producto $producto)
+    public function destroy(DarDeBajaProductoRequest $request, Producto $producto)
     {
-        $validated = $request->validate([
-            'motivo' => 'required|string|min:5|max:255',
-        ], [
-            'motivo.required' => 'Debe ingresar un motivo para dar de baja el producto',
-            'motivo.min' => 'El motivo debe tener al menos 5 caracteres',
-        ]);
-
-        DB::beginTransaction();
+        // 1. Validado por DarDeBajaProductoRequest (pide 'motivo')
+        // 2. Lógica de negocio delegada al Modelo (Larman's Expert)
         try {
-            // Verificar que no esté ya inactivo
-            $estadoInactivo = EstadoProducto::where('nombre', 'Inactivo')->first();
-            
-            if ($producto->estadoProductoID == $estadoInactivo->id) {
-                return back()->withErrors([
-                    'error' => 'El producto ya se encuentra inactivo'
-                ]);
-            }
-
-            $datosAnteriores = $producto->toArray();
-
-            // Cambiar estado a Inactivo
-            $producto->update([
-                'estadoProductoID' => $estadoInactivo->id
-            ]);
-
-            // Registrar en auditoría con motivo
-            Auditoria::create([
-                'tablaAfectada' => 'productos',
-                'registroID' => $producto->id,
-                'accion' => 'ELIMINAR',
-                'datosAnteriores' => json_encode($datosAnteriores),
-                'datosNuevos' => json_encode($producto->fresh()->toArray()),
-                'motivo' => $validated['motivo'],
-                'usuarioID' => auth()->id(),
-            ]);
-
-            DB::commit();
+            $producto->darDeBaja($request->motivo, auth()->id());
 
             return redirect()->route('productos.index')
-                ->with('success', 'Producto dado de baja exitosamente');
+                             ->with('success', 'Producto dado de baja exitosamente');
 
         } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Error al dar de baja producto: ' . $e->getMessage());
-            
-            return back()->withErrors([
-                'error' => 'Error al dar de baja el producto. Intente nuevamente.'
-            ]);
+            Log::error('Error al dar de baja producto: '.$e->getMessage(), ['exception' => $e]);
+            return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 
     /**
      * CU-29: Consultar Stock
-     * Vista específica para consultar stock con filtros
+     * Vista específica para consultar stock
      */
     public function stock(Request $request)
     {
-        $query = Producto::query()
-            ->with(['categoria', 'estado']);
+        // Lógica de consulta está bien aquí
+        $query = Producto::query()->with(['categoria']);
 
-        // Filtros
         if ($request->has('categoria_id') && $request->input('categoria_id')) {
             $query->where('categoriaProductoID', $request->input('categoria_id'));
         }
-
         if ($request->has('search') && $request->input('search')) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
-                $q->where('nombre', 'like', '%' . $searchTerm . '%')
-                    ->orWhere('codigo', 'like', '%' . $searchTerm . '%');
+                $q->where('nombre', 'like', '%'.$searchTerm.'%')
+                    ->orWhere('codigo', 'like', '%'.$searchTerm.'%');
             });
         }
+        
+        // CORREGIDO: Usar la columna 'stockActual'
+        if ($request->has('stock_bajo') && $request->input('stock_bajo') === 'true') {
+            $query->whereRaw('stockActual <= stockMinimo');
+        }
 
-        // Contadores para estadísticas
-        $totalProductos = Producto::count();
-        $productosActivos = Producto::whereHas('estado', function ($q) {
-            $q->where('nombre', 'Activo');
-        })->count();
+        $productos = $query->orderBy('nombre')->paginate(10)->withQueryString();
         $stockBajo = Producto::whereRaw('stockActual <= stockMinimo')->count();
-
-        $productos = $query->orderBy('nombre')->paginate(10);
-
-        // Formatear datos para Vue
-        $categoriasFormateadas = CategoriaProducto::where('activo', true)
-            ->get(['id', 'nombre'])
-            ->map(function ($cat) {
-                return [
-                    'id' => $cat->id,
-                    'nombre' => $cat->nombre
-                ];
-            })->values()->all();
-
-        $estadosFormateados = EstadoProducto::all(['id', 'nombre'])
-            ->map(function ($est) {
-                return [
-                    'id' => $est->id,
-                    'nombre' => $est->nombre
-                ];
-            })->values()->all();
-
-        // Registrar consulta en auditoría
-        Auditoria::create([
-            'tablaAfectada' => 'productos',
-            'registroID' => null,
-            'accion' => 'CONSULTAR_STOCK',
-            'usuarioID' => auth()->id(),
-        ]);
 
         return Inertia::render('Productos/Stock', [
             'productos' => $productos,
-            'categorias' => $categoriasFormateadas,
-            'estados' => $estadosFormateados,
-            'filters' => array_merge(
-                [
-                    'search' => '',
-                    'categoria_id' => '',
-                    'stock_bajo' => false,
-                ],
-                $request->only(['search', 'categoria_id', 'stock_bajo'])
-            ),
+            'categorias' => CategoriaProducto::where('activo', true)->get(['id', 'nombre']),
+            'filters' => $request->only(['search', 'categoria_id', 'stock_bajo']),
             'stats' => [
-                'total' => $totalProductos,
-                'activos' => $productosActivos,
                 'stockBajo' => $stockBajo,
+                // ...
             ],
         ]);
     }

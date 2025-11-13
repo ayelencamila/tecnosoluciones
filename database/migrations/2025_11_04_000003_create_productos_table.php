@@ -20,7 +20,7 @@ return new class extends Migration
             $table->integer('stockActual')->default(0);
             $table->integer('stockMinimo')->default(0);
             $table->timestamps();
-            
+
             // Índices para mejorar el rendimiento
             $table->index('codigo');
             $table->index('nombre');

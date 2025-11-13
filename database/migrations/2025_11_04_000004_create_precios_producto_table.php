@@ -16,7 +16,7 @@ return new class extends Migration
             $table->date('fechaDesde');
             $table->date('fechaHasta')->nullable();
             $table->timestamps();
-            
+
             // Índice único compuesto para evitar duplicados
             $table->unique(['productoID', 'tipoClienteID', 'fechaDesde'], 'precio_unico');
         });

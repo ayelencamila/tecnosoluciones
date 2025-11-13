@@ -2,12 +2,12 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\Producto;
 use App\Models\CategoriaProducto;
 use App\Models\EstadoProducto;
-use App\Models\TipoCliente;
 use App\Models\PrecioProducto;
+use App\Models\Producto;
+use App\Models\TipoCliente;
+use Illuminate\Database\Seeder;
 
 class ProductoSeeder extends Seeder
 {
@@ -17,7 +17,6 @@ class ProductoSeeder extends Seeder
         $categorias = CategoriaProducto::all();
         $estadoActivo = EstadoProducto::where('nombre', 'Activo')->first();
         $tiposCliente = TipoCliente::all();
-
 
         // Productos de ejemplo
         $productos = [
@@ -36,7 +35,7 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 850000],
                     ['tipo' => 'Mayorista', 'precio' => 780000],
                     ['tipo' => 'VIP', 'precio' => 750000],
-                ]
+                ],
             ],
             [
                 'codigo' => 'EQ-002',
@@ -52,9 +51,9 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 1200000],
                     ['tipo' => 'Mayorista', 'precio' => 1100000],
                     ['tipo' => 'VIP', 'precio' => 1050000],
-                ]
+                ],
             ],
-            
+
             // ACCESORIOS
             [
                 'codigo' => 'ACC-001',
@@ -70,7 +69,7 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 35000],
                     ['tipo' => 'Mayorista', 'precio' => 30000],
                     ['tipo' => 'VIP', 'precio' => 28000],
-                ]
+                ],
             ],
             [
                 'codigo' => 'ACC-002',
@@ -86,7 +85,7 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 15000],
                     ['tipo' => 'Mayorista', 'precio' => 12000],
                     ['tipo' => 'VIP', 'precio' => 11000],
-                ]
+                ],
             ],
             [
                 'codigo' => 'ACC-003',
@@ -102,9 +101,9 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 180000],
                     ['tipo' => 'Mayorista', 'precio' => 165000],
                     ['tipo' => 'VIP', 'precio' => 160000],
-                ]
+                ],
             ],
-            
+
             // REPUESTOS
             [
                 'codigo' => 'REP-001',
@@ -120,7 +119,7 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 45000],
                     ['tipo' => 'Mayorista', 'precio' => 40000],
                     ['tipo' => 'VIP', 'precio' => 38000],
-                ]
+                ],
             ],
             [
                 'codigo' => 'REP-002',
@@ -136,7 +135,7 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 55000],
                     ['tipo' => 'Mayorista', 'precio' => 50000],
                     ['tipo' => 'VIP', 'precio' => 48000],
-                ]
+                ],
             ],
             [
                 'codigo' => 'REP-003',
@@ -152,9 +151,9 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 65000],
                     ['tipo' => 'Mayorista', 'precio' => 58000],
                     ['tipo' => 'VIP', 'precio' => 55000],
-                ]
+                ],
             ],
-            
+
             // SERVICIOS TÉCNICOS
             [
                 'codigo' => 'SERV-001',
@@ -170,9 +169,9 @@ class ProductoSeeder extends Seeder
                     ['tipo' => 'Normal', 'precio' => 25000],
                     ['tipo' => 'Mayorista', 'precio' => 22000],
                     ['tipo' => 'VIP', 'precio' => 20000],
-                ]
+                ],
             ],
-        ]; 
+        ];
 
         foreach ($productos as $prodData) {
             $precios = $prodData['precios'];
@@ -184,7 +183,7 @@ class ProductoSeeder extends Seeder
             // Crear precios para cada tipo de cliente
             foreach ($precios as $precioData) {
                 $tipoCliente = $tiposCliente->where('nombreTipo', $precioData['tipo'])->first();
-                
+
                 if ($tipoCliente) {
                     PrecioProducto::create([
                         'productoID' => $producto->id,
