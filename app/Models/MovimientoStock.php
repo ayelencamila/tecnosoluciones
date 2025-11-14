@@ -18,6 +18,8 @@ class MovimientoStock extends Model
         'motivo',
         'referenciaID',
         'referenciaTabla',
+        'user_id',          
+        'fecha_movimiento', 
     ];
 
     protected $casts = [
