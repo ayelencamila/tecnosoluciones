@@ -9,11 +9,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 /**
  * Modelo para gestionar las provincias del sistema
- * 
+ *
  * Esta clase representa las provincias argentinas y maneja
  * las relaciones con localidades y direcciones.
- * 
- * @package App\Models
+ *
  * @property int $provinciaID Identificador único de la provincia
  * @property string $nombre Nombre de la provincia
  * @property \Carbon\Carbon $created_at Fecha de creación
@@ -26,35 +25,35 @@ class Provincia extends Model
 
     /**
      * Nombre de la tabla en la base de datos
-     * 
+     *
      * @var string
      */
     protected $table = 'provincias';
-    
+
     /**
      * Clave primaria personalizada
-     * 
+     *
      * @var string
      */
     protected $primaryKey = 'provinciaID';
-    
+
     /**
      * Indica que la clave primaria es auto-incremental
-     * 
+     *
      * @var bool
      */
     public $incrementing = true;
-    
+
     /**
      * Tipo de la clave primaria
-     * 
+     *
      * @var string
      */
     protected $keyType = 'int';
 
     /**
      * Atributos que se pueden asignar de forma masiva
-     * 
+     *
      * @var array<int, string>
      */
     protected $fillable = [
@@ -63,8 +62,6 @@ class Provincia extends Model
 
     /**
      * Obtiene todas las localidades que pertenecen a esta provincia
-     * 
-     * @return \Illuminate\Database\Eloquent\Relations\HasMany
      */
     public function localidades(): HasMany
     {

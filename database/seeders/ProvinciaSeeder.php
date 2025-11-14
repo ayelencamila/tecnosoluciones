@@ -7,7 +7,7 @@ use Illuminate\Database\Seeder;
 
 /**
  * Seeder de Provincias de Argentina
- * 
+ *
  * Carga las 24 provincias argentinas en la base de datos
  */
 class ProvinciaSeeder extends Seeder
@@ -18,7 +18,7 @@ class ProvinciaSeeder extends Seeder
     public function run(): void
     {
         $this->command->info('📍 Cargando provincias argentinas...');
-        
+
         $provincias = [
             ['provinciaID' => 1, 'nombre' => 'Buenos Aires'],
             ['provinciaID' => 2, 'nombre' => 'Catamarca'],
@@ -50,6 +50,6 @@ class ProvinciaSeeder extends Seeder
             Provincia::create($provincia);
         }
 
-        $this->command->info('✅ ' . count($provincias) . ' provincias creadas exitosamente');
+        $this->command->info('✅ '.count($provincias).' provincias creadas exitosamente');
     }
 }

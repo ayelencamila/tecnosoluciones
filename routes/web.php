@@ -4,8 +4,11 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ClienteController;
-use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\LocalidadController;
+use App\Http\Controllers\ProductoController;
+use App\Http\Controllers\VentaController;
+use App\Http\Controllers\PagoController; // <--- NUEVO: Importamos el controlador
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 /*
@@ -46,5 +49,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
     })->middleware('role:admin')->name('panel.admin');
 });
 
-
 require __DIR__.'/auth.php';
+// --- RUTAS API ---
+Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia']);
+
+// --- RUTAS PROTEGIDAS (VENTAS Y PAGOS) ---
+Route::middleware(['auth'])->group(function () {
+
+    // --- MÓDULO DE VENTAS ---
+    Route::post('/ventas/{venta}/anular', [VentaController::class, 'anular'])
+        ->name('ventas.anular');
+    
+    Route::resource('ventas', VentaController::class);
+
+    // --- MÓDULO DE PAGOS (CU-10) ---
+    // Agrupamos todas las rutas bajo el prefijo 'pagos'
+    Route::prefix('pagos')->name('pagos.')->group(function () {
+        
+        // Listado (Index)
+        Route::get('/', [PagoController::class, 'index'])->name('index');
+        
+        // Formulario de Carga (Create)
+        Route::get('/crear', [PagoController::class, 'create'])->name('create');
+        
+        // Guardar Pago (Store)
+        Route::post('/', [PagoController::class, 'store'])->name('store');
+        
+        // Ver Recibo (Show)
+        Route::get('/{pago}', [PagoController::class, 'show'])->name('show');
+        
+        // Usamos DELETE porque es la acción semántica de "eliminar" (anular) un recurso
+        Route::delete('/{pago}', [PagoController::class, 'anular'])
+             ->name('anular');
+    });
+
+});

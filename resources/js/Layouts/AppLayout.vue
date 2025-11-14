@@ -1,18 +1,15 @@
 <template>
   <div class="min-h-screen bg-gray-50">
-    <!-- Navigation Header -->
     <nav class="bg-white shadow-lg border-b border-gray-200">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
           <div class="flex items-center">
-            <!-- Logo -->
             <div class="flex-shrink-0">
               <Link href="/" class="flex items-center">
                 <span class="text-2xl font-bold text-indigo-600">TecnoSoluciones</span>
               </Link>
             </div>
             
-            <!-- Navigation Links -->
             <div class="hidden md:ml-8 md:flex md:space-x-8">
               <Link 
                 href="/clientes" 
@@ -38,7 +35,6 @@
             </div>
           </div>
           
-          <!-- User Menu (placeholder for future authentication) -->
           <div class="flex items-center">
             <div class="text-sm text-gray-600">
               Sistema de Gestión
@@ -48,14 +44,12 @@
       </div>
     </nav>
 
-    <!-- Page Content -->
     <main class="py-6">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <slot />
       </div>
     </main>
 
-    <!-- Toast Notifications -->
     <div 
       v-if="$page.props.flash?.success || $page.props.flash?.error"
       class="fixed top-4 right-4 z-50"
@@ -83,6 +77,17 @@
   </div>
 </template>
 
-<script setup>
+<script>
+// Usamos un script normal con export default para asegurar la compatibilidad como un componente de layout
 import { Link } from '@inertiajs/vue3';
+
+export default {
+  components: {
+    Link, // Necesitamos registrar el componente Link si lo usamos en el template
+  },
+  // Si tu layout necesita props, las definirías aquí
+  // props: {
+  //   user: Object,
+  // },
+};
 </script>

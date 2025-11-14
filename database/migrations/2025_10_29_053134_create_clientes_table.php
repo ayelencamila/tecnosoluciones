@@ -27,7 +27,7 @@ return new class extends Migration
             $table->unsignedBigInteger('estadoClienteID');
             $table->foreign('estadoClienteID')->references('estadoClienteID')->on('estados_cliente');
 
-            $table->unsignedBigInteger('direccionID');
+            $table->unsignedBigInteger('direccionID')->nullable();
             $table->foreign('direccionID')->references('direccionID')->on('direcciones');
 
             $table->unsignedBigInteger('cuentaCorrienteID')->nullable(); // Puede ser nulo

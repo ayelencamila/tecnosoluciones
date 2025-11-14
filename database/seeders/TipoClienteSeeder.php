@@ -3,12 +3,11 @@
 namespace Database\Seeders;
 
 use App\Models\TipoCliente;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 /**
  * Seeder para poblar los tipos de cliente del sistema
- * 
+ *
  * Este seeder crea los dos tipos de cliente permitidos:
  * - Mayorista: Para clientes que compran en grandes volúmenes
  * - Minorista: Para clientes que compran al por menor

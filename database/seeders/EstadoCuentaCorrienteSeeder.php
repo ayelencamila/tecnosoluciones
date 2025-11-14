@@ -3,17 +3,16 @@
 namespace Database\Seeders;
 
 use App\Models\EstadoCuentaCorriente;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 /**
  * Seeder para poblar los estados de cuenta corriente del sistema
- * 
- * Este seeder crea los diferentes estados en los que puede estar una cuenta corriente:
+ * * Este seeder crea los diferentes estados en los que puede estar una cuenta corriente:
  * - Activa: Cuenta operativa con transacciones habilitadas
  * - Bloqueada: Cuenta temporalmente bloqueada por seguridad
  * - Vencida: Cuenta con pagos vencidos que requieren atención
  * - Cerrada: Cuenta definitivamente cerrada
+ * - Pendiente de Aprobación: Cuenta creada pero requiere revisión antes de operar
  */
 class EstadoCuentaCorrienteSeeder extends Seeder
 {
@@ -39,6 +38,10 @@ class EstadoCuentaCorrienteSeeder extends Seeder
                 'nombreEstado' => 'Cerrada',
                 'descripcion' => 'Cuenta definitivamente cerrada, sin posibilidad de nuevas transacciones',
             ],
+            [ // <--- AGREGAR ESTE NUEVO ESTADO
+                'nombreEstado' => 'Pendiente de Aprobación',
+                'descripcion' => 'Cuenta corriente creada y a la espera de ser aprobada por un administrador antes de su uso.',
+            ],
         ];
 
         foreach ($estadosCuentaCorriente as $estado) {
@@ -48,6 +51,6 @@ class EstadoCuentaCorrienteSeeder extends Seeder
             );
         }
 
-        $this->command->info('✅ Estados de cuenta corriente creados: Activa, Bloqueada, Vencida, Cerrada');
+        $this->command->info('✅ Estados de cuenta corriente creados: Activa, Bloqueada, Vencida, Cerrada, Pendiente de Aprobación');
     }
 }
