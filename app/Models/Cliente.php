@@ -6,12 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use App\Models\EstadoCuentaCorriente; // Importar para la lógica de baja/alta
-use Illuminate\Support\Facades\DB; // Importar para transacciones
+use App\Models\EstadoCuentaCorriente;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Modelo principal para gestionar los clientes del sistema
- * (PHPDoc... todo tu bloque de documentación original va aquí)
  */
 class Cliente extends Model
 {
@@ -110,7 +109,20 @@ class Cliente extends Model
 
     public function puedeSerDadoDeBaja(): bool
     {
-        // TODO: Lógica para verificar operaciones pendientes (CU-04 Excepción 4a)
+        // CU-04 Excepción 4a: No puede darse de baja si tiene deudas
+        if ($this->tieneDeudas()) {
+            return false;
+        }
+
+        // Verificar si tiene ventas pendientes de entrega o pago
+        // (Descomentar cuando tengas el modelo Venta)
+        // $tieneVentasPendientes = $this->ventas()
+        //     ->whereIn('estadoVenta', ['Pendiente', 'En Proceso'])
+        //     ->exists();
+        // if ($tieneVentasPendientes) {
+        //     return false;
+        // }
+
         return true;
     }
 
@@ -126,23 +138,19 @@ class Cliente extends Model
             throw new \Exception('El cliente tiene operaciones pendientes y no puede ser dado de baja.');
         }
 
-        // ¡Transacción ATÓMICA!
         return DB::transaction(function () use ($motivo) {
             $datosAnteriores = $this->toArray();
 
-            $estadoInactivo = EstadoCliente::where('nombreEstado', 'Inactivo')->firstOrFail();
+            $estadoInactivo = EstadoCliente::inactivo();
             
             $this->estadoClienteID = $estadoInactivo->estadoClienteID;
             $this->save();
 
             // Deshabilitar su Cuenta Corriente (CU-04 Paso 9)
             if ($this->cuentaCorriente) {
-                $estadoCCInactivo = EstadoCuentaCorriente::where('nombreEstado', 'Inactiva')->first();
-                if ($estadoCCInactivo) {
-                    $this->cuentaCorriente()->update([
-                        'estadoCuentaCorrienteID' => $estadoCCInactivo->estadoCuentaCorrienteID
-                    ]);
-                }
+                $this->cuentaCorriente()->update([
+                    'estadoCuentaCorrienteID' => EstadoCuentaCorriente::inactiva()->estadoCuentaCorrienteID
+                ]);
             }
 
             // Registrar auditoría manualmente (para incluir el motivo)
@@ -165,23 +173,19 @@ class Cliente extends Model
      */
     public function reactivar(string $motivo = 'Cliente reactivado'): bool
     {
-        // ¡Transacción ATÓMICA!
         return DB::transaction(function () use ($motivo) {
             $datosAnteriores = $this->toArray();
             
-            $estadoActivo = EstadoCliente::where('nombreEstado', 'Activo')->firstOrFail();
+            $estadoActivo = EstadoCliente::activo();
             
             $this->estadoClienteID = $estadoActivo->estadoClienteID;
             $this->save();
 
             // Habilitar su Cuenta Corriente (si existe)
             if ($this->cuentaCorriente) {
-                $estadoCCActivo = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->first();
-                if ($estadoCCActivo) {
-                    $this->cuentaCorriente()->update([
-                        'estadoCuentaCorrienteID' => $estadoCCActivo->estadoCuentaCorrienteID
-                    ]);
-                }
+                $this->cuentaCorriente()->update([
+                    'estadoCuentaCorrienteID' => EstadoCuentaCorriente::activa()->estadoCuentaCorrienteID
+                ]);
             }
 
             // Registrar auditoría manualmente (para incluir el motivo)
@@ -207,8 +211,6 @@ class Cliente extends Model
 
         // CU-01: Registrar Cliente
         static::created(function ($cliente) {
-            // Nota: Esta auditoría es llamada por RegistrarClienteService
-            // Si el servicio falla (DB::rollBack), esta auditoría también se deshace.
             Auditoria::registrar(
                 Auditoria::ACCION_CREAR_CLIENTE,
                 'clientes',

@@ -1,12 +1,10 @@
 <script setup>
 import { ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue'; //sin color
-import PrimaryButton from '@/Components/PrimaryButton.vue'; //sin color 
+import AppLayout from '@/Layouts/AppLayout.vue'; 
 import DangerButton from '@/Components/DangerButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue'; //sin color
 import InputError from '@/Components/InputError.vue';
 
 const props = defineProps({
@@ -54,7 +52,7 @@ const anularVenta = () => {
 <template>
     <Head :title="`Venta #${venta.numero_comprobante}`" />
 
-    <AuthenticatedLayout>
+    <AppLayout>
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
@@ -227,5 +225,5 @@ const anularVenta = () => {
             </div>
         </div>
 
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>

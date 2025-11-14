@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue'; //Sin color
+import AppLayout from '@/Layouts/AppLayout.vue'; 
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -90,7 +90,7 @@ const metodosPagoOptions = [
 <template>
     <Head title="Registrar Pago" />
 
-    <AuthenticatedLayout>
+    <AppLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 Registrar Nuevo Pago (CU-10)
@@ -102,9 +102,8 @@ const metodosPagoOptions = [
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="p-6 md:p-8 space-y-6">
 
-                        <!-- SELECCIÓN DE CLIENTE -->
                         <section>
-                            <InputLabel for="clienteSearch" value="Buscar Cliente (Obligatorio)" class="text-lg font-medium" />
+                            <InputLabel for="clienteSearch" value="Buscar Cliente (ObligatorIO)" class="text-lg font-medium" />
                             <p class="text-sm text-gray-500 mb-2">Selecciona el cliente que realiza el pago.</p>
                             
                             <div class="cliente-search-container relative">
@@ -123,7 +122,6 @@ const metodosPagoOptions = [
                                     <DangerButton v-if="clienteSeleccionado" type="button" @click="clearCliente" class="rounded-l-none">X</DangerButton>
                                 </div>
                                 
-                                <!-- Dropdown de resultados -->
                                 <ul v-if="showClienteDropdown && filteredClientes.length" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
                                     <li v-for="cliente in filteredClientes" :key="cliente.clienteID" @click="selectCliente(cliente)" class="p-3 cursor-pointer hover:bg-gray-100 text-sm">
                                         {{ cliente.apellido }}, {{ cliente.nombre }} (DNI: {{ cliente.DNI }})
@@ -133,11 +131,9 @@ const metodosPagoOptions = [
                             <InputError class="mt-2" :message="form.errors.clienteID" />
                         </section>
 
-                        <!-- DETALLES DEL PAGO -->
                         <section class="border-t pt-6">
                             <h3 class="text-lg font-medium text-gray-900">Detalles del Pago</h3>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                                <!-- Monto -->
                                 <div>
                                     <InputLabel for="monto" value="Monto a Pagar" />
                                     <TextInput
@@ -153,7 +149,6 @@ const metodosPagoOptions = [
                                     <InputError class="mt-2" :message="form.errors.monto" />
                                 </div>
 
-                                <!-- Método de Pago -->
                                 <div>
                                     <InputLabel for="metodo_pago" value="Método de Pago" />
                                     <SelectInput
@@ -168,7 +163,6 @@ const metodosPagoOptions = [
                             </div>
                         </section>
 
-                        <!-- Observaciones -->
                         <section class="border-t pt-6">
                             <InputLabel for="observaciones" value="Observaciones (Opcional)" />
                             <textarea
@@ -181,7 +175,6 @@ const metodosPagoOptions = [
                             <InputError class="mt-2" :message="form.errors.observaciones" />
                         </section>
 
-                        <!-- BOTONES -->
                         <div class="flex items-center justify-end space-x-4 border-t pt-6">
                             <Link :href="route('pagos.index')" class="text-sm text-gray-600 hover:text-gray-900">
                                 Cancelar
@@ -196,5 +189,4 @@ const metodosPagoOptions = [
                 </div>
             </div>
         </div>
-    </AuthenticatedLayout>
-</template>
+    </AppLayout> </template>

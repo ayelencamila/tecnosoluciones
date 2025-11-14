@@ -7,8 +7,7 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\LocalidadController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\VentaController;
-use App\Http\Controllers\PagoController; // <--- NUEVO: Importamos el controlador
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PagoController; 
 use Inertia\Inertia;
 
 /*

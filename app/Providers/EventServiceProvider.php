@@ -22,7 +22,10 @@ class EventServiceProvider extends ServiceProvider
         // Flujo de Venta (CU-05)
         \App\Events\VentaRegistrada::class => [
             \App\Listeners\ActualizarStockPorVenta::class,
-            \App\Listeners\ActualizarCuentaCorrientePorVenta::class,
+            
+            // ¡CORREGIDO! Comentamos esta línea para evitar el doble cobro.
+            // \App\Listeners\ActualizarCuentaCorrientePorVenta::class, 
+            
             \App\Listeners\RegistrarVentaEnAuditoria::class,
         ],
 

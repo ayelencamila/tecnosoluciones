@@ -25,6 +25,9 @@ class EstadoCliente extends Model
 {
     use HasFactory, SoftDeletes;
 
+    const ACTIVO = 1;
+    const INACTIVO = 2;
+
     /**
      * Nombre de la tabla en la base de datos
      *
@@ -69,5 +72,16 @@ class EstadoCliente extends Model
     public function clientes(): HasMany
     {
         return $this->hasMany(Cliente::class, 'estadoClienteID', 'estadoClienteID');
+    }
+
+    // Métodos estáticos helper
+    public static function activo()
+    {
+        return static::find(static::ACTIVO);
+    }
+    
+    public static function inactivo()
+    {
+        return static::find(static::INACTIVO);
     }
 }

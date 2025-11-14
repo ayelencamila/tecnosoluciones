@@ -20,8 +20,8 @@ class UpdateClienteService
     /**
      * Orquesta la actualización de un cliente y sus dependencias.
      *
-     * @param array $data Los datos validados del ClienteUpdateRequest.
      * @param Cliente $cliente El cliente a actualizar.
+     * @param array $validatedData Los datos validados del UpdateClienteRequest.
      * @return Cliente El cliente actualizado.
      */
     public function handle(Cliente $cliente, array $validatedData): Cliente
@@ -54,8 +54,8 @@ class UpdateClienteService
                         'estadoCuentaCorrienteID' => $validatedData['estado_cuenta_corriente_id'] ?? $cliente->cuentaCorriente->estadoCuentaCorrienteID,
                     ]);
                 } else {
-                    // No tenía CC, la creamos
-                    $estadoCCDefault = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->firstOrFail();
+                    // No tenía CC, la creamos usando el método helper
+                    $estadoCCDefault = EstadoCuentaCorriente::activa();
                     $limiteDefault = Configuracion::get('limite_credito_global', 0);
                     $diasGraciaDefault = Configuracion::getInt('dias_gracia_global', 0);
 

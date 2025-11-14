@@ -20,8 +20,7 @@ class RegistrarClienteService
     /**
      * Orquesta la creación de un nuevo cliente y sus dependencias (Direccion, CuentaCorriente).
      *
-     * @param array $data Los datos validados del StoreClienteRequest.
-     * @param int $userId El ID del usuario que registra (para auditoría).
+     * @param array $validatedData Los datos validados del StoreClienteRequest.
      * @return Cliente El cliente recién creado.
      */
     public function handle(array $validatedData): Cliente
@@ -29,7 +28,6 @@ class RegistrarClienteService
         return DB::transaction(function () use ($validatedData) {
             
             // 1. Crear la Entidad dependiente: Direccion
-            // (Tu controlador lo hacía, así que lo mantenemos)
             $direccion = Direccion::create([
                 'calle' => $validatedData['calle'],
                 'altura' => $validatedData['altura'],
@@ -45,12 +43,8 @@ class RegistrarClienteService
 
             if ($tipoCliente && $tipoCliente->esMayorista()) {
                 
-                // Buscamos el estado 'Activa' para la nueva CC
-                $estadoCCDefault = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->first();
-                if (!$estadoCCDefault) {
-                    Log::warning('No se encontró el estado de CC "Activa". Se usará el primer estado disponible.');
-                    $estadoCCDefault = EstadoCuentaCorriente::firstOrFail(); // Fallar si no hay NINGÚN estado
-                }
+                // Usar el método helper para obtener el estado 'Activa'
+                $estadoCCDefault = EstadoCuentaCorriente::activa();
                 
                 // Usamos los parámetros globales que ya definimos (CU-31)
                 $limiteDefault = Configuracion::get('limite_credito_global', 0);
@@ -79,12 +73,6 @@ class RegistrarClienteService
                 'direccionID' => $direccion->direccionID,
                 'cuentaCorrienteID' => $cuentaCorrienteID,
             ]);
-
-            // 5. Auditoría (CU-01 Paso 11)
-            // ¡NO ES NECESARIO! Tu modelo 'Cliente' ya lo hace automáticamente
-            // en el evento 'boot()' (static::created).
-            // Si lo pusiéramos aquí, se registraría DOS VECES.
-            // Esta refactorización limpia esa duplicidad.
 
             Log::info("Nuevo cliente registrado por Servicio. ID: {$cliente->clienteID}");
 

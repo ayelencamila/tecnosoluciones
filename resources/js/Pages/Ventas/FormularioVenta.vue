@@ -167,24 +167,15 @@ onMounted(() => {
 
 <template>
     <Head title="Registrar Venta" />
-
-    <!-- 
-      AQUÍ ESTABA EL ERROR. 
-      Decía <AuthenticatedLayout> pero tu import se llama 'AppLayout'.
-      Lo corregí:
-    -->
     <AppLayout> 
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">Registrar Nueva Venta</h2>
         </template>
-        
-        <!-- Tu HTML del formulario de ventas va aquí -->
-        <!-- No lo incluyo aquí para no hacer ruido, pero es el resto de tu template -->
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <!-- ... (tu código de formulario) ... -->
             </div>
         </div>
 
-    </AppLayout> <!-- <-- Y aquí también -->
+    </AppLayout>
 </template>

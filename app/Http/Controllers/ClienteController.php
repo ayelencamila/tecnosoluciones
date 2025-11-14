@@ -13,7 +13,7 @@ use App\Models\Auditoria;
 // --- ARQUITECTURA LARMAN (BCE) ---
 // 1. Boundaries (Validación)
 use App\Http\Requests\Clientes\StoreClienteRequest;
-use App\Http\Requests\Clientes\ClienteUpdateRequest;
+use App\Http\Requests\Clientes\UpdateClienteRequest;
 use App\Http\Requests\Clientes\DarDeBajaClienteRequest;
 
 // 2. Controls (Lógica de Negocio)
@@ -157,7 +157,7 @@ class ClienteController extends Controller
      * Actualiza un cliente (CU-02)
      * ¡REFACTORIZADO!
      */
-    public function update(ClienteUpdateRequest $request, Cliente $cliente, UpdateClienteService $service)
+    public function update(UpdateClienteRequest $request, Cliente $cliente, UpdateClienteService $service)
     {
         try {
             $service->handle($cliente, $request->validated());
