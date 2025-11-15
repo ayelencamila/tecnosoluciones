@@ -23,7 +23,7 @@ const form = ref({
     provincia_id: props.filters.provincia_id || '',
 });
 
-// --- COMPATIBILIDAD KENDALL (Formato para tu SelectInput) ---
+// --- COMPATIBILIDAD (Formato para tu SelectInput) ---
 // Transformamos los arrays de Laravel al formato { value, label }
 
 // Opción genérica para "Todos"

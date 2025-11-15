@@ -81,5 +81,21 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{pago}', [PagoController::class, 'anular'])
              ->name('anular');
     });
+    Route::prefix('clientes')->name('clientes.')->group(function () {
+        Route::get('/', [ClienteController::class, 'index'])
+        ->name('index');   
+        
+        Route::get('/crear', [ClienteController::class, 'create'])
+        ->name('create');   
+
+        Route::get('/{cliente}', [ClienteController::class, 'show'])
+        ->name('show');
+
+        Route::get('/{cliente}/editar', [ClienteController::class, 'edit'])
+        ->name('edit');
+        
+    });
 
 });
+
+

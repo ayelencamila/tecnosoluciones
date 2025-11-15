@@ -82,7 +82,7 @@ class ClienteController extends Controller
             // ... etc
         ]; 
 
-        return Inertia::render('Clientes/Index', [
+        return Inertia::render('Clientes/index', [
             'clientes' => $clientes,
             'estadosCliente' => EstadoCliente::all(['estadoClienteID', 'nombreEstado']),
             'tiposCliente' => TipoCliente::all(['tipoClienteID', 'nombreTipo']),
