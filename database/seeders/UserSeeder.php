@@ -1,0 +1,38 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+use Illuminate\Support\Facades\Hash;
+
+use App\Models\User;
+
+class UserSeeder extends Seeder
+{
+    /**
+     * Run the database seeds.
+     */
+    public function run(): void
+    {
+        // Admin
+        User::updateOrCreate(
+            ['email' => 'admin@tecnosoluciones.com'],
+            [
+                'name' => 'Admin',
+                'password' => Hash::make('1234'),
+                'role' => 'admin',
+            ]
+        );
+
+        // Vendedor
+        User::updateOrCreate(
+            ['email' => 'vendedor@tecnosoluciones.com'],
+            [
+                'name' => 'Vendedor',
+                'password' => Hash::make('1234'),
+                'role' => 'vendedor',
+            ]
+        );
+    }
+}
