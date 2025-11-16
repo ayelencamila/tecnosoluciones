@@ -26,6 +26,27 @@
                 Productos
               </Link>
               <Link 
+                href="/ventas" 
+                class="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                :class="{ 'text-indigo-600 bg-indigo-50': $page.component.startsWith('Ventas') }"
+              >
+                Ventas
+              </Link>
+              <Link 
+                href="/pagos" 
+                class="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                :class="{ 'text-indigo-600 bg-indigo-50': $page.component.startsWith('Pagos') }"
+              >
+                Pagos
+              </Link>
+              <Link 
+                href="/descuentos" 
+                class="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                :class="{ 'text-indigo-600 bg-indigo-50': $page.component.startsWith('Descuentos') }"
+              >
+                Descuentos
+              </Link>
+              <Link 
                 href="/auditorias" 
                 class="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
                 :class="{ 'text-indigo-600 bg-indigo-50': $page.component.startsWith('Auditorias') }"

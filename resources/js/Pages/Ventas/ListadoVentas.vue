@@ -1,9 +1,9 @@
 <script setup>
 import { ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue'; //sin color
+import AppLayout from '@/Layouts/AppLayout.vue'; 
 import TextInput from '@/Components/TextInput.vue';
-import SelectInput from '@/Components/SelectInput.vue'; //sin color
+import SelectInput from '@/Components/SelectInput.vue'; 
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import { debounce } from 'lodash';
 
@@ -60,7 +60,7 @@ const formatDate = (dateString) => {
 <template>
     <Head title="Listado de Ventas" />
 
-    <AuthenticatedLayout>
+    <AppLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                 Gestión de Ventas
@@ -207,5 +207,5 @@ const formatDate = (dateString) => {
                 </div>
             </div>
         </div>
-    </AuthenticatedLayout>
+    </AppLayout>
 </template>

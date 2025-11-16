@@ -400,15 +400,15 @@ onMounted(() => {
                             <div class="space-y-2">
                                 <div class="flex justify-between">
                                     <span>Subtotal:</span>
-                                    <span class="font-medium">${{ totales.subtotal.toFixed(2) }}</span>
+                                    <span class="font-medium">${{ totales.subtotalBruto }}</span>
                                 </div>
                                 <div class="flex justify-between text-green-600">
                                     <span>Descuentos:</span>
-                                    <span class="font-medium">-${{ totales.descuentos.toFixed(2) }}</span>
+                                    <span class="font-medium">-${{ totales.totalDescuentos }}</span>
                                 </div>
                                 <div class="flex justify-between text-lg font-bold border-t pt-2">
                                     <span>Total:</span>
-                                    <span>${{ totales.totalNeto.toFixed(2) }}</span>
+                                    <span>${{ totales.totalNeto }}</span>
                                 </div>
                             </div>
                         </div>

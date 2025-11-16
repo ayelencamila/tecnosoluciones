@@ -107,9 +107,9 @@ class VentaController extends Controller
         $clientes = Cliente::select('clienteID', 'nombre', 'apellido', 'DNI')->get();
 
         $productos = Producto::whereHas('estado', function ($query) {
-            $query->where('nombreEstado', 'Activo');
+            $query->where('nombre', 'Activo');
         })
-            ->select('id', 'codigo', 'nombre', 'stockActual') // OJO: Asegúrate que 'stockActual' es el accessor que definimos
+            ->select('id', 'codigo', 'nombre', 'stockActual')
             ->with('precios')
             ->get();
 
