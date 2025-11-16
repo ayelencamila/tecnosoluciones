@@ -94,8 +94,8 @@ class CheckCuentasCorrienteVencidas extends Command
                         $cuentasConIncumplimiento++;
                         $motivoDetallado = "Saldo Vencido: $saldoVencido | Total: $saldoTotal (Límite: $limiteCredito)";
 
-                        // (Descomentar cuando el Job esté listo)
-                        // NotificarIncumplimientoCC::dispatch($cliente, $motivoDetallado);
+                        // Notificación automática al administrador
+                        NotificarIncumplimientoCC::dispatch($cliente, $motivoDetallado);
 
                         if ($politicaAutoBlock) {
                             // 5a: Bloqueo automático

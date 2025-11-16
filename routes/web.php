@@ -61,6 +61,9 @@ Route::middleware(['auth'])->group(function () {
     
     Route::resource('ventas', VentaController::class);
 
+    // --- MÓDULO DE DESCUENTOS (CU-08) ---
+    Route::resource('descuentos', DescuentoController::class);
+
     // --- MÓDULO DE PAGOS (CU-10) ---
     // Agrupamos todas las rutas bajo el prefijo 'pagos'
     Route::prefix('pagos')->name('pagos.')->group(function () {
