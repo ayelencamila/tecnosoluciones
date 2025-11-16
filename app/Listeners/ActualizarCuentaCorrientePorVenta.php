@@ -1,10 +1,12 @@
 <?php
 
+
 // app/Listeners/ActualizarCuentaCorrientePorVenta.php
 
 namespace App\Listeners;
 
 use App\Events\VentaRegistrada;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 class ActualizarCuentaCorrientePorVenta
@@ -19,12 +21,14 @@ class ActualizarCuentaCorrientePorVenta
         $cliente = $venta->cliente;
 
         if ($cliente->cuentaCorriente) {
-            // ¡Ahora sí! Llamamos a nuestro nuevo método
             $cliente->cuentaCorriente->registrarDebito(
                 $venta->total,
                 'Venta (Comprobante '.$venta->numero_comprobante.')',
-                $venta->venta_id
-            );
+                Carbon::now()->addDays($cliente->cuentaCorriente->getDiasGraciaAplicables()),
+                $venta->venta_id,
+                'ventas',
+                $event->userID
+      );
 
             Log::info("CC actualizada para Venta ID: {$venta->venta_id}");
         } else {

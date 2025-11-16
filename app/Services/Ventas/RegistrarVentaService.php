@@ -31,6 +31,12 @@ class RegistrarVentaService
         // 2. CÁLCULO (Pre-Transacción)
         $calculos = $this->calcularTotalesVenta($datosValidados, $cliente);
 
+        // 2.1 CALCULAR FECHA DE VENCIMIENTO (si aplica)
+        $fechaVencimiento = null;
+        if ($metodoPago === 'cuenta_corriente') {
+            $fechaVencimiento = Carbon::now()->addDays($cliente->cuentaCorriente->getDiasGraciaAplicables());
+        }
+
         // 3. VALIDACIÓN DE LÓGICA DE NEGOCIO (Pre-Transacción)
         if ($metodoPago === 'cuenta_corriente') {
             $this->validarEstadoCredito($cliente, $calculos['totalFinalVenta']);
@@ -40,13 +46,12 @@ class RegistrarVentaService
         return DB::transaction(function () use ($datosValidados, $cliente, $vendedorUserID, $metodoPago, $calculos) {
 
             // 5. (CREATOR - GRASP) CREAR LA VENTA (Maestro)
-            // ¡CORREGIDO! Se quitaron 'forma_pago' y 'fecha_vencimiento'
-            // para que coincida con tu modelo Venta.php
             $venta = Venta::create([
                 'clienteID' => $cliente->clienteID,
                 'user_id' => $vendedorUserID,
                 'numero_comprobante' => $datosValidados['numero_comprobante'] ?? 'V-'.time(),
                 'fecha_venta' => Carbon::now(),
+                'fecha_vencimiento' => $fechaVencimiento,
                 'subtotal' => $calculos['totalVentaBruto'],
                 'total_descuentos' => $calculos['totalDescuentosFinal'],
                 'total' => $calculos['totalFinalVenta'],
@@ -74,14 +79,11 @@ class RegistrarVentaService
                 if (! $cuentaCorriente) {
                     throw new \Exception('El cliente no tiene una cuenta corriente asignada para ventas a crédito.');
                 }
-                
-                // Calculamos la fecha de vencimiento para la CC (aquí sí se guarda)
-                $fechaVencimientoCC = Carbon::now()->addDays($cliente->cuentaCorriente->getDiasGraciaAplicables());
 
                 $cuentaCorriente->registrarDebito(
                     $calculos['totalFinalVenta'],
                     'Venta N° '.$venta->numero_comprobante,
-                    $fechaVencimientoCC, // La CC sí necesita la fecha de vencimiento
+                    $fechaVencimiento, // Usamos la fecha calculada previamente
                     $venta->venta_id, 
                     'ventas',
                     $vendedorUserID
@@ -188,6 +190,7 @@ class RegistrarVentaService
 
     /**
      * Valida el estado actual Y el límite de crédito del cliente.
+     * Incluye validación de saldo vencido (CU-09).
      */
     private function validarEstadoCredito(Cliente $cliente, float $montoDeEstaVenta): void
     {
@@ -197,6 +200,7 @@ class RegistrarVentaService
         $cuentaCorriente = $cliente->cuentaCorriente;
         $estadoNombre = $cuentaCorriente->estadoCuentaCorriente?->nombreEstado ?? 'Desconocido';
 
+        // 1. VALIDAR ESTADO DE LA CUENTA
         if ($estadoNombre === 'Bloqueada') {
             throw new LimiteCreditoExcedidoException("La cuenta corriente de {$cliente->nombre_completo} se encuentra BLOQUEADA. Solo se permiten ventas al contado.", 0, 0);
         }
@@ -204,7 +208,17 @@ class RegistrarVentaService
             throw new LimiteCreditoExcedidoException("La cuenta corriente de {$cliente->nombre_completo} está PENDIENTE DE APROBACIÓN. No se permiten ventas a crédito hasta su revisión.", 0, 0);
         }
 
-        // CORRECCIÓN: Asumir 'saldo' (de tu modelo CC) en lugar de 'saldo_actual'
+        // 2. VALIDAR SALDO VENCIDO (CU-09 Excepción 4a - Política de negocio)
+        $saldoVencido = $cuentaCorriente->calcularSaldoVencido();
+        if ($saldoVencido > 0) {
+            throw new LimiteCreditoExcedidoException(
+                "El cliente {$cliente->nombre_completo} tiene deuda vencida de $$saldoVencido. Debe regularizar su situación antes de realizar nuevas compras a crédito.",
+                0,
+                $saldoVencido
+            );
+        }
+
+        // 3. VALIDAR LÍMITE DE CRÉDITO
         $saldoActual = $cuentaCorriente->saldo; 
         $limiteCredito = $cuentaCorriente->getLimiteCreditoAplicable(); 
 

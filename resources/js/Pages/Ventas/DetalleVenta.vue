@@ -40,8 +40,7 @@ const closeModal = () => {
 };
 
 const anularVenta = () => {
-    // Usamos PUT o DELETE según tu ruta. Asumo PUT por ser una actualización de estado.
-    formAnular.put(route('ventas.anular', props.venta.venta_id), {
+    formAnular.post(route('ventas.anular', props.venta.venta_id), {
         preserveScroll: true,
         onSuccess: () => closeModal(),
         onFinish: () => formAnular.reset(),

@@ -37,7 +37,7 @@ class RevertirStockPorAnulacion implements ShouldQueue
                         'stockAnterior' => $stockAnterior,
                         'stockNuevo' => $stockNuevo,
                         'motivo' => 'Anulación Venta '.$venta->numero_comprobante,
-                        'referenciaID' => $detalle->id, // Asumiendo 'id' como PK de DetalleVenta
+                        'referenciaID' => $detalle->detalle_venta_id, // PK correcta
                         'referenciaTabla' => 'detalle_ventas',
                     ]);
                 }

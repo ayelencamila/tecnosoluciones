@@ -24,7 +24,7 @@ class Venta extends Model
 
     protected $casts = [
         'fecha_venta' => 'datetime',
-        'fecha_vencimiento' => 'date', // <--- AGREGAR ESTA LÍNEA
+        'fecha_vencimiento' => 'date',
         'subtotal' => 'decimal:2',
         'total_descuentos' => 'decimal:2',
         'total' => 'decimal:2',
