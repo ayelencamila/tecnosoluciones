@@ -209,7 +209,7 @@ class ProductoController extends Controller
      * CU-27: Dar de Baja un Producto
      * ¡REFACTORIZADO!
      */
-    public function destroy(DarDeBajaProductoRequest $request, Producto $producto)
+    public function darDeBaja(DarDeBajaProductoRequest $request, Producto $producto)
     {
         // 1. Validado por DarDeBajaProductoRequest (pide 'motivo')
         // 2. Lógica de negocio delegada al Modelo (Larman's Expert)

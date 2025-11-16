@@ -5,6 +5,7 @@ namespace App\Services\Productos;
 use App\Models\Producto;
 use App\Models\PrecioProducto;
 use App\Models\Auditoria;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -37,6 +38,7 @@ class UpdateProductoService
 
             // 2. Gestión de Historial de Precios
             $fechaActual = now()->toDateString();
+            $fechaActualUTC = now()->utc()->toDateString();
             
             foreach ($data['precios'] as $precioInput) {
                 // Buscar el precio vigente para este tipo de cliente
@@ -45,21 +47,37 @@ class UpdateProductoService
                     ->where('tipoClienteID', $precioInput['tipoClienteID'])
                     ->whereNull('fechaHasta') // Solo los vigentes
                     ->first();
+                
+                if ($precioVigente) {
+                    
+                    $precioActual = number_format((float) $precioVigente->precio, 2, '.', '');
+                    $precioNuevo = number_format((float) $precioInput['precio'], 2, '.', '');
 
-                // Si existe y el precio cambió...
-                if ($precioVigente && $precioVigente->precio != $precioInput['precio']) {
-                    // A. Cerrar el precio anterior
-                    $precioVigente->update(['fechaHasta' => $fechaActual]);
+                    // Si existe y el precio cambió...
+                    if ($precioActual !== $precioNuevo) {
+                        
+                        $fechaDesdeActual = Carbon::parse($precioVigente->fechaDesde)->utc()->toDateString();
 
-                    // B. Crear el nuevo precio vigente
-                    PrecioProducto::create([
-                        'productoID' => $producto->id,
-                        'tipoClienteID' => $precioInput['tipoClienteID'],
-                        'precio' => $precioInput['precio'],
-                        'fechaDesde' => $fechaActual,
-                        'fechaHasta' => null,
-                    ]);
-                } 
+                        // (Ambas fechas estarán en UTC 00:00:00)
+                        if ($fechaDesdeActual == ($fechaActualUTC)) {
+                            $precioVigente->precio = $precioNuevo;
+                            $precioVigente->save();
+                        
+                        } else {
+                            // A. Cerrar el precio anterior
+                            $precioVigente->update(['fechaHasta' => $fechaActual]);
+
+                            // B. Crear el nuevo precio vigente
+                            PrecioProducto::create([
+                                'productoID' => $producto->id,
+                                'tipoClienteID' => $precioInput['tipoClienteID'],
+                                'precio' => $precioInput['precio'],
+                                'fechaDesde' => $fechaActual,
+                                'fechaHasta' => null,
+                            ]);
+                        }
+                    }
+                }
                 // Si no existía precio para este tipo de cliente, lo creamos
                 elseif (!$precioVigente) {
                     PrecioProducto::create([

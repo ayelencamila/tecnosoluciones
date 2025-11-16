@@ -81,6 +81,8 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{pago}', [PagoController::class, 'anular'])
              ->name('anular');
     });
+
+    //--- MÓDULO DE CLIENTES (CU-01) ---
     Route::prefix('clientes')->name('clientes.')->group(function () {
         Route::get('/', [ClienteController::class, 'index'])
         ->name('index');   
@@ -105,7 +107,33 @@ Route::middleware(['auth'])->group(function () {
 
         Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])
         ->name('darDeBaja'); 
-    });   
+    });
+
+    //--- MÓDULO DE PRODUCTOS ---
+    Route::prefix('productos')->name('productos.')->group(function () {
+        Route::get('/', [ProductoController::class, 'index'])
+        ->name('index');   
+        
+        Route::get('/crear', [ProductoController::class, 'create'])
+        ->name('create');   
+
+        Route::get('/{producto}', [ProductoController::class, 'show'])
+        ->name('show');
+
+        Route::get('/{producto}/editar', [ProductoController::class, 'edit'])
+        ->name('edit');
+
+        Route::put('/{producto}', [ProductoController::class, 'update'])
+        ->name('update');
+
+        Route::get('/{producto}/confirmar-baja', [ProductoController::class, 'confirmDelete'])
+        ->name('confirmDelete');   
+
+        Route::post('/{producto}/dar-de-baja', [ProductoController::class, 'darDeBaja'])
+        ->name('darDeBaja'); 
+
+    });
+
 });
 
 

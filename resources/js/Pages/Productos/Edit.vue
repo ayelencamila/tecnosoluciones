@@ -72,11 +72,6 @@ const submitForm = () => {
         <!-- Formulario -->
         <form @submit.prevent="submitForm" class="space-y-6">
             
-            <!-- (Información Básica, Stock y Precios - Son iguales al Create.vue) -->
-            <!-- ... (copiar las secciones 'Información Básica', 'Stock' y 'Precios' del Create.vue) ... -->
-            <!-- ... (Asegúrate de cambiar los InputError para que lean form.errors.codigo, etc.) ... -->
-
-            
             <!-- CAMBIO KENDALL: Pedir Motivo (Requerido por CU-26 y UpdateProductoRequest) -->
             <div class="bg-yellow-50 rounded-lg shadow-sm border border-yellow-300">
                 <div class="px-6 py-4 border-b border-yellow-200">
@@ -97,8 +92,109 @@ const submitForm = () => {
                         :class="{ 'border-red-500': form.errors.motivo }"
                         placeholder="Ej: Actualización de precio por inflación, corrección de stock..."
                     ></textarea>
-                    <!-- Retroalimentación de Error (Kendall) -->
                     <InputError :message="form.errors.motivo" class="mt-1" />
+                </div>
+            </div>
+
+            <!-- Información Básica -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200"><h2 class="text-xl font-semibold">Información Básica</h2></div>
+                <div class="px-6 py-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Código/SKU -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Código/SKU <span class="text-red-500">*</span></label>
+                            <input v-model="form.codigo" type="text" required class="w-full" :class="{ 'border-red-500': form.errors.codigo }">
+                            <InputError :message="form.errors.codigo" class="mt-1" />
+                        </div>
+                        <!-- Nombre -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre <span class="text-red-500">*</span></label>
+                            <input v-model="form.nombre" type="text" required class="w-full" :class="{ 'border-red-500': form.errors.nombre }">
+                            <InputError :message="form.errors.nombre" class="mt-1" />
+                        </div>
+                        <!-- Marca -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Marca</label>
+                            <input v-model="form.marca" type="text" class="w-full">
+                            <InputError :message="form.errors.marca" class="mt-1" />
+                        </div>
+                        <!-- Unidad de Medida -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Unidad de Medida <span class="text-red-500">*</span></label>
+                            <select v-model="form.unidadMedida" required class="w-full" :class="{ 'border-red-500': form.errors.unidadMedida }">
+                                <option value="UNIDAD">Unidad</option>
+                                <option value="KG">Kilogramo</option>
+                                <option value="METRO">Metro</option>
+                                <option value="LITRO">Litro</option>
+                                <option value="CAJA">Caja</option>
+                            </select>
+                            <InputError :message="form.errors.unidadMedida" class="mt-1" />
+                        </div>
+                        <!-- Categoría -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría <span class="text-red-500">*</span></label>
+                            <select v-model="form.categoriaProductoID" required class="w-full" :class="{ 'border-red-500': form.errors.categoriaProductoID }">
+                                <option value="">Seleccione...</option>
+                                <option v-for="cat in categorias" :key="cat.id" :value="cat.id">{{ cat.nombre }}</option>
+                            </select>
+                            <InputError :message="form.errors.categoriaProductoID" class="mt-1" />
+                        </div>
+                        <!-- Estado -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Estado <span class="text-red-500">*</span></label>
+                            <select v-model="form.estadoProductoID" required class="w-full" :class="{ 'border-red-500': form.errors.estadoProductoID }">
+                                <option v-for="est in estados" :key="est.id" :value="est.id">{{ est.nombre }}</option>
+                            </select>
+                            <InputError :message="form.errors.estadoProductoID" class="mt-1" />
+                        </div>
+                        <!-- Descripción -->
+                        <div class="md:col-span-2">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
+                            <textarea v-model="form.descripcion" rows="3" class="w-full"></textarea>
+                            <InputError :message="form.errors.descripcion" class="mt-1" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stock -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200"><h2 class="text-xl font-semibold">Control de Stock</h2></div>
+                <div class="px-6 py-4">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Stock Actual</label>
+                            <input v-model.number="form.stockActual" type="number" min="0" class="w-full">
+                            <InputError :message="form.errors.stockActual" class="mt-1" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Stock Mínimo</label>
+                            <input v-model.number="form.stockMinimo" type="number" min="0" class="w-full">
+                            <InputError :message="form.errors.stockMinimo" class="mt-1" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Precios -->
+            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold">Precios por Tipo de Cliente</h2>
+                    <p class="mt-1 text-sm text-gray-600">Debe ingresar al menos un precio.</p>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="space-y-4">
+                        <div v-for="tipoCliente in tiposCliente" :key="tipoCliente.id">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ tipoCliente.nombre }}</label>
+                            <div class="relative">
+                                <span class="absolute left-3 top-2 text-gray-500">$</span>
+                                <input v-model.number="form.precios[tipoCliente.id]" type="number" step="0.01" min="0" class="w-full pl-8">
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Error de precios (Kendall) -->
+                    <InputError :message="precioError" class="mt-2" />
                 </div>
             </div>
 
