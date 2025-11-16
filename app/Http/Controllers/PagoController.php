@@ -45,9 +45,8 @@ class PagoController extends Controller
      */
     public function create()
     {
-        // Pasamos solo clientes que tengan CC (o los que tengan deuda)
+        // Pasamos solo clientes que tengan cuenta corriente
         $clientes = Cliente::whereHas('cuentaCorriente')
-                            ->orWhere('id', '>', 0) // Temporalmente todos, ajusta tu lógica
                             ->select('clienteID', 'nombre', 'apellido', 'DNI')
                             ->orderBy('apellido')
                             ->get();
