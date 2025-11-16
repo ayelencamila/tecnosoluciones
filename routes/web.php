@@ -94,8 +94,18 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{cliente}/editar', [ClienteController::class, 'edit'])
         ->name('edit');
         
-    });
+        Route::post('/', [ClienteController::class, 'store'])
+        ->name('store');
 
+        Route::put('/{cliente}', [ClienteController::class, 'update'])
+        ->name('update');
+
+        Route::get('/{cliente}/confirmar-baja', [ClienteController::class, 'confirmDelete'])
+        ->name('confirmDelete');   
+
+        Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])
+        ->name('darDeBaja'); 
+    });   
 });
 
 

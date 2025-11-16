@@ -11,7 +11,7 @@ use App\Models\Cliente; // Importamos Cliente para el type-hinting
  * Request class para validación de actualización de clientes
  * (Ubicación y Sincronización Corregidas)
  */
-class ClienteUpdateRequest extends FormRequest
+class UpdateClienteRequest extends FormRequest
 {
     /**
      * Determina si el usuario está autorizado para hacer esta request
