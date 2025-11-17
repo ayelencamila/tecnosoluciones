@@ -121,6 +121,9 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/crear', [ProductoController::class, 'create'])
         ->name('create');   
 
+        Route::post('/', [ProductoController::class, 'store'])
+        ->name('store');
+
         Route::get('/{producto}', [ProductoController::class, 'show'])
         ->name('show');
 

@@ -68,6 +68,14 @@ class Producto extends Model
         return $this->hasMany(PrecioProducto::class, 'productoID', 'id');
     }
 
+    /**
+     * Un Producto tiene stock en múltiples depósitos
+     */
+    public function stocks(): HasMany
+    {
+        return $this->hasMany(Stock::class, 'productoID', 'id');
+    }
+
     // --- LÓGICA DE STOCK (DEPÓSITO ÚNICO - CORREGIDO) ---
 
     /**
@@ -81,14 +89,12 @@ class Producto extends Model
     }
 
     /**
-     * Accessor para asegurar que 'stockActual' se trate como float/int.
-     * Tu controlador lo usa en el 'create'
+     * Accessor para asegurar que 'stockActual' se trate como int
+     * Lee directamente la columna 'stockActual' de la tabla productos
      */
-    public function getStockActualAttribute($value): float
+    public function getStockActualAttribute($value): int
     {
-        // CORREGIDO: Devuelve el valor de la columna 'stockActual'
-        // (Si tu BD tiene 'stockActual' como columna, 'attributes['stockActual']' es más seguro)
-        return (float) ($this->attributes['stockActual'] ?? 0);
+        return (int) $value;
     }
 
     // --- LÓGICA DE PRECIOS (EXPERTO LARMAN) ---
