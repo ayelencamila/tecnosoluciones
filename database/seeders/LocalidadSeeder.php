@@ -104,6 +104,7 @@ class LocalidadSeeder extends Seeder
             ['nombre' => 'Oberá', 'provinciaID' => 13],
             ['nombre' => 'Eldorado', 'provinciaID' => 13],
             ['nombre' => 'Puerto Iguazú', 'provinciaID' => 13],
+            ['nombre' => 'San Javier', 'provinciaID' => 13],
 
             // Neuquén
             ['nombre' => 'Neuquén', 'provinciaID' => 14],
@@ -165,10 +166,25 @@ class LocalidadSeeder extends Seeder
             ['nombre' => 'CABA', 'provinciaID' => 24],
         ];
 
+        $creadas = 0;
+        $existentes = 0;
+
         foreach ($localidades as $localidad) {
-            Localidad::create($localidad);
+            $existe = Localidad::where('nombre', $localidad['nombre'])
+                ->where('provinciaID', $localidad['provinciaID'])
+                ->exists();
+            
+            if (!$existe) {
+                Localidad::create($localidad);
+                $creadas++;
+            } else {
+                $existentes++;
+            }
         }
 
-        $this->command->info('✅ '.count($localidades).' localidades creadas exitosamente');
+        $this->command->info('✅ '.$creadas.' localidades nuevas creadas');
+        if ($existentes > 0) {
+            $this->command->info('ℹ️  '.$existentes.' localidades ya existían (omitidas)');
+        }
     }
 }

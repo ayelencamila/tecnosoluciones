@@ -33,7 +33,7 @@
                 Ventas
               </Link>
               <Link 
-                href="/pagos" 
+                :href="route('pagos.index')" 
                 class="text-gray-700 hover:text-indigo-600 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
                 :class="{ 'text-indigo-600 bg-indigo-50': $page.component.startsWith('Pagos') }"
               >

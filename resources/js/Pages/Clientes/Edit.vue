@@ -95,6 +95,13 @@ const onProvinciaChange = async () => {
     }
 };
 
+// Cargar localidades al montar el componente si ya hay una provincia seleccionada
+onMounted(() => {
+    if (form.provincia_id) {
+        onProvinciaChange();
+    }
+});
+
 watch(() => form.tipo_cliente_id, (newVal) => {
     // Si pasa a Minorista (CU-02), limpiamos la info de CC
     if (!esMayorista.value) {

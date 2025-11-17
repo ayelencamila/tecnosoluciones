@@ -60,6 +60,11 @@ class ClienteController extends Controller
         if (isset($filters['estado_cliente_id']) && $filters['estado_cliente_id']) {
             $query->where('estadoClienteID', $filters['estado_cliente_id']);
         }
+        if (isset($filters['provincia_id']) && $filters['provincia_id']) {
+            $query->whereHas('direccion.localidad', function ($q) use ($filters) {
+                $q->where('provinciaID', $filters['provincia_id']);
+            });
+        }
         if ($sortColumn === 'tipoClienteID') {
             $query->join('tipos_cliente', 'clientes.tipoClienteID', '=', 'tipos_cliente.tipoClienteID')
                 ->orderBy('tipos_cliente.nombreTipo', $sortDirection)
