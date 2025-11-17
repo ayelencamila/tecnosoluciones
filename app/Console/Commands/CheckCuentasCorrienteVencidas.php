@@ -45,7 +45,8 @@ class CheckCuentasCorrienteVencidas extends Command
 
     public function handle()
     {
-        $this->info('Iniciando CU-09: Control automático de Cuentas Corrientes...');
+        $this->info('🔍 Iniciando CU-09: Control automático de Cuentas Corrientes...');
+        $this->newLine();
         Log::info('CU-09 Job: Iniciado.');
 
         if (!$this->cacheEstados()) {
@@ -88,7 +89,7 @@ class CheckCuentasCorrienteVencidas extends Command
                     $saldoTotal = $cc->saldo; // Corregido a 'saldo'
                     $limiteCredito = $cc->getLimiteCreditoAplicable();
 
-                    $hayIncumplimiento = ($saldoVencido > 0 || $saldoTotal > $limiteCredito);
+                    $hayIncumplimiento = ($saldoTotal > $limiteCredito);
 
                     if ($hayIncumplimiento) {
                         $cuentasConIncumplimiento++;
@@ -103,6 +104,14 @@ class CheckCuentasCorrienteVencidas extends Command
                                 // Usamos el método del Modelo
                                 $cc->bloquear($motivoDetallado, null); 
                                 $cuentasBloqueadas++;
+                                
+                                // Mostrar información del cliente bloqueado
+                                $this->warn("🔴 BLOQUEADO: {$cliente->apellido}, {$cliente->nombre} (ID: {$cliente->clienteID})");
+                                $this->line("   Saldo vencido: $" . number_format($saldoVencido, 2, ',', '.'));
+                                $this->line("   Saldo total: $" . number_format($saldoTotal, 2, ',', '.'));
+                                $this->line("   Límite crédito: $" . number_format($limiteCredito, 2, ',', '.'));
+                                $this->line("   Motivo: {$motivoDetallado}");
+                                $this->newLine();
                             }
                         } else {
                             // 5b: Marcar Pendiente
@@ -110,33 +119,43 @@ class CheckCuentasCorrienteVencidas extends Command
                                 // Usamos el método del Modelo
                                 $cc->ponerEnRevision($motivoDetallado, null);
                                 $cuentasMarcadasPendientes++;
+                                
+                                // Mostrar información del cliente marcado como pendiente
+                                $this->warn("🟡 PENDIENTE APROBACIÓN: {$cliente->apellido}, {$cliente->nombre} (ID: {$cliente->clienteID})");
+                                $this->line("   Saldo vencido: $" . number_format($saldoVencido, 2, ',', '.'));
+                                $this->line("   Saldo total: $" . number_format($saldoTotal, 2, ',', '.'));
+                                $this->line("   Límite crédito: $" . number_format($limiteCredito, 2, ',', '.'));
+                                $this->newLine();
                             }
                         }
 
                     } else {
                         // Auto-sanación
                         if ($estadoActualID == $this->estadoPendienteID || $estadoActualID == $this->estadoBloqueadaID) {
-                            // Usamos el método del Modelo
                             $cc->desbloquear('Deuda regularizada.', null);
                             $cuentasReactivadas++;
+                            
+                            // Mostrar información del cliente reactivado
+                            $this->info(" REACTIVADO: {$cliente->apellido}, {$cliente->nombre} (ID: {$cliente->clienteID})");
+                            $this->line("   Cuenta regularizada - Sin deuda vencida");
+                            $this->newLine();
                         }
                     }
                 }
             });
 
-        $this->info("CU-09: Verificación completada.");
-        $this->line("Cuentas Procesadas: $cuentasProcesadas");
-        $this->line("Cuentas con Incumplimiento: $cuentasConIncumplimiento");
-        $this->line("Cuentas Bloqueadas (Nuevas): $cuentasBloqueadas");
-        $this->line("Cuentas Pendientes Aprobación (Nuevas): $cuentasMarcadasPendientes");
-        $this->line("Cuentas Reactivadas: $cuentasReactivadas");
+        $this->newLine();
+        $this->info("✅ CU-09: Verificación completada.");
+        $this->newLine();
+        $this->line(" Resumen:");
+        $this->line("   • Cuentas Procesadas: $cuentasProcesadas");
+        $this->line("   • Cuentas con Incumplimiento: $cuentasConIncumplimiento");
+        $this->line("   • Cuentas Bloqueadas (Nuevas): $cuentasBloqueadas");
+        $this->line("   • Cuentas Pendientes Aprobación (Nuevas): $cuentasMarcadasPendientes");
+        $this->line("   • Cuentas Reactivadas: $cuentasReactivadas");
         Log::info('CU-09 Job: Finalizado.');
 
         return Command::SUCCESS;
     }
 
-    // ¡ELIMINADO!
-    // El método 'cambiarEstado()' se fue. 
-    // Ahora usamos $cc->bloquear(), $cc->desbloquear(), etc.
-    // Esto es mucho más limpio y respeta tu arquitectura de Modelo.
 }
