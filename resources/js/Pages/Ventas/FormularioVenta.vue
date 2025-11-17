@@ -27,8 +27,10 @@ const searchTermProducto = ref('');
 const filteredProductos = ref([]);
 const showProductoDropdown = ref(false);
 const selectedProductToAdd = ref(null);
-const quantityToAdd = ref(1);
-const priceToAdd = ref(0);
+const quantityToAdd = ref('1');
+const priceToAdd = ref('0');
+const skuInput = ref('');
+const skuInputField = ref(null);
 const form = useForm({
     clienteID: computed(() => ventaStore.clienteSeleccionado?.clienteID || null),
     metodo_pago: computed(() => ventaStore.metodoPago), 
@@ -47,9 +49,18 @@ const form = useForm({
 });
 watch(selectedProductToAdd, (newProduct) => {
     if (newProduct && newProduct.precios && newProduct.precios.length > 0) {
-        priceToAdd.value = newProduct.precios.reduce((max, p) => Math.max(max, parseFloat(p.precio)), 0);
+        // Buscar precio específico para el tipo de cliente seleccionado
+        if (ventaStore.clienteSeleccionado) {
+            const precioCliente = newProduct.precios.find(p => 
+                p.tipoClienteID === ventaStore.clienteSeleccionado.tipoClienteID
+            );
+            priceToAdd.value = String(precioCliente ? parseFloat(precioCliente.precio) : parseFloat(newProduct.precios[0].precio));
+        } else {
+            // Si no hay cliente, usar el primer precio disponible
+            priceToAdd.value = String(parseFloat(newProduct.precios[0].precio));
+        }
     } else {
-        priceToAdd.value = 0;
+        priceToAdd.value = '0';
     }
 });
 const debouncedFilterClientes = debounce(() => {
@@ -92,21 +103,123 @@ const selectProductToAdd = (producto) => {
     selectedProductToAdd.value = producto;
     searchTermProducto.value = `${producto.nombre} (${producto.codigo})`;
     showProductoDropdown.value = false;
-    quantityToAdd.value = 1; 
+    quantityToAdd.value = '1'; 
 };
 const clearProductSelection = () => {
     selectedProductToAdd.value = null;
     searchTermProducto.value = '';
-    quantityToAdd.value = 1;
-    priceToAdd.value = 0;
+    quantityToAdd.value = '1';
+    priceToAdd.value = '0';
+};
+const agregarPorSKU = () => {
+    if (!skuInput.value.trim()) return;
+    
+    let codigo = skuInput.value.trim();
+    let cantidad = 1;
+    
+    // Parsear formato CODIGO*CANTIDAD (ej: ABC123*5)
+    if (codigo.includes('*')) {
+        const parts = codigo.split('*');
+        codigo = parts[0].trim();
+        cantidad = parseInt(parts[1]) || 1;
+    }
+    
+    // Buscar producto por código exacto (case-insensitive)
+    const producto = props.productos.find(p => 
+        p.codigo.toLowerCase() === codigo.toLowerCase()
+    );
+    
+    if (!producto) {
+        errorMensaje.value = `Producto con código "${codigo}" no encontrado.`;
+        skuInput.value = '';
+        return;
+    }
+    
+    // Validar stock disponible
+    if (producto.stockActual < cantidad) {
+        errorMensaje.value = `Stock insuficiente para ${producto.nombre}. Disponible: ${producto.stockActual}, Solicitado: ${cantidad}`;
+        skuInput.value = '';
+        return;
+    }
+    
+    // Validar que haya cliente seleccionado
+    if (!ventaStore.clienteSeleccionado) {
+        errorMensaje.value = 'Por favor, selecciona un cliente antes de agregar productos.';
+        skuInput.value = '';
+        return;
+    }
+    
+    // Obtener precio para el tipo de cliente
+    let precio = 0;
+    let precioProductoId = null;
+    if (producto.precios && producto.precios.length > 0) {
+        const precioCliente = producto.precios.find(p => 
+            p.tipoClienteID === ventaStore.clienteSeleccionado.tipoClienteID
+        );
+        if (precioCliente) {
+            precio = parseFloat(precioCliente.precio);
+            precioProductoId = precioCliente.id;
+        } else if (producto.precios.length > 0) {
+            // Fallback al primer precio disponible
+            precio = parseFloat(producto.precios[0].precio);
+            precioProductoId = producto.precios[0].id;
+        }
+    }
+    
+    if (precio === 0) {
+        errorMensaje.value = `No se encontró precio válido para ${producto.nombre}.`;
+        skuInput.value = '';
+        return;
+    }
+    
+    // Agregar precio_producto_id al objeto producto temporalmente
+    producto.precio_producto_id = precioProductoId;
+    
+    // Agregar al carrito
+    ventaStore.agregarItem(producto, cantidad, precio);
+    
+    // Limpiar input y mantener foco para siguiente producto
+    skuInput.value = '';
+    errorMensaje.value = '';
+    
+    // Mantener foco en el campo SKU para escaneos rápidos
+    setTimeout(() => {
+        skuInputField.value?.$el?.focus();
+    }, 50);
 };
 const errorMensaje = ref('');
 const addProductToCart = () => {
-    if (selectedProductToAdd.value && quantityToAdd.value > 0 && priceToAdd.value > 0) {
+    // Validar que haya cliente seleccionado
+    if (!ventaStore.clienteSeleccionado) {
+        errorMensaje.value = 'Por favor, selecciona un cliente antes de agregar productos.';
+        return;
+    }
+    
+    const cantidad = Number(quantityToAdd.value);
+    const precio = Number(priceToAdd.value);
+    
+    if (selectedProductToAdd.value && cantidad > 0 && precio > 0) {
+        // Validar stock disponible
+        if (selectedProductToAdd.value.stockActual < cantidad) {
+            errorMensaje.value = `Stock insuficiente para ${selectedProductToAdd.value.nombre}. Disponible: ${selectedProductToAdd.value.stockActual}, Solicitado: ${cantidad}`;
+            return;
+        }
+        
+        // Obtener precio_producto_id del precio seleccionado
+        let precioProductoId = null;
+        if (selectedProductToAdd.value.precios && ventaStore.clienteSeleccionado) {
+            const precioCliente = selectedProductToAdd.value.precios.find(p => 
+                p.tipoClienteID === ventaStore.clienteSeleccionado.tipoClienteID
+            );
+            precioProductoId = precioCliente?.id || (selectedProductToAdd.value.precios[0]?.id || null);
+        }
+        
+        selectedProductToAdd.value.precio_producto_id = precioProductoId;
+        
         ventaStore.agregarItem(
             selectedProductToAdd.value,
-            quantityToAdd.value,
-            priceToAdd.value
+            cantidad,
+            precio
         );
         clearProductSelection();
         errorMensaje.value = ''; // Limpiar mensaje de error
@@ -135,14 +248,37 @@ const submit = () => {
         errorSubmit.value = 'El carrito está vacío. Agrega productos para realizar la venta.';
         return;
     }
+    // Validación de cuenta corriente si es necesario
+    if (ventaStore.metodoPago === 'cuenta_corriente') {
+        if (!ventaStore.clienteSeleccionado.cuentaCorriente) {
+            errorSubmit.value = 'El cliente seleccionado no tiene una cuenta corriente activa. Selecciona otra forma de venta o elige un cliente diferente.';
+            return;
+        }
+        
+        // Validar estado de la cuenta corriente
+        const estadoCC = ventaStore.clienteSeleccionado.cuentaCorriente.estado_cuenta_corriente?.nombre;
+        if (estadoCC === 'Bloqueada') {
+            errorSubmit.value = 'La cuenta corriente del cliente está BLOQUEADA. Solo se permiten ventas al contado.';
+            return;
+        }
+        if (estadoCC === 'Pendiente de Aprobación') {
+            errorSubmit.value = 'La cuenta corriente del cliente está PENDIENTE DE APROBACIÓN. No se permiten ventas a crédito hasta su revisión.';
+            return;
+        }
+    }
     
     errorSubmit.value = ''; // Limpiar error previo
     
     form.post(route('ventas.store'), {
         preserveScroll: true,
         onSuccess: () => {
-            ventaStore.limpiarVenta();
-            errorSubmit.value = '';
+            // Comprueba si la página recargada (el redirect) trajo un error flash
+            if (page.props.flash?.error) {
+                errorSubmit.value = page.props.flash.error;
+            } else {
+                ventaStore.limpiarVenta();
+                errorSubmit.value = '';
+            }
         },
         onError: (errors) => {
             console.error('Errores de validación:', errors);
@@ -186,6 +322,11 @@ onMounted(() => {
             showProductoDropdown.value = false;
         }
     });
+    
+    // Auto-focus en campo SKU para iniciar escaneos rápidamente
+    setTimeout(() => {
+        skuInputField.value?.$el?.focus();
+    }, 300);
 });
 </script>
 
@@ -193,12 +334,26 @@ onMounted(() => {
     <Head title="Registrar Venta" />
     <AppLayout> 
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Registrar Nueva Venta</h2>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Nueva Venta</h2>
         </template>
         
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
+                <!-- Flash messages del servidor -->
+                <AlertMessage 
+                    v-if="$page.props.flash?.error"
+                    :message="$page.props.flash.error"
+                    type="error"
+                    @dismiss="() => $page.props.flash.error = null"
+                />
+                <AlertMessage 
+                    v-if="$page.props.flash?.success"
+                    :message="$page.props.flash.success"
+                    type="success"
+                    @dismiss="() => $page.props.flash.success = null"
+                />
+
                 <!-- Error general de submit -->
                 <AlertMessage 
                     v-if="errorSubmit"
@@ -211,8 +366,13 @@ onMounted(() => {
                     <div class="p-6 space-y-6">
                         
                         <!-- Sección: Cliente -->
-                        <div>
-                            <InputLabel value="Cliente *" />
+                            <div>
+                            <div class="flex justify-between items-center">
+                                <InputLabel value="Cliente *" />
+                                <Link :href="route('clientes.create')" class="text-sm text-indigo-600 hover:text-indigo-900">
+                                    + Nuevo cliente
+                                </Link>
+                            </div>
                             <div class="cliente-search-container relative">
                                 <TextInput
                                     v-model="searchTermCliente"
@@ -257,6 +417,32 @@ onMounted(() => {
                                 @dismiss="errorMensaje = ''"
                             />
 
+                            <!-- Campo SKU prioritario para escáner -->
+                            <div class="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                <InputLabel value="Código SKU (presiona Enter o escanea código de barras)" class="font-semibold" />
+                                <TextInput
+                                    ref="skuInputField"
+                                    v-model="skuInput"
+                                    type="text"
+                                    placeholder="Ej: ABC123 o ABC123*5 para 5 unidades"
+                                    class="mt-2 block w-full font-mono text-lg"
+                                    @keydown.enter.prevent="agregarPorSKU"
+                                />
+                                <p class="mt-2 text-xs text-blue-600">
+                                    💡 <strong>Tip:</strong> Escanea el código de barras o escribe CODIGO*CANTIDAD (ej: ABC123*5)
+                                </p>
+                            </div>
+
+                            <!-- Separador -->
+                            <div class="relative my-6">
+                                <div class="absolute inset-0 flex items-center">
+                                    <div class="w-full border-t border-gray-300"></div>
+                                </div>
+                                <div class="relative flex justify-center text-sm">
+                                    <span class="px-2 bg-white text-gray-500">O busca por nombre/código</span>
+                                </div>
+                            </div>
+
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div class="md:col-span-2">
                                     <InputLabel value="Producto" />
@@ -274,7 +460,12 @@ onMounted(() => {
                                                  :key="producto.productoID"
                                                  @click="selectProductToAdd(producto)"
                                                  class="px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                                                {{ producto.nombre }} ({{ producto.codigo }})
+                                                <div class="flex justify-between items-center">
+                                                    <span>{{ producto.nombre }} ({{ producto.codigo }})</span>
+                                                    <span class="text-sm" :class="producto.stockActual > 10 ? 'text-green-600' : producto.stockActual > 0 ? 'text-yellow-600' : 'text-red-600'">
+                                                        Stock: {{ producto.stockActual }}
+                                                    </span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -282,7 +473,7 @@ onMounted(() => {
                                 <div>
                                     <InputLabel value="Cantidad" />
                                     <TextInput
-                                        v-model.number="quantityToAdd"
+                                        v-model="quantityToAdd"
                                         type="number"
                                         min="1"
                                         class="mt-1 block w-full"
@@ -291,7 +482,7 @@ onMounted(() => {
                                 <div>
                                     <InputLabel value="Precio" />
                                     <TextInput
-                                        v-model.number="priceToAdd"
+                                        v-model="priceToAdd"
                                         type="number"
                                         step="0.01"
                                         min="0"
@@ -371,17 +562,22 @@ onMounted(() => {
                             </div>
                         </div>
 
-                        <!-- Método de Pago -->
+                        <!-- Forma de Venta -->
                         <div class="border-t pt-6">
-                            <InputLabel value="Método de Pago *" />
+                            <InputLabel value="Forma de Venta *" />
                             <SelectInput
                                 v-model="ventaStore.metodoPago"
+                                :options="[
+                                    { value: 'efectivo', label: 'Al Contado - Efectivo' },
+                                    { value: 'tarjeta', label: 'Al Contado - Tarjeta' },
+                                    { value: 'cuenta_corriente', label: 'A Crédito (Cuenta Corriente)' }
+                                ]"
                                 class="mt-1 block w-full"
-                            >
-                                <option value="efectivo">Efectivo</option>
-                                <option value="tarjeta">Tarjeta</option>
-                                <option value="cuenta_corriente">Cuenta Corriente</option>
-                            </SelectInput>
+                            />
+                            <p class="mt-1 text-sm text-gray-500">
+                                <span v-if="ventaStore.metodoPago === 'cuenta_corriente'">El monto se registrará como deuda en la cuenta corriente del cliente.</span>
+                                <span v-else>El pago se considera efectuado al momento de la venta.</span>
+                            </p>
                             <InputError :message="props.errors.metodo_pago" class="mt-2" />
                         </div>
 

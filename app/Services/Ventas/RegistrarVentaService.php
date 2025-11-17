@@ -43,7 +43,7 @@ class RegistrarVentaService
         }
 
         // 4. INICIAR TRANSACCIÓN ATÓMICA
-        return DB::transaction(function () use ($datosValidados, $cliente, $vendedorUserID, $metodoPago, $calculos) {
+        return DB::transaction(function () use ($datosValidados, $cliente, $vendedorUserID, $metodoPago, $calculos, $fechaVencimiento) {
 
             // 5. (CREATOR - GRASP) CREAR LA VENTA (Maestro)
             $venta = Venta::create([
@@ -116,8 +116,13 @@ class RegistrarVentaService
 
         foreach ($itemsAProcesar as $item) {
             $producto = Producto::findOrFail($item['productoID']);
+            // Se obtiene el ultimo precio asociado al producto.
+            $precioActual = PrecioProducto::where('productoID', $producto->id)
+                ->where('tipoClienteID', $cliente->tipoClienteID)
+                ->orderBy('created_at', 'desc')
+                ->first();
             $this->validarStock($producto, $item['cantidad']);
-            $precioUnitario = $this->obtenerPrecioParaCliente($producto, $cliente);
+            $precioUnitario = (float) $precioActual->precio;
             $subtotalItem = (float) $item['cantidad'] * $precioUnitario;
             $totalDescuentoEsteItem = 0;
             $detallesTemporalesDescuento = [];
@@ -255,6 +260,6 @@ class RegistrarVentaService
             return (float) $precioProducto->precio;
         }
 
-        throw new \Exception("No se encontró un precio vigente para el producto '{$producto->nombre}' y el tipo de cliente '{$cliente->tipoCliente->nombreEstado}'.");
+        throw new \Exception("No se encontró un precio vigente para el producto '{$producto->nombre}' y el tipo de cliente '{$cliente->tipoCliente->nombreTipo}'.");
     }
 }

@@ -14,12 +14,15 @@ use App\Models\Venta;
 use App\Services\Ventas\AnularVentaService;
 use App\Services\Ventas\RegistrarVentaService;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia; // Necesario para los filtros avanzados
 
 class VentaController extends Controller
 {
+    use AuthorizesRequests;
+
     /**
      * Muestra el listado de ventas con filtros (CU-07).
      * Boundary: ListadoVentas.vue
@@ -104,13 +107,18 @@ class VentaController extends Controller
      */
     public function create()
     {
-        $clientes = Cliente::select('clienteID', 'nombre', 'apellido', 'DNI')->get();
+        $clientes = Cliente::select('clienteID', 'nombre', 'apellido', 'DNI', 'tipoClienteID')
+            ->with([
+                'cuentaCorriente:cuenta_corriente_id,clienteID,estado_cuenta_corriente_id',
+                'cuentaCorriente.estado_cuenta_corriente:id,nombre'
+            ])
+            ->get();
 
         $productos = Producto::whereHas('estado', function ($query) {
             $query->where('nombre', 'Activo');
         })
             ->select('id', 'codigo', 'nombre', 'stockActual')
-            ->with('precios')
+            ->with('precios:id,productoID,tipoClienteID,precio')
             ->get();
 
         $descuentos = Descuento::where('activo', true)
@@ -132,9 +140,7 @@ class VentaController extends Controller
      */
     public function store(StoreVentaRequest $request, RegistrarVentaService $registrarVentaService)
     {
-        // FIX 4: Autorización explícita (aunque StoreVentaRequest ya tiene true)
-        $this->authorize('create', Venta::class);
-
+        // La autorización ya se maneja en StoreVentaRequest->authorize()
         $datosValidados = $request->validated();
         $datosValidados['userID'] = auth()->id();
 
@@ -145,7 +151,7 @@ class VentaController extends Controller
                 ->with('success', '¡Venta registrada con éxito!');
 
         } catch (SinStockException|LimiteCreditoExcedidoException $e) {
-            return back()->with('error', $e->getMessage());
+            return back()->withErrors(['message' => $e->getMessage()]);
 
         } catch (\Exception $e) {
             Log::error('Error catastrófico al registrar venta: '.$e->getMessage(), [
@@ -153,7 +159,7 @@ class VentaController extends Controller
                 'request_data' => $request->except('password', 'password_confirmation'),
             ]);
 
-            return back()->with('error', 'Error inesperado al procesar la venta. Contacte a soporte.');
+            return back()->withErrors(['message' => 'Error inesperado al procesar la venta. Contacte a soporte. '.$e->getMessage()]);
         }
     }
 
@@ -162,9 +168,7 @@ class VentaController extends Controller
      */
     public function anular(AnularVentaRequest $request, Venta $venta, AnularVentaService $anularVentaService)
     {
-        // FIX 4: Autorización explícita
-        $this->authorize('anular', $venta);
-
+        // La autorización ya se maneja en AnularVentaRequest->authorize()
         $datosValidados = $request->validated();
         $motivoAnulacion = $datosValidados['motivo_anulacion'];
         $userID = auth()->id();

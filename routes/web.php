@@ -7,7 +7,8 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\LocalidadController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\VentaController;
-use App\Http\Controllers\PagoController; 
+use App\Http\Controllers\PagoController;
+use App\Http\Controllers\DescuentoController;
 use Inertia\Inertia;
 
 /*

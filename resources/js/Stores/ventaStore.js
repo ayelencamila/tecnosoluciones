@@ -98,7 +98,8 @@ export const useVentaStore = defineStore('venta', {
                     stockActual: producto.stockActual,
                     cantidad: cantidad,
                     precioUnitario: precioUnitario,
-                    descuentosAplicados: [], // Para descuentos específicos del ítem
+                    precio_producto_id: producto.precio_producto_id || null,
+                    descuentos_item: [], // Para descuentos específicos del ítem
                 };
                 this.items.push(newItem);
             }
