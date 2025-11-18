@@ -3,16 +3,18 @@ import { ref, computed } from 'vue';
 import { Link, useForm, Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue'; 
+import PrimaryButton from '@/Components/PrimaryButton.vue';
 
 const props = defineProps({
   producto: Object,
   categorias: Array,
   estados: Array,
   tiposCliente: Array,
+  proveedores: Array, // Nuevo prop
   errors: Object, 
 });
 
-// Inicializar precios desde los datos del producto
+// Inicializar precios actuales
 const preciosIniciales = {};
 props.tiposCliente.forEach(tipo => {
     const precioActual = props.producto.precios.find(p => p.tipoClienteID == tipo.id && !p.fechaHasta);
@@ -27,13 +29,11 @@ const form = useForm({
   unidadMedida: props.producto.unidadMedida,
   categoriaProductoID: props.producto.categoriaProductoID,
   estadoProductoID: props.producto.estadoProductoID,
-  stockActual: props.producto.stockActual,
-  stockMinimo: props.producto.stockMinimo,
+  proveedor_habitual_id: props.producto.proveedor_habitual_id || '', // Nuevo campo
   precios: preciosIniciales,
-  motivo: '', 
+  motivo: '', // Obligatorio por CU-26
 });
 
-// Computada para saber si hay errores de precios
 const precioError = computed(() => {
     if (props.errors.precios) return props.errors.precios;
     if (props.errors['precios.*.precio']) return props.errors['precios.*.precio'];
@@ -48,170 +48,148 @@ const submitForm = () => {
       precio: parseFloat(precio)
     }));
   
-
   form.transform((data) => ({
     ...data,
     precios: preciosArray
   }))
-  .put(route('productos.update', props.producto.id)); // Usar route()
+  .put(route('productos.update', props.producto.id));
 };
 </script>
 
 <template>
     <Head :title="`Editar ${producto.nombre}`" />
     <AppLayout>
-        <!-- Header -->
-        <div class="mb-6">
-            <Link :href="route('productos.show', producto.id)" class="flex items-center text-gray-600 hover:text-gray-900">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
-                Volver al Producto
-            </Link>
-            <h1 class="text-3xl font-bold text-gray-900 mt-2">Modificar Producto</h1>
-        </div>
-
-        <!-- Formulario -->
-        <form @submit.prevent="submitForm" class="space-y-6">
+        <div class="max-w-7xl mx-auto py-10 sm:px-6 lg:px-8">
             
-            <!-- CAMBIO KENDALL: Pedir Motivo (Requerido por CU-26 y UpdateProductoRequest) -->
-            <div class="bg-yellow-50 rounded-lg shadow-sm border border-yellow-300">
-                <div class="px-6 py-4 border-b border-yellow-200">
-                    <h2 class="text-xl font-semibold text-yellow-900 flex items-center">
-                        <svg class="w-5 h-5 mr-2 text-yellow-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
-                        Motivo de la Modificación <span class="text-red-500 ml-1">*</span>
-                    </h2>
-                </div>
-                <div class="px-6 py-4">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        Explique brevemente el motivo de los cambios (mín. 5 caracteres)
-                    </label>
-                    <textarea
-                        v-model="form.motivo"
-                        required
-                        rows="3"
-                        class="w-full"
-                        :class="{ 'border-red-500': form.errors.motivo }"
-                        placeholder="Ej: Actualización de precio por inflación, corrección de stock..."
-                    ></textarea>
-                    <InputError :message="form.errors.motivo" class="mt-1" />
-                </div>
+            <div class="mb-6 flex items-center justify-between">
+                <h1 class="text-2xl font-bold text-gray-900">
+                    Editar Producto: <span class="text-indigo-600">{{ producto.nombre }}</span>
+                </h1>
+                <Link :href="route('productos.index')" class="flex items-center text-gray-600 hover:text-gray-900 transition">
+                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                    Volver
+                </Link>
             </div>
 
-            <!-- Información Básica -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200"><h2 class="text-xl font-semibold">Información Básica</h2></div>
-                <div class="px-6 py-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Código/SKU -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Código/SKU <span class="text-red-500">*</span></label>
-                            <input v-model="form.codigo" type="text" required class="w-full" :class="{ 'border-red-500': form.errors.codigo }">
-                            <InputError :message="form.errors.codigo" class="mt-1" />
+            <form @submit.prevent="submitForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    <div class="md:col-span-2 space-y-6">
+                        <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                                <h2 class="text-lg font-medium text-gray-900">Datos Maestros</h2>
+                            </div>
+                            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Código / SKU</label>
+                                    <input v-model="form.codigo" type="text" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :class="{ 'border-red-500': form.errors.codigo }">
+                                    <InputError :message="form.errors.codigo" class="mt-1" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
+                                    <input v-model="form.nombre" type="text" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500" :class="{ 'border-red-500': form.errors.nombre }">
+                                    <InputError :message="form.errors.nombre" class="mt-1" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Marca</label>
+                                    <input v-model="form.marca" type="text" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <InputError :message="form.errors.marca" class="mt-1" />
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Unidad</label>
+                                    <select v-model="form.unidadMedida" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        <option value="UNIDAD">Unidad</option>
+                                        <option value="SERVICIO">Servicio</option>
+                                        <option value="METRO">Metro</option>
+                                        <option value="KG">Kilogramo</option>
+                                        <option value="LITRO">Litro</option>
+                                    </select>
+                                    <InputError :message="form.errors.unidadMedida" class="mt-1" />
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
+                                    <textarea v-model="form.descripcion" rows="3" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
+                                    <InputError :message="form.errors.descripcion" class="mt-1" />
+                                </div>
+                            </div>
                         </div>
-                        <!-- Nombre -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre <span class="text-red-500">*</span></label>
-                            <input v-model="form.nombre" type="text" required class="w-full" :class="{ 'border-red-500': form.errors.nombre }">
-                            <InputError :message="form.errors.nombre" class="mt-1" />
-                        </div>
-                        <!-- Marca -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Marca</label>
-                            <input v-model="form.marca" type="text" class="w-full">
-                            <InputError :message="form.errors.marca" class="mt-1" />
-                        </div>
-                        <!-- Unidad de Medida -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Unidad de Medida <span class="text-red-500">*</span></label>
-                            <select v-model="form.unidadMedida" required class="w-full" :class="{ 'border-red-500': form.errors.unidadMedida }">
-                                <option value="UNIDAD">Unidad</option>
-                                <option value="KG">Kilogramo</option>
-                                <option value="METRO">Metro</option>
-                                <option value="LITRO">Litro</option>
-                                <option value="CAJA">Caja</option>
-                            </select>
-                            <InputError :message="form.errors.unidadMedida" class="mt-1" />
-                        </div>
-                        <!-- Categoría -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Categoría <span class="text-red-500">*</span></label>
-                            <select v-model="form.categoriaProductoID" required class="w-full" :class="{ 'border-red-500': form.errors.categoriaProductoID }">
-                                <option value="">Seleccione...</option>
-                                <option v-for="cat in categorias" :key="cat.id" :value="cat.id">{{ cat.nombre }}</option>
-                            </select>
-                            <InputError :message="form.errors.categoriaProductoID" class="mt-1" />
-                        </div>
-                        <!-- Estado -->
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Estado <span class="text-red-500">*</span></label>
-                            <select v-model="form.estadoProductoID" required class="w-full" :class="{ 'border-red-500': form.errors.estadoProductoID }">
-                                <option v-for="est in estados" :key="est.id" :value="est.id">{{ est.nombre }}</option>
-                            </select>
-                            <InputError :message="form.errors.estadoProductoID" class="mt-1" />
-                        </div>
-                        <!-- Descripción -->
-                        <div class="md:col-span-2">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Descripción</label>
-                            <textarea v-model="form.descripcion" rows="3" class="w-full"></textarea>
-                            <InputError :message="form.errors.descripcion" class="mt-1" />
-                        </div>
-                    </div>
-                </div>
-            </div>
 
-            <!-- Stock -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200"><h2 class="text-xl font-semibold">Control de Stock</h2></div>
-                <div class="px-6 py-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Stock Actual</label>
-                            <input v-model.number="form.stockActual" type="number" min="0" class="w-full">
-                            <InputError :message="form.errors.stockActual" class="mt-1" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-2">Stock Mínimo</label>
-                            <input v-model.number="form.stockMinimo" type="number" min="0" class="w-full">
-                            <InputError :message="form.errors.stockMinimo" class="mt-1" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Precios -->
-            <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                <div class="px-6 py-4 border-b border-gray-200">
-                    <h2 class="text-xl font-semibold">Precios por Tipo de Cliente</h2>
-                    <p class="mt-1 text-sm text-gray-600">Debe ingresar al menos un precio.</p>
-                </div>
-                <div class="px-6 py-4">
-                    <div class="space-y-4">
-                        <div v-for="tipoCliente in tiposCliente" :key="tipoCliente.id">
-                            <label class="block text-sm font-medium text-gray-700 mb-2">{{ tipoCliente.nombre }}</label>
-                            <div class="relative">
-                                <span class="absolute left-3 top-2 text-gray-500">$</span>
-                                <input v-model.number="form.precios[tipoCliente.id]" type="number" step="0.01" min="0" class="w-full pl-8">
+                        <div class="bg-yellow-50 rounded-lg shadow border border-yellow-200 overflow-hidden">
+                            <div class="px-6 py-4 border-b border-yellow-100 flex items-center">
+                                <svg class="w-5 h-5 text-yellow-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                <h2 class="text-lg font-medium text-yellow-800">Auditoría de Cambios</h2>
+                            </div>
+                            <div class="p-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">
+                                    Motivo de la modificación <span class="text-red-500">*</span>
+                                </label>
+                                <textarea 
+                                    v-model="form.motivo" 
+                                    rows="2" 
+                                    placeholder="Ej: Actualización de precios por inflación..."
+                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-yellow-500 focus:ring-yellow-500"
+                                    :class="{ 'border-red-500': form.errors.motivo }"
+                                ></textarea>
+                                <InputError :message="form.errors.motivo" class="mt-1" />
+                                <p class="text-xs text-gray-500 mt-1">Este motivo quedará registrado en el historial de auditoría.</p>
                             </div>
                         </div>
                     </div>
-                    <!-- Error de precios (Kendall) -->
-                    <InputError :message="precioError" class="mt-2" />
-                </div>
-            </div>
 
-            <!-- Botones -->
-            <div class="flex justify-end space-x-3">
-                <Link :href="route('productos.show', producto.id)" class="px-4 py-2 border rounded-md text-gray-700 hover:bg-gray-50">
-                    Cancelar
-                </Link>
-                <button
-                    type="submit"
-                    :disabled="form.processing"
-                    class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50 flex items-center"
-                >
-                    <svg v-if="form.processing" class="animate-spin -ml-1 mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                    <span>{{ form.processing ? 'Guardando...' : 'Guardar Cambios' }}</span>
-                </button>
-            </div>
-        </form>
+                    <div class="space-y-6">
+                        <div class="bg-white rounded-lg shadow border border-gray-200 p-6 space-y-4">
+                            <h3 class="text-md font-bold text-gray-900 mb-3">Clasificación</h3>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Categoría</label>
+                                <select v-model="form.categoriaProductoID" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option v-for="cat in categorias" :key="cat.id" :value="cat.id">{{ cat.nombre }}</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Estado</label>
+                                <select v-model="form.estadoProductoID" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option v-for="est in estados" :key="est.id" :value="est.id">{{ est.nombre }}</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Proveedor Habitual</label>
+                                <select v-model="form.proveedor_habitual_id" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <option value="">-- Sin asignar --</option>
+                                    <option v-for="prov in proveedores" :key="prov.id" :value="prov.id">{{ prov.razon_social }}</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                            <h3 class="text-md font-bold text-gray-900 mb-3">Precios</h3>
+                            <div class="space-y-3">
+                                <div v-for="tipoCliente in tiposCliente" :key="tipoCliente.id">
+                                    <label class="block text-xs font-bold text-gray-500 uppercase mb-1">{{ tipoCliente.nombre }}</label>
+                                    <div class="relative rounded-md shadow-sm">
+                                        <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                            <span class="text-gray-500 sm:text-sm">$</span>
+                                        </div>
+                                        <input v-model.number="form.precios[tipoCliente.id]" type="number" step="0.01" min="0" class="block w-full rounded-md border-gray-300 pl-7 focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
+                                    </div>
+                                </div>
+                            </div>
+                            <InputError :message="precioError" class="mt-2" />
+                        </div>
+
+                        <div class="flex flex-col gap-3">
+                            <PrimaryButton class="w-full justify-center py-3" :disabled="form.processing">
+                                {{ form.processing ? 'Guardando...' : 'Guardar Cambios' }}
+                            </PrimaryButton>
+                            <Link :href="route('productos.index')" class="w-full text-center py-3 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition shadow-sm">
+                                Cancelar
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
     </AppLayout>
 </template>

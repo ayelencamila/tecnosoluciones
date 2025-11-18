@@ -3,163 +3,131 @@ import { ref } from 'vue';
 import { Link, useForm, Head } from '@inertiajs/vue3'; 
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue'; 
+import DangerButton from '@/Components/DangerButton.vue';
 
-// Las props se reciben correctamente
 const props = defineProps({
   producto: Object,
-  movimientos: Object,
+  movimientos: Object, // Collection
+  stockTotal: Number, // Dato calculado en el controlador
 });
 
-// Tu lógica del modal de baja (está perfecta)
 const showDeleteModal = ref(false);
-const deleteForm = useForm({
-  motivo: '' 
-});
+const deleteForm = useForm({ motivo: '' });
 
 const deleteProducto = () => {
-  deleteForm.transform((data) => ({
-    ...data,
-    _method: 'POST'
-  }))
+  deleteForm.transform((data) => ({ ...data, _method: 'DELETE' }))
   .post(route('productos.darDeBaja', props.producto.id), {
       preserveScroll: true,
-      onSuccess: () => {
-          showDeleteModal.value = false;
-          // Aquí podrías redirigir al index si lo deseas
-          // router.visit(route('productos.index'));
-      },
-      onError: () => {
-          // El error del motivo aparecerá solo
-      }
+      onSuccess: () => showDeleteModal.value = false,
   });
+};
+
+const getBadgeClass = (estado) => {
+    return estado === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
 };
 </script>
 
 <template>
     <Head :title="producto.nombre" />
-
     <AppLayout>
-        <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Detalle del Producto: {{ producto.nombre }}
-            </h2>
-        </template>
-
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
-                <div class="bg-white overflow-hidden shadow-xl sm:rounded-lg p-6">
-                    <h3 class="text-2xl font-bold mb-4">{{ producto.nombre }}</h3>
-                    
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <p class="text-gray-600">Descripción:</p>
-                            <p class="text-gray-800">{{ producto.descripcion || 'N/A' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-600">Stock Actual:</p>
-                            <p class="text-lg font-semibold">{{ producto.stockActual }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-600">Código:</p>
-                            <p class="text-gray-800">{{ producto.codigo }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-600">Marca:</p>
-                            <p class="text-gray-800">{{ producto.marca || 'N/A' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-600">Categoría:</p>
-                            <p class="text-gray-800">{{ producto.categoria?.nombre || 'N/A' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-gray-600">Estado:</p>
-                            <p class="text-gray-800">{{ producto.estado?.nombre || 'N/A' }}</p>
-                        </div>
+                <div class="mb-6 flex justify-between items-center">
+                    <Link :href="route('productos.index')" class="text-gray-600 hover:text-gray-900 flex items-center">
+                         <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                         Volver
+                    </Link>
+                    <div class="space-x-3">
+                        <Link :href="route('productos.edit', producto.id)" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 font-medium">
+                            Editar Producto
+                        </Link>
+                        <DangerButton @click="showDeleteModal = true" v-if="producto.estado?.nombre === 'Activo'">
+                            Dar de Baja
+                        </DangerButton>
                     </div>
+                </div>
 
-                    <div class="mt-6">
-                        <p class="text-gray-600 font-semibold mb-2">Precios por Tipo de Cliente:</p>
-                        <div v-if="producto.precios && producto.precios.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div v-for="precio in producto.precios" :key="precio.id" class="bg-gray-50 p-3 rounded">
-                                <p class="text-sm text-gray-600">{{ precio.tipo_cliente?.nombre || 'N/A' }}</p>
-                                <p class="text-lg font-semibold text-indigo-600">${{ precio.precio.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
-                                <p class="text-xs text-gray-500">Desde: {{ new Date(precio.fechaDesde).toLocaleDateString('es-AR') }}</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="md:col-span-2 bg-white shadow rounded-lg overflow-hidden">
+                        <div class="px-6 py-5 border-b border-gray-200 flex justify-between items-center">
+                            <h3 class="text-lg font-medium text-gray-900">Detalle del Producto</h3>
+                            <span class="px-3 py-1 rounded-full text-sm font-semibold" :class="getBadgeClass(producto.estado?.nombre)">
+                                {{ producto.estado?.nombre }}
+                            </span>
+                        </div>
+                        <div class="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-4">
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Nombre</dt>
+                                <dd class="mt-1 text-lg font-semibold text-gray-900">{{ producto.nombre }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Código / SKU</dt>
+                                <dd class="mt-1 text-md text-gray-900 font-mono bg-gray-50 inline-block px-2 rounded border">{{ producto.codigo }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Categoría</dt>
+                                <dd class="mt-1 text-md text-gray-900">{{ producto.categoria?.nombre }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Marca</dt>
+                                <dd class="mt-1 text-md text-gray-900">{{ producto.marca || '-' }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-sm font-medium text-gray-500">Unidad</dt>
+                                <dd class="mt-1 text-md text-gray-900">{{ producto.unidadMedida }}</dd>
+                            </div>
+                            <div class="col-span-2">
+                                <dt class="text-sm font-medium text-gray-500">Descripción</dt>
+                                <dd class="mt-1 text-md text-gray-900">{{ producto.descripcion || 'Sin descripción' }}</dd>
                             </div>
                         </div>
-                        <p v-else class="text-gray-500 text-sm">No hay precios registrados</p>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-bold text-gray-700 uppercase">Inventario</h3>
+                            </div>
+                            <div class="p-6 text-center">
+                                <div class="text-4xl font-bold text-gray-900 mb-1">{{ stockTotal }}</div>
+                                <div class="text-sm text-gray-500">Unidades Disponibles</div>
+                                <div class="mt-4 pt-4 border-t border-gray-100 text-xs text-gray-400 text-left">
+                                    Desglose por depósito disponible en la sección "Consultar Stock".
+                                </div>
+                            </div>
                         </div>
 
-                    <hr class="my-6">
-
-                    <div class="flex space-x-4">
-                        <Link :href="route('productos.edit', producto.id)" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
-                            Editar
-                        </Link>
-                        <button 
-                            @click="showDeleteModal = true"
-                            class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
-                            Dar de Baja
-                        </button>
+                        <div class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-bold text-gray-700 uppercase">Precios Vigentes</h3>
+                            </div>
+                            <div class="divide-y divide-gray-100">
+                                <div v-for="precio in producto.precios" :key="precio.id" class="px-6 py-3 flex justify-between items-center" v-show="!precio.fechaHasta">
+                                    <span class="text-sm text-gray-600">{{ precio.tipo_cliente?.nombreTipo }}</span>
+                                    <span class="text-lg font-bold text-gray-900">$ {{ precio.precio }}</span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <div class="mt-8 bg-white overflow-hidden shadow-xl sm:rounded-lg">
-                    <div class="p-6">
-                        <h4 class="text-xl font-semibold mb-4">Historial de Movimientos</h4>
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Responsable</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-if="movimientos.length === 0">
-                                    <td colspan="4" class="px-6 py-4 text-center text-gray-500">No hay movimientos registrados.</td>
-                                </tr>
-                                <tr v-for="mov in movimientos" :key="mov.id">
-                                    <td class="px-6 py-4 whitespace-nowrap">{{ new Date(mov.created_at).toLocaleString() }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">{{ mov.tipo_movimiento }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">{{ mov.cantidad }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap">{{ mov.user?.name || 'Sistema' }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-
             </div>
         </div>
 
-        <div v-if="showDeleteModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-            <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                <div class="mt-3">
-                    <h3 class="text-lg font-medium text-gray-900 text-center mt-4">Dar de Baja Producto</h3>
-                    <div class="mt-4">
-                        <textarea
-                            v-model="deleteForm.motivo"
-                            rows="3"
-                            class="w-full px-3 py-2 border border-gray-300 rounded-md"
-                            :class="{'border-red-500': deleteForm.errors.motivo}"
-                            placeholder="Motivo de la baja (requerido, mín. 5 caracteres)"
-                        ></textarea>
-                        <InputError :message="deleteForm.errors.motivo" class="mt-1" />
-                    </div>
-                    <div class="mt-4 flex space-x-3">
-                        <button @click="showDeleteModal = false" class="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">
-                            Cancelar
-                        </button>
-                        <button
-                            @click="deleteProducto"
-                            :disabled="deleteForm.processing"
-                            class="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50"
-                        >
-                            Confirmar Baja
-                        </button>
-                    </div>
+        <div v-if="showDeleteModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl w-96 p-6 transform transition-all">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Confirmar Baja</h3>
+                <p class="text-sm text-gray-500 mb-4">
+                    ¿Está seguro de que desea dar de baja este producto? Esta acción cambiará su estado a "Inactivo".
+                </p>
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Motivo (Requerido)</label>
+                    <textarea v-model="deleteForm.motivo" rows="3" class="w-full rounded border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"></textarea>
+                    <InputError :message="deleteForm.errors.motivo" class="mt-1" />
+                </div>
+                <div class="flex justify-end space-x-3">
+                    <button @click="showDeleteModal = false" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">Cancelar</button>
+                    <button @click="deleteProducto" :disabled="deleteForm.processing" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Confirmar</button>
                 </div>
             </div>
         </div>

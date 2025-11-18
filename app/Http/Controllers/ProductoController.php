@@ -9,6 +9,7 @@ use App\Models\EstadoProducto;
 use App\Models\MovimientoStock;
 use App\Models\PrecioProducto;
 use App\Models\Producto;
+use App\Models\Proveedor;
 use App\Models\TipoCliente;
 
 // --- ARQUITECTURA LARMAN (BCE) ---
@@ -33,16 +34,17 @@ use Illuminate\Database\Eloquent\Builder; // Importar Builder
 class ProductoController extends Controller
 {
     /**
-     * CU-28: Consultar Productos
+     * CU-28: Consultar Productos (Catálogo)
      * Muestra una lista de productos con filtros
+     * ¡CORREGIDO para consultar el stock desde la tabla 'stocks'!
      */
     public function index(Request $request)
     {
-        // Esta lógica de consulta (lectura) está bien en el controlador
+        // La consulta principal al catálogo (Producto) es correcta
         $query = Producto::query()
-            ->with(['categoria', 'estado']);
+            ->with(['categoria', 'estado', 'stocks']); // Cargamos la relación de stock
 
-        // Filtros de búsqueda
+        // --- Filtros (Tus filtros de search, categoria y estado están perfectos) ---
         if ($request->has('search') && $request->input('search')) {
             $searchTerm = $request->input('search');
             $query->where(function ($q) use ($searchTerm) {
@@ -51,40 +53,49 @@ class ProductoController extends Controller
                     ->orWhere('marca', 'like', '%'.$searchTerm.'%');
             });
         }
-
         if ($request->has('categoria_id') && $request->input('categoria_id')) {
             $query->where('categoriaProductoID', $request->input('categoria_id'));
         }
-
         if ($request->has('estado_id') && $request->input('estado_id')) {
             $query->where('estadoProductoID', $request->input('estado_id'));
         }
 
-        // CORREGIDO: Usar la columna 'stockActual' (Single Depot)
+        // --- CORRECCIÓN DEL FILTRO DE STOCK BAJO ---
+        // Ahora filtramos usando la relación 'stocks'
         if ($request->has('stock_bajo') && $request->input('stock_bajo') === 'true') {
-            $query->whereRaw('stockActual <= stockMinimo');
+            // whereHas filtra Productos que tienen al menos un registro en 'stocks'
+            // que cumple la condición
+            $query->whereHas('stocks', function (Builder $q) {
+                $q->whereRaw('cantidad_disponible <= stock_minimo');
+            });
         }
 
-        // Contadores para estadísticas
+        // --- CORRECIÓN DE CONTADORES (STATS) ---
         $totalProductos = Producto::count();
         $productosActivos = Producto::whereHas('estado', function ($q) {
             $q->where('nombre', 'Activo');
         })->count();
-        // CORREGIDO: Usar la columna 'stockActual'
-        $stockBajo = Producto::whereRaw('stockActual <= stockMinimo')->count();
+        
+        // El conteo de stock bajo ahora también usa whereHas
+        $stockBajo = Producto::whereHas('stocks', function (Builder $q) {
+                $q->whereRaw('cantidad_disponible <= stock_minimo');
+            })->count();
 
-        // Ordenamiento
+
+        // --- CORRECIÓN DE ORDENAMIENTO (SORTING) ---
         $sortColumn = $request->input('sort_column', 'nombre');
         $sortDirection = $request->input('sort_direction', 'asc');
 
-        $allowedSortColumns = ['nombre', 'codigo', 'marca', 'stockActual', 'created_at'];
+        // Quitamos 'stockActual' de las columnas permitidas para ordenar en esta vista
+        // (Ordenar por stock es complejo aquí, lo dejamos para la vista de Stock)
+        $allowedSortColumns = ['nombre', 'codigo', 'marca', 'created_at'];
         if (! in_array($sortColumn, $allowedSortColumns)) {
             $sortColumn = 'nombre';
         }
 
         $productos = $query->orderBy($sortColumn, $sortDirection)->paginate(10)->withQueryString();
 
-        // Formatear datos para Vue
+        // (El resto de tu lógica para formatear categorías y estados está perfecta)
         $categoriasFormateadas = CategoriaProducto::where('activo', true)
             ->get(['id', 'nombre'])
             ->map(fn($cat) => ['id' => $cat->id, 'nombre' => $cat->nombre])
@@ -112,15 +123,18 @@ class ProductoController extends Controller
      */
     public function create()
     {
-        // Esta lógica está bien, solo prepara datos para la vista
         $categorias = CategoriaProducto::where('activo', true)->get(['id', 'nombre']);
         $estados = EstadoProducto::all(['id', 'nombre']);
         $tiposCliente = TipoCliente::all(['tipoClienteID as id', 'nombreTipo as nombre']);
+        
+        // Ahora sí funcionará porque importamos App\Models\Proveedor
+        $proveedores = Proveedor::where('activo', true)->get(['id', 'razon_social']); 
 
         return Inertia::render('Productos/Create', [
             'categorias' => $categorias,
             'estados' => $estados,
             'tiposCliente' => $tiposCliente,
+            'proveedores' => $proveedores,
         ]);
     }
 
@@ -147,22 +161,35 @@ class ProductoController extends Controller
     /**
      * CU-28: Consultar Producto (detalle completo)
      */
+    /**
+     * CU-28: Consultar Producto (detalle completo)
+     * ¡CORREGIDO para cargar el stock total!
+     */
     public function show(Producto $producto)
     {
-        // Lógica de lectura, está bien aquí
-        $producto->load(['categoria', 'estado', 'precios.tipoCliente']);
+        // 1. Cargamos todas las relaciones necesarias
+        $producto->load([
+            'categoria', 
+            'estado', 
+            'precios.tipoCliente',
+            'stocks.deposito' // <-- Cargamos el/los stocks y el depósito
+        ]);
 
-        // CORREGIDO: Usar la FK correcta 'productoID'
+        // 2. Calculamos el stock total sumando todos sus depósitos
+        // (Aunque ahora es uno solo, esto funcionará para N depósitos)
+        $stockTotal = $producto->stocks->sum('cantidad_disponible');
+        
+        // 3. Buscamos movimientos (Tu lógica estaba correcta)
         $movimientos = MovimientoStock::where('productoID', $producto->id)
             ->orderBy('created_at', 'desc')
             ->take(10)
             ->get();
             
-        // (La auditoría de consulta la quitamos, es mucho ruido. La auditoría de C/U/D es la importante)
         
         return Inertia::render('Productos/Show', [
             'producto' => $producto,
             'movimientos' => $movimientos,
+            'stockTotal' => $stockTotal, 
         ]);
     }
 
@@ -176,12 +203,16 @@ class ProductoController extends Controller
         $categorias = CategoriaProducto::where('activo', true)->get(['id', 'nombre']);
         $estados = EstadoProducto::all(['id', 'nombre']);
         $tiposCliente = TipoCliente::all(['tipoClienteID as id', 'nombreTipo as nombre']);
+        
+        // NUEVO: Agregamos esta línea
+        $proveedores = \App\Models\Proveedor::where('activo', true)->get(['id', 'razon_social']);
 
         return Inertia::render('Productos/Edit', [
             'producto' => $producto,
             'categorias' => $categorias,
             'estados' => $estados,
             'tiposCliente' => $tiposCliente,
+            'proveedores' => $proveedores, // <-- Y la pasamos a la vista
         ]);
     }
 
@@ -229,37 +260,55 @@ class ProductoController extends Controller
      * CU-29: Consultar Stock
      * Vista específica para consultar stock
      */
+    /**
+     * CU-29: Consultar Stock
+     * Vista específica para consultar stock
+     */
     public function stock(Request $request)
     {
-        // Lógica de consulta está bien aquí
-        $query = Producto::query()->with(['categoria']);
+        // 1. La consulta AHORA EMPIEZA DESDE Stock
+        // Cargamos las relaciones que necesitamos mostrar
+        $query = Stock::query()->with([
+            'producto.categoria', // Carga el producto y su categoría anidada
+            'deposito'
+        ]);
 
+        // 2. Filtros (se aplican sobre las relaciones)
         if ($request->has('categoria_id') && $request->input('categoria_id')) {
-            $query->where('categoriaProductoID', $request->input('categoria_id'));
-        }
-        if ($request->has('search') && $request->input('search')) {
-            $searchTerm = $request->input('search');
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('nombre', 'like', '%'.$searchTerm.'%')
-                    ->orWhere('codigo', 'like', '%'.$searchTerm.'%');
+            // whereHas filtra el Stock basado en una condición de su 'producto'
+            $query->whereHas('producto', function (Builder $q) use ($request) {
+                $q->where('categoriaProductoID', $request->input('categoria_id'));
             });
         }
         
-        // CORREGIDO: Usar la columna 'stockActual'
+        if ($request->has('search') && $request->input('search')) {
+            $searchTerm = $request->input('search');
+            $query->whereHas('producto', function (Builder $q) use ($searchTerm) {
+                $q->where('nombre', 'like', '%'.$searchTerm.'%')
+                  ->orWhere('codigo', 'like', '%'.$searchTerm.'%');
+            });
+        }
+        
+        // 3. Filtro de stock_bajo (AHORA USA LAS COLUMNAS DE LA TABLA 'stock')
         if ($request->has('stock_bajo') && $request->input('stock_bajo') === 'true') {
-            $query->whereRaw('stockActual <= stockMinimo');
+            $query->whereRaw('cantidad_disponible <= stock_minimo');
         }
 
-        $productos = $query->orderBy('nombre')->paginate(10)->withQueryString();
-        $stockBajo = Producto::whereRaw('stockActual <= stockMinimo')->count();
+        // 4. Conteo de stock bajo (AHORA USA LA TABLA 'stock')
+        $stockBajoCount = Stock::whereRaw('cantidad_disponible <= stock_minimo')->count();
+
+        // 5. Paginación
+        // (Nota: No podemos ordenar por 'producto.nombre' directamente en paginate,
+        // pero lo haremos en el siguiente paso si es necesario. Por ahora, ordenamos por ID de stock).
+        $stocks = $query->orderBy('stock_id', 'asc')->paginate(10)->withQueryString();
 
         return Inertia::render('Productos/Stock', [
-            'productos' => $productos,
+            // Pasamos los 'stocks' (que incluyen los 'productos' anidados)
+            'stocks' => $stocks, 
             'categorias' => CategoriaProducto::where('activo', true)->get(['id', 'nombre']),
             'filters' => $request->only(['search', 'categoria_id', 'stock_bajo']),
             'stats' => [
-                'stockBajo' => $stockBajo,
-                // ...
+                'stockBajo' => $stockBajoCount,
             ],
         ]);
     }

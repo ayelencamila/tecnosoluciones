@@ -115,30 +115,38 @@ Route::middleware(['auth'])->group(function () {
 
     //--- MÓDULO DE PRODUCTOS ---
     Route::prefix('productos')->name('productos.')->group(function () {
-        Route::get('/', [ProductoController::class, 'index'])
-        ->name('index');   
         
+        // CU-29: Consultar Stock (¡Faltaba esta ruta!)
+        // La ponemos antes de /{producto} para que no confunda "stock" con un ID
+        Route::get('/consultar-stock', [ProductoController::class, 'stock'])
+            ->name('stock'); 
+
+        // CU-28: Catálogo (Index)
+        Route::get('/', [ProductoController::class, 'index'])
+            ->name('index');   
+        
+        // CU-25: Registrar (Create & Store)
         Route::get('/crear', [ProductoController::class, 'create'])
-        ->name('create');   
-
+            ->name('create');   
         Route::post('/', [ProductoController::class, 'store'])
-        ->name('store');
+            ->name('store');
 
+        // CU-28: Ver Detalle (Show)
         Route::get('/{producto}', [ProductoController::class, 'show'])
-        ->name('show');
+            ->name('show');
 
+        // CU-26: Modificar (Edit & Update)
         Route::get('/{producto}/editar', [ProductoController::class, 'edit'])
-        ->name('edit');
-
+            ->name('edit');
         Route::put('/{producto}', [ProductoController::class, 'update'])
-        ->name('update');
+            ->name('update');
 
-        Route::get('/{producto}/confirmar-baja', [ProductoController::class, 'confirmDelete'])
-        ->name('confirmDelete');   
-
+        // CU-27: Dar de Baja
+        // Eliminamos 'confirmDelete' porque usamos un Modal en la vista Show.
         Route::post('/{producto}/dar-de-baja', [ProductoController::class, 'darDeBaja'])
-        ->name('darDeBaja'); 
-
+            ->name('darDeBaja'); 
+            // Nota: Si usas Resource standard sería DELETE /productos/{id}, 
+            // pero tu controlador usa 'darDeBaja', así que POST está bien.
     });
 
 });

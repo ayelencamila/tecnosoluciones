@@ -5,7 +5,7 @@ namespace App\Services\Productos;
 use App\Models\Producto;
 use App\Models\PrecioProducto;
 use App\Models\Auditoria;
-use Carbon\Carbon;
+use Carbon\Carbon; // <-- CORRECCIÓN 1: Importado
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,9 +19,14 @@ class UpdateProductoService
     {
         return DB::transaction(function () use ($producto, $data, $userId) {
             
+            // Capturamos los datos ANTES de cualquier cambio
             $datosAnteriores = $producto->toArray();
+            // También capturamos los precios vigentes anteriores para la auditoría
+            $preciosAnteriores = $producto->precios()->whereNull('fechaHasta')->get()->toArray();
+            $datosAnteriores['precios_vigentes'] = $preciosAnteriores;
 
-            // 1. Actualizar datos maestros del Producto
+
+            // 1. Actualizar datos maestros del Producto (Catálogo)
             $producto->update([
                 'codigo' => $data['codigo'],
                 'nombre' => $data['nombre'],
@@ -30,19 +35,16 @@ class UpdateProductoService
                 'unidadMedida' => $data['unidadMedida'],
                 'categoriaProductoID' => $data['categoriaProductoID'],
                 'estadoProductoID' => $data['estadoProductoID'],
-                // Nota: El stock generalmente se actualiza por movimientos, 
-                // pero si el CU permite ajuste manual aquí, lo dejamos.
-                'stockActual' => $data['stockActual'] ?? $producto->stockActual,
-                'stockMinimo' => $data['stockMinimo'] ?? $producto->stockMinimo,
+                'proveedor_habitual_id' => $data['proveedor_habitual_id'] ?? null, // <-- CORRECCIÓN 2: Añadido
+                
             ]);
 
-            // 2. Gestión de Historial de Precios
+            // 2. Gestión de Historial de Precios (Tu lógica es buena, la mantenemos)
             $fechaActual = now()->toDateString();
             $fechaActualUTC = now()->utc()->toDateString();
             
             foreach ($data['precios'] as $precioInput) {
-                // Buscar el precio vigente para este tipo de cliente
-                // (Asumiendo que tenés una relación o método auxiliar, sino lo hacemos manual)
+                
                 $precioVigente = PrecioProducto::where('productoID', $producto->id)
                     ->where('tipoClienteID', $precioInput['tipoClienteID'])
                     ->whereNull('fechaHasta') // Solo los vigentes
@@ -58,12 +60,13 @@ class UpdateProductoService
                         
                         $fechaDesdeActual = Carbon::parse($precioVigente->fechaDesde)->utc()->toDateString();
 
-                        // (Ambas fechas estarán en UTC 00:00:00)
                         if ($fechaDesdeActual == ($fechaActualUTC)) {
+                            // Si el precio se creó HOY, solo lo actualizamos
                             $precioVigente->precio = $precioNuevo;
                             $precioVigente->save();
                         
                         } else {
+                            // Si es un precio antiguo, lo cerramos y creamos uno nuevo
                             // A. Cerrar el precio anterior
                             $precioVigente->update(['fechaHasta' => $fechaActual]);
 
@@ -90,14 +93,19 @@ class UpdateProductoService
                 }
             }
 
-            // 3. Auditoría con Motivo (CU-26)
+            // 3. Auditoría con Motivo (CU-26, Paso 11)
+            // Obtenemos los datos frescos del producto Y sus nuevos precios
+            $datosNuevos = $producto->fresh()->toArray();
+            $preciosNuevos = $producto->precios()->whereNull('fechaHasta')->get()->toArray();
+            $datosNuevos['precios_vigentes'] = $preciosNuevos;
+
             Auditoria::create([
                 'tabla_afectada' => 'productos',
                 'registro_id' => $producto->id,
                 'accion' => 'MODIFICAR_PRODUCTO',
                 'datos_anteriores' => json_encode($datosAnteriores),
-                'datos_nuevos' => json_encode($producto->fresh()->toArray()),
-                'motivo' => $data['motivo'], // Requerido por el CU
+                'datos_nuevos' => json_encode($datosNuevos),
+                'motivo' => $data['motivo'], // Requerido por el CU-26
                 'usuarioID' => $userId,
                 'detalles' => "Producto modificado: {$producto->nombre}"
             ]);
