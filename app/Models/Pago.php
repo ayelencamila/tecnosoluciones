@@ -48,7 +48,8 @@ class Pago extends Model
 
         static::creating(function ($pago) {
             if (empty($pago->numero_recibo)) {
-                $pago->numero_recibo = 'REC-' . time() . '-' . rand(100, 999);
+                // Formato: REC-YYYYMMDD-HHMMSS-MICROSEC (garantiza unicidad sin depender del ID)
+                $pago->numero_recibo = 'REC-' . date('Ymd-His') . '-' . substr(microtime(), 2, 6);
             }
         });
     }

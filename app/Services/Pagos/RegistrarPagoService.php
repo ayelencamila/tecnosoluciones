@@ -20,6 +20,18 @@ class RegistrarPagoService
             
             // 1. Validar Cliente
             $cliente = Cliente::with('cuentaCorriente')->findOrFail($data['clienteID']);
+            
+            // Validación CU-10 Excepción 5b: El cliente DEBE tener Cuenta Corriente
+            if (!$cliente->cuentaCorriente) {
+                throw new Exception("El cliente {$cliente->nombre} {$cliente->apellido} no tiene cuenta corriente activa. Solo clientes mayoristas pueden registrar pagos.");
+            }
+
+            // Validación CU-10 Excepción 7a: El monto no puede exceder el saldo adeudado
+            if ($data['monto'] > $cliente->cuentaCorriente->saldo) {
+                $saldoFormateado = number_format($cliente->cuentaCorriente->saldo, 2, ',', '.');
+                $montoFormateado = number_format($data['monto'], 2, ',', '.');
+                throw new Exception("El monto del pago (\${$montoFormateado}) excede el saldo adeudado (\${$saldoFormateado}). No se permiten pagos adelantados.");
+            }
 
             // 2. Crear Registro de Pago (El comprobante físico)
             $pago = Pago::create([
@@ -33,24 +45,19 @@ class RegistrarPagoService
             ]);
 
             // 3. Actualizar Cuenta Corriente (CU-10 Paso 11)
-            if ($cliente->cuentaCorriente) {
-                $descripcion = "Pago Recibido - Recibo: {$pago->numero_recibo}";
-                
-                $cliente->cuentaCorriente->registrarCredito(
-                    $pago->monto,
-                    $descripcion,
-                    $pago->pago_id,
-                    'pagos',
-                    $userId
-                );
+            $descripcion = "Pago Recibido - Recibo: {$pago->numero_recibo}";
+            
+            $cliente->cuentaCorriente->registrarCredito(
+                $pago->monto,
+                $descripcion,
+                $pago->pago_id,
+                'pagos',
+                $userId
+            );
 
-                // Lógica Extra: Si paga todo, intentamos desbloquear automáticamente
-                if ($cliente->cuentaCorriente->saldo <= 0 && $cliente->cuentaCorriente->estaBloqueada()) {
-                    $cliente->cuentaCorriente->desbloquear("Desbloqueo automático por pago total (Recibo: {$pago->numero_recibo})", $userId);
-                }
-            } else {
-                // Si es un cliente minorista sin CC, el pago queda registrado solo como historial de caja.
-                // (O podrías lanzar excepción si tu regla de negocio exige CC para pagar).
+            // Lógica Extra: Si paga todo, desbloquear automáticamente
+            if ($cliente->cuentaCorriente->saldo <= 0 && $cliente->cuentaCorriente->estaBloqueada()) {
+                $cliente->cuentaCorriente->desbloquear("Desbloqueo automático por pago total (Recibo: {$pago->numero_recibo})", $userId);
             }
 
             Log::info("Pago registrado exitosamente: ID {$pago->pago_id} - Cliente {$cliente->clienteID}");

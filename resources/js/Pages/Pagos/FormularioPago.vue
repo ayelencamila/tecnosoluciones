@@ -8,6 +8,7 @@ import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import InputError from '@/Components/InputError.vue';
+import AlertMessage from '@/Components/AlertMessage.vue';
 import { debounce } from 'lodash';
 
 // Props pasadas desde PagoController@create
@@ -20,7 +21,7 @@ const props = defineProps({
 // Define los campos que se enviarán al backend
 const form = useForm({
     clienteID: null,
-    monto: null,
+    monto: '', // String vacío en lugar de null
     metodo_pago: 'efectivo', // Valor por defecto
     observaciones: '',
 });
@@ -101,6 +102,18 @@ const metodosPagoOptions = [
             <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <form @submit.prevent="submit" class="p-6 md:p-8 space-y-6">
+
+                        <!-- Mensajes Flash -->
+                        <AlertMessage 
+                            v-if="$page.props.flash?.error" 
+                            type="error" 
+                            :message="$page.props.flash.error" 
+                        />
+                        <AlertMessage 
+                            v-if="$page.props.flash?.success" 
+                            type="success" 
+                            :message="$page.props.flash.success" 
+                        />
 
                         <section>
                             <InputLabel for="clienteSearch" value="Buscar Cliente (ObligatorIO)" class="text-lg font-medium" />

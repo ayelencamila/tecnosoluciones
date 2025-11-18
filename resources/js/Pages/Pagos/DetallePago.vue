@@ -3,7 +3,8 @@ import { ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import DangerButton from '@/Components/DangerButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue'; 
+import SecondaryButton from '@/Components/SecondaryButton.vue';
+import AlertMessage from '@/Components/AlertMessage.vue'; 
 
 const props = defineProps({
     pago: Object, // Viene del PagoController@show
@@ -43,6 +44,20 @@ const anularPago = () => {
         <div class="py-12">
             <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
                 
+                <!-- Mensajes Flash -->
+                <AlertMessage 
+                    v-if="$page.props.flash?.error" 
+                    type="error" 
+                    :message="$page.props.flash.error"
+                    class="mb-6" 
+                />
+                <AlertMessage 
+                    v-if="$page.props.flash?.success" 
+                    type="success" 
+                    :message="$page.props.flash.success"
+                    class="mb-6" 
+                />
+
                 <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-200">
                     
                     <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">

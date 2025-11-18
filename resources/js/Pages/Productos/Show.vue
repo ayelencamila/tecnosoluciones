@@ -58,12 +58,36 @@ const deleteProducto = () => {
                         </div>
                         <div>
                             <p class="text-gray-600">Stock Actual:</p>
-                            <p class="text-lg font-semibold">{{ producto.stock }}</p>
+                            <p class="text-lg font-semibold">{{ producto.stockActual }}</p>
                         </div>
-                         <div>
-                            <p class="text-gray-600">Precio:</p>
-                            <p class="text-lg font-semibold">${{ producto.precio }}</p>
+                        <div>
+                            <p class="text-gray-600">Código:</p>
+                            <p class="text-gray-800">{{ producto.codigo }}</p>
                         </div>
+                        <div>
+                            <p class="text-gray-600">Marca:</p>
+                            <p class="text-gray-800">{{ producto.marca || 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">Categoría:</p>
+                            <p class="text-gray-800">{{ producto.categoria?.nombre || 'N/A' }}</p>
+                        </div>
+                        <div>
+                            <p class="text-gray-600">Estado:</p>
+                            <p class="text-gray-800">{{ producto.estado?.nombre || 'N/A' }}</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-6">
+                        <p class="text-gray-600 font-semibold mb-2">Precios por Tipo de Cliente:</p>
+                        <div v-if="producto.precios && producto.precios.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div v-for="precio in producto.precios" :key="precio.id" class="bg-gray-50 p-3 rounded">
+                                <p class="text-sm text-gray-600">{{ precio.tipo_cliente?.nombre || 'N/A' }}</p>
+                                <p class="text-lg font-semibold text-indigo-600">${{ precio.precio.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}</p>
+                                <p class="text-xs text-gray-500">Desde: {{ new Date(precio.fechaDesde).toLocaleDateString('es-AR') }}</p>
+                            </div>
+                        </div>
+                        <p v-else class="text-gray-500 text-sm">No hay precios registrados</p>
                         </div>
 
                     <hr class="my-6">

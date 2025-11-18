@@ -9,6 +9,7 @@ use App\Services\Pagos\RegistrarPagoService;
 use App\Http\Requests\Pagos\StorePagoRequest;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Exception;
 

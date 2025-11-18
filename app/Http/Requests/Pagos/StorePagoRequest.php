@@ -25,8 +25,15 @@ class StorePagoRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'monto.min' => 'El monto del pago debe ser mayor a 0.',
+            'clienteID.required' => 'Debe seleccionar un cliente.',
             'clienteID.exists' => 'El cliente seleccionado no existe.',
+            'monto.required' => 'El monto del pago es obligatorio.',
+            'monto.numeric' => 'El monto debe ser un número válido.',
+            'monto.min' => 'El monto del pago debe ser mayor a $0.01',
+            'monto.max' => 'El monto del pago no puede exceder $999,999,999.00',
+            'metodo_pago.required' => 'Debe seleccionar un método de pago.',
+            'metodo_pago.in' => 'El método de pago seleccionado no es válido.',
+            'observaciones.max' => 'Las observaciones no pueden exceder 500 caracteres.',
         ];
     }
 }
