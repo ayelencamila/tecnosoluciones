@@ -48,6 +48,7 @@ class DatabaseSeeder extends Seeder
 
         // 3. Datos del módulo de Productos
         $this->call([
+            DepositoSeeder::class,
             CategoriaProductoSeeder::class,
             EstadoProductoSeeder::class,
             ProductoSeeder::class,

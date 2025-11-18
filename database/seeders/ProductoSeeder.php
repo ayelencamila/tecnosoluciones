@@ -2,26 +2,43 @@
 
 namespace Database\Seeders;
 
+// Importamos los modelos que usaremos
 use App\Models\CategoriaProducto;
 use App\Models\EstadoProducto;
 use App\Models\PrecioProducto;
 use App\Models\Producto;
 use App\Models\TipoCliente;
+use App\Models\Deposito; // <-- IMPORTANTE
+use App\Models\Stock;      // <-- IMPORTANTE
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB; // <-- IMPORTANTE
 
 class ProductoSeeder extends Seeder
 {
     public function run(): void
     {
-        // Obtener IDs necesarios
+        // 1. Obtener IDs de referencia
         $categorias = CategoriaProducto::all();
         $estadoActivo = EstadoProducto::where('nombre', 'Activo')->first();
         $tiposCliente = TipoCliente::all();
+        
+        // Buscamos el depósito principal (debe existir gracias al DepositoSeeder)
+        $depositoPrincipal = Deposito::first();
 
-        // Productos de ejemplo
-        $productos = [
-            // EQUIPOS
-            [
+        if (!$estadoActivo || !$depositoPrincipal || $tiposCliente->isEmpty() || $categorias->isEmpty()) {
+            $this->command->error('Error: Faltan datos base (Estados, Depósitos, Tipos de Cliente o Categorías) para correr el ProductoSeeder.');
+            return;
+        }
+        
+        // Agrupamos la creación en una transacción
+        DB::transaction(function () use ($categorias, $estadoActivo, $tiposCliente, $depositoPrincipal) {
+            
+            // Definimos los tipos de cliente para los precios
+            $tipoNormal = $tiposCliente->where('nombreTipo', 'Minorista')->first()->tipoClienteID;
+            $tipoMayorista = $tiposCliente->where('nombreTipo', 'Mayorista')->first()->tipoClienteID;
+
+            // --- PRODUCTO FÍSICO 1 (EQUIPO) ---
+            $prod1 = Producto::create([
                 'codigo' => 'EQ-001',
                 'nombre' => 'Notebook HP Pavilion 15',
                 'descripcion' => 'Notebook 15.6" Intel Core i5, 8GB RAM, 256GB SSD',
@@ -29,99 +46,23 @@ class ProductoSeeder extends Seeder
                 'unidadMedida' => 'UNIDAD',
                 'categoriaProductoID' => $categorias->where('nombre', 'Equipos')->first()->id,
                 'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 5,
-                'stockMinimo' => 2,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 850000],
-                    ['tipo' => 'Mayorista', 'precio' => 780000],
-                    ['tipo' => 'VIP', 'precio' => 750000],
-                ],
-            ],
-            [
-                'codigo' => 'EQ-002',
-                'nombre' => 'PC Escritorio Intel i7',
-                'descripcion' => 'PC completa Intel Core i7, 16GB RAM, 512GB SSD, Monitor 24"',
-                'marca' => 'Ensamblado',
-                'unidadMedida' => 'UNIDAD',
-                'categoriaProductoID' => $categorias->where('nombre', 'Equipos')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 3,
-                'stockMinimo' => 1,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 1200000],
-                    ['tipo' => 'Mayorista', 'precio' => 1100000],
-                    ['tipo' => 'VIP', 'precio' => 1050000],
-                ],
-            ],
+                'proveedor_habitual_id' => null 
+            ]);
 
-            // ACCESORIOS
-            [
-                'codigo' => 'ACC-001',
-                'nombre' => 'Teclado Mecánico RGB',
-                'descripcion' => 'Teclado mecánico gaming con iluminación RGB',
-                'marca' => 'Redragon',
-                'unidadMedida' => 'UNIDAD',
-                'categoriaProductoID' => $categorias->where('nombre', 'Accesorios')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 15,
-                'stockMinimo' => 5,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 35000],
-                    ['tipo' => 'Mayorista', 'precio' => 30000],
-                    ['tipo' => 'VIP', 'precio' => 28000],
-                ],
-            ],
-            [
-                'codigo' => 'ACC-002',
-                'nombre' => 'Mouse Inalámbrico Logitech',
-                'descripcion' => 'Mouse óptico inalámbrico 1600 DPI',
-                'marca' => 'Logitech',
-                'unidadMedida' => 'UNIDAD',
-                'categoriaProductoID' => $categorias->where('nombre', 'Accesorios')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 20,
-                'stockMinimo' => 8,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 15000],
-                    ['tipo' => 'Mayorista', 'precio' => 12000],
-                    ['tipo' => 'VIP', 'precio' => 11000],
-                ],
-            ],
-            [
-                'codigo' => 'ACC-003',
-                'nombre' => 'Monitor LED 24" Samsung',
-                'descripcion' => 'Monitor Full HD 24 pulgadas, HDMI',
-                'marca' => 'Samsung',
-                'unidadMedida' => 'UNIDAD',
-                'categoriaProductoID' => $categorias->where('nombre', 'Accesorios')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 8,
-                'stockMinimo' => 3,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 180000],
-                    ['tipo' => 'Mayorista', 'precio' => 165000],
-                    ['tipo' => 'VIP', 'precio' => 160000],
-                ],
-            ],
+            // Creamos su Stock en la tabla 'stock'
+            Stock::create([
+                'productoID' => $prod1->id,
+                'deposito_id' => $depositoPrincipal->deposito_id,
+                'cantidad_disponible' => 5, 
+                'stock_minimo' => 2,        
+            ]);
 
-            // REPUESTOS
-            [
-                'codigo' => 'REP-001',
-                'nombre' => 'Memoria RAM DDR4 8GB',
-                'descripcion' => 'Módulo RAM DDR4 8GB 2666MHz',
-                'marca' => 'Kingston',
-                'unidadMedida' => 'UNIDAD',
-                'categoriaProductoID' => $categorias->where('nombre', 'Repuestos')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 25,
-                'stockMinimo' => 10,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 45000],
-                    ['tipo' => 'Mayorista', 'precio' => 40000],
-                    ['tipo' => 'VIP', 'precio' => 38000],
-                ],
-            ],
-            [
+            // Creamos sus Precios
+            PrecioProducto::create(['productoID' => $prod1->id, 'tipoClienteID' => $tipoNormal, 'precio' => 850000, 'fechaDesde' => now()]);
+            PrecioProducto::create(['productoID' => $prod1->id, 'tipoClienteID' => $tipoMayorista, 'precio' => 780000, 'fechaDesde' => now()]);
+
+            // --- PRODUCTO FÍSICO 2 (REPUESTO) ---
+            $prod2 = Producto::create([
                 'codigo' => 'REP-002',
                 'nombre' => 'Disco SSD 480GB',
                 'descripcion' => 'Disco de estado sólido 480GB SATA III',
@@ -129,71 +70,41 @@ class ProductoSeeder extends Seeder
                 'unidadMedida' => 'UNIDAD',
                 'categoriaProductoID' => $categorias->where('nombre', 'Repuestos')->first()->id,
                 'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 12,
-                'stockMinimo' => 5,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 55000],
-                    ['tipo' => 'Mayorista', 'precio' => 50000],
-                    ['tipo' => 'VIP', 'precio' => 48000],
-                ],
-            ],
-            [
-                'codigo' => 'REP-003',
-                'nombre' => 'Fuente de Poder 600W',
-                'descripcion' => 'Fuente ATX 600W 80+ Bronze',
-                'marca' => 'Thermaltake',
-                'unidadMedida' => 'UNIDAD',
-                'categoriaProductoID' => $categorias->where('nombre', 'Repuestos')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 1,
-                'stockMinimo' => 1,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 65000],
-                    ['tipo' => 'Mayorista', 'precio' => 58000],
-                    ['tipo' => 'VIP', 'precio' => 55000],
-                ],
-            ],
+                'proveedor_habitual_id' => null
+            ]);
+            
+            // Creamos su Stock
+            Stock::create([
+                'productoID' => $prod2->id,
+                'deposito_id' => $depositoPrincipal->deposito_id,
+                'cantidad_disponible' => 12,
+                'stock_minimo' => 5,
+            ]);
 
-            // SERVICIOS TÉCNICOS
-            [
+            // Creamos sus Precios
+            PrecioProducto::create(['productoID' => $prod2->id, 'tipoClienteID' => $tipoNormal, 'precio' => 55000, 'fechaDesde' => now()]);
+            PrecioProducto::create(['productoID' => $prod2->id, 'tipoClienteID' => $tipoMayorista, 'precio' => 50000, 'fechaDesde' => now()]);
+
+            // --- SERVICIO (NO FÍSICO) ---
+            $serv1 = Producto::create([
                 'codigo' => 'SERV-001',
                 'nombre' => 'Servicio de Mantenimiento Preventivo',
-                'descripcion' => 'Limpieza completa, renovación de pasta térmica, optimización de software',
+                'descripcion' => 'Limpieza completa, renovación de pasta térmica, optimización',
                 'marca' => null,
                 'unidadMedida' => 'SERVICIO',
                 'categoriaProductoID' => $categorias->where('nombre', 'Servicios Técnicos')->first()->id,
                 'estadoProductoID' => $estadoActivo->id,
-                'stockActual' => 999,
-                'stockMinimo' => 1,
-                'precios' => [
-                    ['tipo' => 'Normal', 'precio' => 25000],
-                    ['tipo' => 'Mayorista', 'precio' => 22000],
-                    ['tipo' => 'VIP', 'precio' => 20000],
-                ],
-            ],
-        ];
+                'proveedor_habitual_id' => null
+            ]);
+            
+            // ¡NO CREAMOS REGISTRO DE STOCK! (Porque es un servicio)
 
-        foreach ($productos as $prodData) {
-            $precios = $prodData['precios'];
-            unset($prodData['precios']);
-
-            // Crear producto
-            $producto = Producto::create($prodData);
-
-            // Crear precios para cada tipo de cliente
-            foreach ($precios as $precioData) {
-                $tipoCliente = $tiposCliente->where('nombreTipo', $precioData['tipo'])->first();
-
-                if ($tipoCliente) {
-                    PrecioProducto::create([
-                        'productoID' => $producto->id,
-                        'tipoClienteID' => $tipoCliente->tipoClienteID,
-                        'precio' => $precioData['precio'],
-                        'fechaDesde' => now(),
-                        'fechaHasta' => null, // Precio vigente
-                    ]);
-                }
-            }
-        }
+            // Creamos sus Precios
+            PrecioProducto::create(['productoID' => $serv1->id, 'tipoClienteID' => $tipoNormal, 'precio' => 25000, 'fechaDesde' => now()]);
+            PrecioProducto::create(['productoID' => $serv1->id, 'tipoClienteID' => $tipoMayorista, 'precio' => 22000, 'fechaDesde' => now()]);
+            
+            $this->command->info('Productos y stocks de ejemplo creados exitosamente.');
+        
+        });
     }
 }

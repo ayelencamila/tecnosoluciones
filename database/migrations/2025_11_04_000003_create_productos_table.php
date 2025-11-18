@@ -6,8 +6,12 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
+    /**
+     * Run the migrations.
+     */
     public function up(): void
     {
+        // Este bloque SOLO CREA la tabla
         Schema::create('productos', function (Blueprint $table) {
             $table->id();
             $table->string('codigo', 50)->unique();
@@ -17,17 +21,21 @@ return new class extends Migration
             $table->string('unidadMedida', 20);
             $table->foreignId('categoriaProductoID')->constrained('categorias_producto');
             $table->foreignId('estadoProductoID')->constrained('estados_producto');
-            $table->integer('stockActual')->default(0);
-            $table->integer('stockMinimo')->default(0);
+            
+            // ¡Ni 'stock' ni 'proveedor' van aquí!
+            
             $table->timestamps();
 
-            // Índices para mejorar el rendimiento
+            // Índices
             $table->index('codigo');
             $table->index('nombre');
             $table->index('categoriaProductoID');
         });
     }
 
+    /**
+     * Reverse the migrations.
+     */
     public function down(): void
     {
         Schema::dropIfExists('productos');

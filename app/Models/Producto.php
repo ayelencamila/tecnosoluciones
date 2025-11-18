@@ -13,8 +13,6 @@ class Producto extends Model
     use HasFactory;
 
     protected $table = 'productos';
-    // Asumo que tu PK es 'id' (autoincremental), ya que tu controlador usa $producto->id
-    // Si tu PK es 'productoID', debes agregar: protected $primaryKey = 'productoID';
 
     /**
      * Atributos que se pueden asignar masivamente (StoreProductoRequest)
@@ -27,16 +25,14 @@ class Producto extends Model
         'unidadMedida',
         'categoriaProductoID',
         'estadoProductoID',
-        'stockActual',
-        'stockMinimo',
+        'proveedor_habitual_id', // <-- CORRECCIÓN 1: Añadido
     ];
 
     /**
      * Conversión de tipos de datos
      */
     protected $casts = [
-        'stockActual' => 'integer',
-        'stockMinimo' => 'integer',
+        // (Correcto, 'stockActual' y 'stockMinimo' ya no están aquí)
     ];
 
     // --- RELACIONES ---
@@ -46,7 +42,6 @@ class Producto extends Model
      */
     public function categoria(): BelongsTo
     {
-        // Tu controlador usa 'categoriaProductoID' como FK
         return $this->belongsTo(CategoriaProducto::class, 'categoriaProductoID', 'id');
     }
 
@@ -55,7 +50,6 @@ class Producto extends Model
      */
     public function estado(): BelongsTo
     {
-        // Tu controlador usa 'estadoProductoID' como FK
         return $this->belongsTo(EstadoProducto::class, 'estadoProductoID', 'id');
     }
 
@@ -64,44 +58,35 @@ class Producto extends Model
      */
     public function precios(): HasMany
     {
-        // Tu controlador usa 'productoID' como FK en la tabla precios
         return $this->hasMany(PrecioProducto::class, 'productoID', 'id');
     }
 
     /**
-     * Un Producto tiene stock en múltiples depósitos
+     * Un Producto tiene existencias en uno o muchos depósitos.
      */
     public function stocks(): HasMany
     {
         return $this->hasMany(Stock::class, 'productoID', 'id');
     }
 
-    // --- LÓGICA DE STOCK (DEPÓSITO ÚNICO - CORREGIDO) ---
-
     /**
-     * Verifica si hay stock suficiente en la columna 'stockActual'.
-     * (CU-05 Excepción 3a)
+     * Un Producto tiene un Proveedor Habitual (opcional)
+     * (CU-25, CU-26, CU-28)
      */
-    public function tieneStock(float $cantidadRequerida): bool
+    public function proveedorHabitual(): BelongsTo // <-- CORRECCIÓN 2: Añadido
     {
-        // CORREGIDO: Lee 'stockActual' del modelo
-        return $this->stockActual >= $cantidadRequerida;
+        // Asume que el modelo Proveedor existe o lo crearás pronto
+        return $this->belongsTo(Proveedor::class, 'proveedor_habitual_id', 'id');
     }
 
-    /**
-     * Accessor para asegurar que 'stockActual' se trate como int
-     * Lee directamente la columna 'stockActual' de la tabla productos
-     */
-    public function getStockActualAttribute($value): int
-    {
-        return (int) $value;
-    }
+    // --- CORRECCIÓN 3: ELIMINADO EL BLOQUE DUPLICADO DE 'stocks()' ---
+    // (El bloque que estaba aquí, de la línea 72 a la 81, se eliminó)
+    
 
     // --- LÓGICA DE PRECIOS (EXPERTO LARMAN) ---
 
     /**
      * Busca el precio vigente para un tipo de cliente específico.
-     * (Lógica movida desde el ProductoController@update)
      */
     public function precioVigente(int $tipoClienteID): ?PrecioProducto
     {
@@ -121,13 +106,10 @@ class Producto extends Model
      */
     public function darDeBaja(string $motivo, int $userId): bool
     {
-        // Usamos una transacción por si falla la auditoría (aunque es poco probable)
         return DB::transaction(function () use ($motivo, $userId) {
             
             $estadoInactivo = EstadoProducto::where('nombre', 'Inactivo')->first();
             if (!$estadoInactivo) {
-                // Si no existe el estado 'Inactivo', creamos uno o fallamos
-                // $estadoInactivo = EstadoProducto::create(['nombre' => 'Inactivo']);
                 throw new \Exception("No se encontró el estado 'Inactivo' para productos.");
             }
 
@@ -140,12 +122,11 @@ class Producto extends Model
             // 1. Cambiar estado
             $this->update(['estadoProductoID' => $estadoInactivo->id]);
 
-            // 2. Registrar Auditoría (Como lo hacía tu controlador)
-            // Asumo que tu modelo Auditoria tiene un método 'registrar'
+            // 2. Registrar Auditoría
             Auditoria::create([
                 'tabla_afectada' => 'productos',
                 'registro_id' => $this->id,
-                'accion' => 'BAJA_PRODUCTO', // (Deberías agregar esta constante a tu modelo Auditoria)
+                'accion' => 'BAJA_PRODUCTO', 
                 'datos_anteriores' => json_encode($datosAnteriores),
                 'datos_nuevos' => json_encode($this->fresh()->toArray()),
                 'motivo' => $motivo,
@@ -157,6 +138,5 @@ class Producto extends Model
         });
     }
 
-    // (Tu controlador no tiene lógica de 'boot()' para Producto,
-    // así que lo dejamos sin ella por ahora, ya que los Servicios manejan la auditoría)
+    // (El resto de la lógica que tenías está perfecta)
 }
