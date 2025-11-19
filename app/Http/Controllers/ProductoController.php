@@ -257,21 +257,30 @@ class ProductoController extends Controller
     /**
      * CU-29: Consultar Stock (Inventario)
      */
+    /**
+     * CU-29: Consultar Stock (Inventario)
+     */
     public function stock(Request $request)
     {
-        // Consulta empieza desde STOCK
+        // Consulta principal desde la tabla STOCK
         $query = Stock::query()->with([
             'producto.categoria',
             'deposito'
         ]);
 
-        // Filtros
+        // 1. Filtro por Depósito (Requerido por CU-29 Paso 2)
+        if ($request->has('deposito_id') && $request->input('deposito_id')) {
+            $query->where('deposito_id', $request->input('deposito_id'));
+        }
+
+        // 2. Filtro por Categoría
         if ($request->has('categoria_id') && $request->input('categoria_id')) {
             $query->whereHas('producto', function (Builder $q) use ($request) {
                 $q->where('categoriaProductoID', $request->input('categoria_id'));
             });
         }
         
+        // 3. Búsqueda General (Código o Nombre)
         if ($request->has('search') && $request->input('search')) {
             $searchTerm = $request->input('search');
             $query->whereHas('producto', function (Builder $q) use ($searchTerm) {
@@ -280,21 +289,26 @@ class ProductoController extends Controller
             });
         }
         
+        // 4. Filtro Stock Bajo
         if ($request->has('stock_bajo') && $request->input('stock_bajo') === 'true') {
             $query->whereRaw('cantidad_disponible <= stock_minimo');
         }
 
-        // Stats
-        $stockBajoCount = Stock::whereRaw('cantidad_disponible <= stock_minimo')->count();
-
-        $stocks = $query->orderBy('stock_id', 'asc')->paginate(10)->withQueryString();
+        // Ordenamiento por defecto
+        $stocks = $query->orderBy('productoID', 'asc')
+                        ->paginate(15) // Paginación
+                        ->withQueryString();
 
         return Inertia::render('Productos/Stock', [
             'stocks' => $stocks, 
+            // Cargamos los catálogos para los filtros
             'categorias' => CategoriaProducto::where('activo', true)->get(['id', 'nombre']),
-            'filters' => $request->only(['search', 'categoria_id', 'stock_bajo']),
+            'depositos' => \App\Models\Deposito::where('activo', true)->get(['deposito_id', 'nombre']), // <--- Agregado
+            'filters' => $request->only(['search', 'categoria_id', 'stock_bajo', 'deposito_id']),
             'stats' => [
-                'stockBajo' => $stockBajoCount,
+                'totalItems' => Stock::count(),
+                'valorizado' => 0, // Podrías calcularlo si tuvieras costo
+                'stockBajo' => Stock::whereRaw('cantidad_disponible <= stock_minimo')->count(),
             ],
         ]);
     }
