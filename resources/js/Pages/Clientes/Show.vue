@@ -7,7 +7,7 @@ import DangerButton from '@/Components/DangerButton.vue';
 
 const props = defineProps({
     cliente: Object,
-    historialAuditoria: Array, // Se pasa desde el controller
+    historialAuditoria: Array,
 });
 
 // Helper para formato de moneda
@@ -68,10 +68,20 @@ const formatCurrency = (value) => {
                                     {{ cliente.telefono || '-' }} / {{ cliente.whatsapp || '-' }}
                                 </dd>
                             </div>
+                            
                             <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                                 <dt class="text-sm font-medium text-gray-500">Dirección</dt>
                                 <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
-                                    {{ cliente.direccion_completa_con_ubicacion || 'Sin dirección cargada' }}
+                                    <span v-if="cliente.direccion">
+                                        {{ cliente.direccion.calle }} {{ cliente.direccion.altura }}
+                                        <span v-if="cliente.direccion.pisoDepto">, {{ cliente.direccion.pisoDepto }}</span>
+                                        <br>
+                                        {{ cliente.direccion.localidad?.nombre }}, {{ cliente.direccion.localidad?.provincia?.nombre }}
+                                        <span v-if="cliente.direccion.codigoPostal"> (CP: {{ cliente.direccion.codigoPostal }})</span>
+                                    </span>
+                                    <span v-else class="text-gray-400 italic">
+                                        Sin dirección cargada
+                                    </span>
                                 </dd>
                             </div>
                         </dl>
@@ -112,7 +122,7 @@ const formatCurrency = (value) => {
                     </Link>
                 </div>
 
-                 </div>
+            </div>
         </div>
     </AppLayout>
 </template>
