@@ -26,8 +26,6 @@ class StoreProductoRequest extends FormRequest
             // (NUEVO) Validación para el Proveedor Habitual (CU-25)
             // Es 'nullable' (no requerido) y debe existir en la tabla 'proveedores'
             'proveedor_habitual_id' => 'nullable|exists:proveedores,id',
-
-            // (ELIMINADO) 'stockActual' y 'stockMinimo' ya no se validan aquí.
             
             // --- Datos de Precios (Tabla 'precios_producto') ---
             // Validamos que el frontend envíe los precios como un array

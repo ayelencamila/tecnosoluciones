@@ -88,7 +88,7 @@ const resetFilters = () => {
     form.value = { search: '', categoria_id: '', estado_id: '', proveedor_id: '', stock_bajo: false, sort_column: 'nombre', sort_direction: 'asc' };
 };
 
-// --- HELPERS VISUALES (Estilo Clientes) ---
+// --- HELPERS VISUALES ---
 const getEstadoBadgeClass = (estadoNombre) => {
     switch (estadoNombre?.toLowerCase()) {
         case 'activo': return 'bg-green-100 text-green-800';
@@ -108,10 +108,10 @@ const calcularStockTotal = (stocks) => {
     return stocks.reduce((acc, stock) => acc + stock.cantidad_disponible, 0);
 };
 
-// --- PAGINACIÓN (Estilo Flechitas) ---
-const translateLabel = (label) => {
-    if (label.includes('Previous')) return '&laquo;';
-    if (label.includes('Next')) return '&raquo;';
+// --- PAGINACIÓN (Igual a Clientes) ---
+const getPaginationLabel = (label, index, totalLinks) => {
+    if (index === 0) return '&laquo;';
+    if (index === totalLinks - 1) return '&raquo;';
     return label;
 };
 </script>
@@ -194,6 +194,7 @@ const translateLabel = (label) => {
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-bold text-gray-900">{{ producto.nombre }}</div>
                                         <div class="text-xs text-gray-500 font-mono">{{ producto.codigo }}</div>
+                                        <div v-if="producto.marca" class="text-xs text-gray-400">{{ producto.marca }}</div>
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-500">
                                         {{ producto.categoria?.nombre }}
@@ -202,7 +203,8 @@ const translateLabel = (label) => {
                                         {{ getPrecioMinorista(producto.precios) }}
                                     </td>
                                     <td class="px-6 py-4 text-center">
-                                        <span class="text-sm font-bold text-gray-600">
+                                        <span class="text-sm font-bold px-2 py-1 rounded"
+                                            :class="calcularStockTotal(producto.stocks) < (producto.stocks[0]?.stock_minimo || 0) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'">
                                             {{ calcularStockTotal(producto.stocks) }}
                                         </span>
                                     </td>
@@ -214,23 +216,21 @@ const translateLabel = (label) => {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div class="flex justify-end space-x-3 items-center">
-                                            <Link :href="route('productos.show', producto.id)" class="text-gray-400 hover:text-indigo-600 transition" title="Ver Detalle">
+                                            <Link :href="route('productos.show', producto.id)" class="text-indigo-600 hover:text-indigo-900 font-bold" title="Ver Detalle">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                                             </Link>
                                             
-                                            <Link :href="route('productos.edit', producto.id)" class="text-gray-400 hover:text-amber-500 transition" title="Editar">
+                                            <Link :href="route('productos.edit', producto.id)" class="text-amber-500 hover:text-amber-700" title="Editar">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
                                             </Link>
 
                                             <button 
                                                 v-if="producto.estado?.nombre === 'Activo'"
                                                 @click="confirmDelete(producto)"
-                                                class="text-gray-400 hover:text-red-600 transition" 
+                                                class="text-red-600 hover:text-red-900 transition" 
                                                 title="Dar de Baja"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                                </svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                                             </button>
                                         </div>
                                     </td>
@@ -248,7 +248,7 @@ const translateLabel = (label) => {
                         </table>
                     </div>
                     
-                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50" v-if="productos.links && productos.links.length > 3">
+                    <div class="px-6 py-4 border-t border-gray-200 bg-gray-50">
                          <div class="flex justify-center items-center space-x-1">
                             <template v-for="(link, k) in productos.links" :key="k">
                                 <Link 
@@ -257,20 +257,20 @@ const translateLabel = (label) => {
                                     class="px-3 py-1 min-w-[32px] text-center border rounded text-sm font-medium transition-all duration-150"
                                     :class="link.active 
                                         ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-500 border-indigo-600' 
-                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:text-indigo-600'"
+                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300'"
                                 >
-                                    <span v-html="translateLabel(link.label)"></span>
+                                    <span v-html="getPaginationLabel(link.label, k, productos.links.length)"></span>
                                 </Link>
                                 <span 
                                     v-else 
                                     class="px-3 py-1 min-w-[32px] text-center border rounded text-sm bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" 
-                                    v-html="translateLabel(link.label)"
+                                    v-html="getPaginationLabel(link.label, k, productos.links.length)"
                                 ></span>
                             </template>
                         </div>
                     </div>
+
                 </div>
-                
             </div>
         </div>
 
