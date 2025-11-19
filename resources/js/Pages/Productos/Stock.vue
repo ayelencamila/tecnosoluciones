@@ -36,7 +36,7 @@ watch(form, debounce(() => {
 
 const resetFilters = () => { form.value = { search: '', categoria_id: '', deposito_id: '', stock_bajo: false }; };
 
-// --- LÓGICA DE AJUSTE DE STOCK (CU-30) ---
+// --- LÓGICA DE AJUSTE (MOVIMIENTOS) ---
 const showingAdjustmentModal = ref(false);
 const stockToAdjust = ref(null);
 
@@ -73,7 +73,6 @@ const submitAdjustment = () => {
         adjustmentForm.setError('motivo', 'El motivo es obligatorio');
         return;
     }
-
     adjustmentForm.post(route('stock.movimiento.store'), {
         onSuccess: () => closeAdjustmentModal(),
         preserveScroll: true,
@@ -81,16 +80,45 @@ const submitAdjustment = () => {
     });
 };
 
+// --- LÓGICA DE CONFIGURACIÓN (MINIMOS) ---
+const showingConfigModal = ref(false);
+const stockToConfig = ref(null);
+
+const configForm = useForm({
+    stock_minimo: 0,
+});
+
+const openConfigModal = (stock) => {
+    stockToConfig.value = stock;
+    configForm.stock_minimo = stock.stock_minimo;
+    configForm.clearErrors();
+    configForm.processing = false;
+    showingConfigModal.value = true;
+};
+
+const closeConfigModal = () => {
+    showingConfigModal.value = false;
+    stockToConfig.value = null;
+    configForm.reset();
+};
+
+const submitConfig = () => {
+    configForm.put(route('stock.update', stockToConfig.value.stock_id), {
+        onSuccess: () => closeConfigModal(),
+        preserveScroll: true,
+    });
+};
+
 const movementTypes = [
-    { value: 'ENTRADA', label: 'Entrada (Suma Stock)' },
-    { value: 'SALIDA', label: 'Salida (Resta Stock)' },
-    { value: 'AJUSTE', label: 'Ajuste / Inventario (Suma)' },
+    { value: 'ENTRADA', label: 'Entrada (Suma)' },
+    { value: 'SALIDA', label: 'Salida (Resta)' },
+    { value: 'AJUSTE', label: 'Ajuste (Suma/Corrección)' },
 ];
 
-// --- PAGINACIÓN ESTANDARIZADA (Flechas) ---
+// --- PAGINACIÓN ---
 const getPaginationLabel = (label, index, totalLinks) => {
-    if (index === 0) return '&laquo;'; // Flecha Izquierda
-    if (index === totalLinks - 1) return '&raquo;'; // Flecha Derecha
+    if (index === 0) return '&laquo;';
+    if (index === totalLinks - 1) return '&raquo;';
     return label;
 };
 </script>
@@ -134,7 +162,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                     </div>
                 </div>
 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg border border-gray-200">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
                             <thead class="bg-gray-50">
@@ -149,7 +177,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-for="stock in stocks.data" :key="stock.stock_id" class="hover:bg-gray-50">
+                                <tr v-for="stock in stocks.data" :key="stock.stock_id" class="hover:bg-gray-50 transition duration-150">
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-bold text-gray-900">{{ stock.producto?.nombre }}</div>
                                         <div class="text-xs text-gray-500 font-mono">{{ stock.producto?.codigo }}</div>
@@ -162,18 +190,29 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                         </span>
                                         <span class="text-xs text-gray-400 ml-1">{{ stock.producto?.unidadMedida }}</span>
                                     </td>
-                                    <td class="px-6 py-4 text-center text-sm text-gray-500">{{ stock.stock_minimo }}</td>
+                                    <td class="px-6 py-4 text-center text-sm text-gray-500 font-mono">
+                                        {{ stock.stock_minimo }}
+                                    </td>
                                     <td class="px-6 py-4 text-center">
                                         <span v-if="stock.cantidad_disponible <= 0" class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Sin Stock</span>
                                         <span v-else-if="stock.cantidad_disponible <= stock.stock_minimo" class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Bajo</span>
                                         <span v-else class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Normal</span>
                                     </td>
                                     <td class="px-6 py-4 text-right whitespace-nowrap">
-                                        <button @click="openAdjustmentModal(stock)" class="text-indigo-600 hover:text-indigo-900 transition" title="Ajustar Stock">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                                            </svg>
-                                        </button>
+                                        <div class="flex justify-end space-x-2">
+                                            <button @click="openConfigModal(stock)" class="text-gray-500 hover:text-indigo-600 transition p-1 border border-gray-200 rounded-md bg-gray-50" title="Configurar Alertas">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            </button>
+
+                                            <button @click="openAdjustmentModal(stock)" class="text-indigo-600 hover:text-indigo-900 transition p-1 border border-gray-200 rounded-md bg-gray-50" title="Movimiento de Stock">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                                 <tr v-if="stocks.data.length === 0">
@@ -192,12 +231,17 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                     v-if="link.url" 
                                     :href="link.url" 
                                     class="px-3 py-1 min-w-[32px] text-center border rounded text-sm font-medium transition-all duration-150"
-                                    :class="link.active ? 'bg-indigo-600 text-white shadow-sm border-indigo-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50'"
+                                    :class="link.active 
+                                        ? 'bg-indigo-600 text-white shadow-sm ring-1 ring-indigo-500 border-indigo-600' 
+                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-300'"
                                 >
                                     <span v-html="getPaginationLabel(link.label, k, stocks.links.length)"></span>
                                 </Link>
-                                <span v-else class="px-3 py-1 min-w-[32px] text-center border rounded text-sm bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" 
-                                      v-html="getPaginationLabel(link.label, k, stocks.links.length)"></span>
+                                <span 
+                                    v-else 
+                                    class="px-3 py-1 min-w-[32px] text-center border rounded text-sm bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed" 
+                                    v-html="getPaginationLabel(link.label, k, stocks.links.length)"
+                                ></span>
                             </template>
                         </div>
                     </div>
@@ -239,6 +283,32 @@ const getPaginationLabel = (label, index, totalLinks) => {
                         <SecondaryButton @click="closeAdjustmentModal"> Cancelar </SecondaryButton>
                         <PrimaryButton class="ms-3" :class="{ 'opacity-25': adjustmentForm.processing }" :disabled="adjustmentForm.processing">
                             Guardar Movimiento
+                        </PrimaryButton>
+                    </div>
+                </form>
+            </div>
+        </Modal>
+
+        <Modal :show="showingConfigModal" @close="closeConfigModal">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Configurar Alertas de Stock</h2>
+                <div v-if="stockToConfig" class="mb-4 text-sm text-gray-600">
+                    Configurando: <strong>{{ stockToConfig.producto?.nombre }}</strong> <br>
+                    En: <strong>{{ stockToConfig.deposito?.nombre }}</strong>
+                </div>
+
+                <form @submit.prevent="submitConfig" class="space-y-4">
+                    <div>
+                        <InputLabel for="stock_minimo" value="Stock Mínimo (Punto de Pedido)" />
+                        <TextInput id="stock_minimo" type="number" v-model="configForm.stock_minimo" class="mt-1 block w-full" min="0" />
+                        <p class="text-xs text-gray-500 mt-1">El sistema avisará cuando el stock baje de esta cantidad.</p>
+                        <InputError :message="configForm.errors.stock_minimo" class="mt-2" />
+                    </div>
+
+                    <div class="mt-6 flex justify-end">
+                        <SecondaryButton @click="closeConfigModal"> Cancelar </SecondaryButton>
+                        <PrimaryButton class="ms-3" :class="{ 'opacity-25': configForm.processing }" :disabled="configForm.processing">
+                            Guardar Configuración
                         </PrimaryButton>
                     </div>
                 </form>

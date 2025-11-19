@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Stock\StoreMovimientoStockRequest;
 use App\Services\Stock\RegistrarMovimientoStockService;
+use App\Models\Stock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 

@@ -154,6 +154,10 @@ Route::middleware(['auth'])->group(function () {
     // Ruta para CU-30: Ajuste de Stock
     Route::post('/stock/movimiento', [StockController::class, 'storeMovimiento'])
       ->name('stock.movimiento.store');
+    
+    // NUEVA RUTA: Actualizar Configuración de Stock (Mínimos)
+    Route::put('/stock/{stock}', [StockController::class, 'update'])
+        ->name('stock.update');
 
 });
 
