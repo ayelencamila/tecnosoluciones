@@ -51,7 +51,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
 require __DIR__.'/auth.php';
 // --- RUTAS API ---
-Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia']);
+Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
+    ->name('api.localidades.por-provincia');
 
 // --- RUTAS PROTEGIDAS (VENTAS Y PAGOS) ---
 Route::middleware(['auth'])->group(function () {
@@ -116,7 +117,7 @@ Route::middleware(['auth'])->group(function () {
     //--- MÓDULO DE PRODUCTOS ---
     Route::prefix('productos')->name('productos.')->group(function () {
         
-        // CU-29: Consultar Stock (¡Faltaba esta ruta!)
+        // CU-29: Consultar Stock   
         // La ponemos antes de /{producto} para que no confunda "stock" con un ID
         Route::get('/consultar-stock', [ProductoController::class, 'stock'])
             ->name('stock'); 
