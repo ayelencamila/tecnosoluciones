@@ -14,10 +14,10 @@ class RegistrarClienteService
 {
     /**
      * Ejecuta la lógica del CU-01: Registrar Cliente.
+     * Renombrado a 'handle' para consistencia con el Controlador.
      */
-    public function execute(array $data): Cliente
+    public function handle(array $data): Cliente
     {
-        // Usamos una transacción atómica para garantizar la integridad (ACID).
         return DB::transaction(function () use ($data) {
             
             // 1. Registrar la Dirección
@@ -33,17 +33,18 @@ class RegistrarClienteService
             $cuentaCorrienteId = null;
             $tipoCliente = TipoCliente::find($data['tipo_cliente_id']);
 
-            // 2. Lógica Condicional: Cuenta Corriente (CU-01 Pasos 6 y 7)
-            // Delegamos la pregunta al modelo TipoCliente (GRASP Experto).
-            if ($tipoCliente && $tipoCliente->esMayorista()) { // <--- Uso del EXPERTO
+            // 2. Lógica de Cuenta Corriente (CU-01)
+            if ($tipoCliente && $tipoCliente->esMayorista()) {
                 
-                $estadoCuentaActiva = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->first()->estadoCuentaCorrienteID ?? 1;
+                // Buscamos el ID del estado 'Activa' de forma segura
+                $estadoCuentaActivaID = EstadoCuentaCorriente::where('nombreEstado', 'Activa')
+                    ->value('estadoCuentaCorrienteID') ?? 1;
 
                 $cuenta = CuentaCorriente::create([
                     'saldo' => 0,
                     'limiteCredito' => $data['limiteCredito'] ?? 0,
                     'diasGracia' => $data['diasGracia'] ?? 0,
-                    'estadoCuentaCorrienteID' => $estadoCuentaActiva,
+                    'estadoCuentaCorrienteID' => $estadoCuentaActivaID,
                 ]);
                 
                 $cuentaCorrienteId = $cuenta->cuentaCorrienteID;
