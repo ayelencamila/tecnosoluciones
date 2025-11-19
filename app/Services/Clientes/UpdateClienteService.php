@@ -11,24 +11,13 @@ use App\Models\Configuracion;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/**
- * Clase de Servicio para manejar la lógica de actualización de Clientes.
- * Cumple con el Caso de Uso CU-02.
- */
 class UpdateClienteService
 {
-    /**
-     * Orquesta la actualización de un cliente y sus dependencias.
-     *
-     * @param Cliente $cliente El cliente a actualizar.
-     * @param array $validatedData Los datos validados del UpdateClienteRequest.
-     * @return Cliente El cliente actualizado.
-     */
     public function handle(Cliente $cliente, array $validatedData): Cliente
     {
         return DB::transaction(function () use ($cliente, $validatedData) {
             
-            // 1. Actualizar/Crear Dirección
+            // 1. Actualizar Dirección
             $direccion = $cliente->direccion ?? new Direccion();
             $direccion->fill([
                 'calle' => $validatedData['calle'],
@@ -40,43 +29,44 @@ class UpdateClienteService
             ]);
             $direccion->save();
 
-            // 2. Lógica de Negocio (CU-02 Postcondición: Habilitar/Deshabilitar CC)
+            // 2. Lógica de Cuenta Corriente (CU-02)
             $tipoCliente = TipoCliente::find($validatedData['tipo_cliente_id']);
             $cuentaCorrienteID = $cliente->cuentaCorrienteID;
 
+            // Verificamos si es Mayorista (usando el método experto del modelo)
             if ($tipoCliente && $tipoCliente->esMayorista()) {
-                // Es Mayorista, debe tener CC
+                
                 if ($cliente->cuentaCorriente) {
-                    // Ya tiene CC, la actualizamos
+                    // Actualizar existente
                     $cliente->cuentaCorriente->update([
                         'limiteCredito' => $validatedData['limiteCredito'] ?? $cliente->cuentaCorriente->limiteCredito,
                         'diasGracia' => $validatedData['diasGracia'] ?? $cliente->cuentaCorriente->diasGracia,
-                        'estadoCuentaCorrienteID' => $validatedData['estado_cuenta_corriente_id'] ?? $cliente->cuentaCorriente->estadoCuentaCorrienteID,
                     ]);
                 } else {
-                    // No tenía CC, la creamos usando el método helper
-                    $estadoCCDefault = EstadoCuentaCorriente::activa();
-                    $limiteDefault = Configuracion::get('limite_credito_global', 0);
-                    $diasGraciaDefault = Configuracion::getInt('dias_gracia_global', 0);
+                    // Crear nueva (SOLUCIÓN BLINDADA: Buscamos el ID o usamos 1 por defecto)
+                    $idEstadoActivo = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->value('estadoCuentaCorrienteID') ?? 1;
+                    
+                    // Valores por defecto (puedes usar Configuracion si existe, sino 0)
+                    $limiteDefault = 0; 
+                    $diasGraciaDefault = 0;
 
-                    $cuentaCorriente = CuentaCorriente::create([
-                        'saldo' => 0.00,
+                    $cuenta = CuentaCorriente::create([
+                        'saldo' => 0,
                         'limiteCredito' => $validatedData['limiteCredito'] ?? $limiteDefault,
                         'diasGracia' => $validatedData['diasGracia'] ?? $diasGraciaDefault,
-                        'estadoCuentaCorrienteID' => $validatedData['estado_cuenta_corriente_id'] ?? $estadoCCDefault->estadoCuentaCorrienteID,
+                        'estadoCuentaCorrienteID' => $idEstadoActivo,
                     ]);
-                    $cuentaCorrienteID = $cuentaCorriente->cuentaCorrienteID;
+                    $cuentaCorrienteID = $cuenta->cuentaCorrienteID;
                 }
             } else {
-                // Es Minorista, NO debe tener CC
+                // Es Minorista: Desvincular y borrar cuenta (SoftDelete)
                 if ($cliente->cuentaCorriente) {
-                    // Tenía CC, la borramos (Soft Delete)
                     $cliente->cuentaCorriente->delete();
                     $cuentaCorrienteID = null;
                 }
             }
 
-            // 3. Actualizar el Cliente
+            // 3. Actualizar Cliente
             $cliente->update([
                 'nombre' => $validatedData['nombre'],
                 'apellido' => $validatedData['apellido'],
@@ -90,12 +80,7 @@ class UpdateClienteService
                 'cuentaCorrienteID' => $cuentaCorrienteID,
             ]);
 
-            // 4. Auditoría (CU-02 Paso 9)
-            // Tu modelo Cliente ya lo hace automáticamente en el evento 'boot()' (static::updated).
-            
-            Log::info("Cliente actualizado por Servicio. ID: {$cliente->clienteID}");
-            
-            return $cliente->fresh(); // Devolvemos el modelo actualizado
+            return $cliente->fresh();
         });
     }
 }

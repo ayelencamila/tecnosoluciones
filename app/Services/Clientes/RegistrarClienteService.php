@@ -5,76 +5,64 @@ namespace App\Services\Clientes;
 use App\Models\Cliente;
 use App\Models\Direccion;
 use App\Models\CuentaCorriente;
-use App\Models\TipoCliente;
 use App\Models\EstadoCuentaCorriente;
-use App\Models\Configuracion;
+use App\Models\TipoCliente;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
+use Exception;
 
-/**
- * Clase de Servicio para manejar la lógica de creación de Clientes.
- * Cumple con el Caso de Uso CU-01.
- */
 class RegistrarClienteService
 {
     /**
-     * Orquesta la creación de un nuevo cliente y sus dependencias (Direccion, CuentaCorriente).
-     *
-     * @param array $validatedData Los datos validados del StoreClienteRequest.
-     * @return Cliente El cliente recién creado.
+     * Ejecuta la lógica del CU-01: Registrar Cliente.
      */
-    public function handle(array $validatedData): Cliente
+    public function execute(array $data): Cliente
     {
-        return DB::transaction(function () use ($validatedData) {
+        // Usamos una transacción atómica para garantizar la integridad (ACID).
+        return DB::transaction(function () use ($data) {
             
-            // 1. Crear la Entidad dependiente: Direccion
+            // 1. Registrar la Dirección
             $direccion = Direccion::create([
-                'calle' => $validatedData['calle'],
-                'altura' => $validatedData['altura'],
-                'pisoDepto' => $validatedData['pisoDepto'] ?? null,
-                'barrio' => $validatedData['barrio'] ?? null,
-                'codigoPostal' => $validatedData['codigoPostal'],
-                'localidadID' => $validatedData['localidad_id'],
+                'calle' => $data['calle'],
+                'altura' => $data['altura'],
+                'pisoDepto' => $data['pisoDepto'] ?? null,
+                'barrio' => $data['barrio'] ?? null,
+                'codigoPostal' => $data['codigoPostal'],
+                'localidadID' => $data['localidad_id'],
             ]);
 
-            // 2. Lógica de Negocio (CU-01 Paso 6 y 10: "Si es Mayorista...")
-            $tipoCliente = TipoCliente::find($validatedData['tipo_cliente_id']);
-            $cuentaCorrienteID = null;
+            $cuentaCorrienteId = null;
+            $tipoCliente = TipoCliente::find($data['tipo_cliente_id']);
 
-            if ($tipoCliente && $tipoCliente->esMayorista()) {
+            // 2. Lógica Condicional: Cuenta Corriente (CU-01 Pasos 6 y 7)
+            // Delegamos la pregunta al modelo TipoCliente (GRASP Experto).
+            if ($tipoCliente && $tipoCliente->esMayorista()) { // <--- Uso del EXPERTO
                 
-                // Usar el método helper para obtener el estado 'Activa'
-                $estadoCCDefault = EstadoCuentaCorriente::activa();
-                
-                // Usamos los parámetros globales que ya definimos (CU-31)
-                $limiteDefault = Configuracion::get('limite_credito_global', 0);
-                $diasGraciaDefault = Configuracion::getInt('dias_gracia_global', 0);
+                $estadoCuentaActiva = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->first()->estadoCuentaCorrienteID ?? 1;
 
-                // 3. Crear la Entidad dependiente: CuentaCorriente
-                $cuentaCorriente = CuentaCorriente::create([
-                    'saldo' => 0.00,
-                    'limiteCredito' => $validatedData['limiteCredito'] ?? $limiteDefault,
-                    'diasGracia' => $validatedData['diasGracia'] ?? $diasGraciaDefault,
-                    'estadoCuentaCorrienteID' => $validatedData['estado_cuenta_corriente_id'] ?? $estadoCCDefault->estadoCuentaCorrienteID,
+                $cuenta = CuentaCorriente::create([
+                    'saldo' => 0,
+                    'limiteCredito' => $data['limiteCredito'] ?? 0,
+                    'diasGracia' => $data['diasGracia'] ?? 0,
+                    'estadoCuentaCorrienteID' => $estadoCuentaActiva,
                 ]);
-                $cuentaCorrienteID = $cuentaCorriente->cuentaCorrienteID;
+                
+                $cuentaCorrienteId = $cuenta->cuentaCorrienteID;
             }
 
-            // 4. Crear la Entidad principal: Cliente
+            // 3. Registrar el Cliente
             $cliente = Cliente::create([
-                'nombre' => $validatedData['nombre'],
-                'apellido' => $validatedData['apellido'],
-                'DNI' => $validatedData['DNI'],
-                'mail' => $validatedData['mail'] ?? null,
-                'whatsapp' => $validatedData['whatsapp'] ?? null,
-                'telefono' => $validatedData['telefono'] ?? null,
-                'tipoClienteID' => $validatedData['tipo_cliente_id'],
-                'estadoClienteID' => $validatedData['estado_cliente_id'],
+                'nombre' => $data['nombre'],
+                'apellido' => $data['apellido'],
+                'DNI' => $data['DNI'],
+                'mail' => $data['mail'] ?? null,
+                'whatsapp' => $data['whatsapp'] ?? null,
+                'telefono' => $data['telefono'] ?? null,
+                
+                'tipoClienteID' => $data['tipo_cliente_id'],
+                'estadoClienteID' => $data['estado_cliente_id'],
                 'direccionID' => $direccion->direccionID,
-                'cuentaCorrienteID' => $cuentaCorrienteID,
+                'cuentaCorrienteID' => $cuentaCorrienteId,
             ]);
-
-            Log::info("Nuevo cliente registrado por Servicio. ID: {$cliente->clienteID}");
 
             return $cliente;
         });
