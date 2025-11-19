@@ -26,7 +26,6 @@ class UpdateProductoRequest extends FormRequest
             'unidadMedida' => 'required|string|max:20',
             'categoriaProductoID' => 'required|exists:categorias_producto,id',
             'estadoProductoID' => 'required|exists:estados_producto,id',
-            'stock_minimo' => 'nullable|integer|min:0',
             
             // (NUEVO) Validación para el Proveedor Habitual (CU-26)
             'proveedor_habitual_id' => 'nullable|exists:proveedores,id',

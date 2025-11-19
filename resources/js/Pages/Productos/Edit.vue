@@ -31,12 +31,14 @@ const form = useForm({
   estadoProductoID: props.producto.estadoProductoID,
   proveedor_habitual_id: props.producto.proveedor_habitual_id || '',
   precios: preciosIniciales,
-  motivo: '', // Obligatorio por CU-26
-  // Cargamos el stock mínimo del primer depósito (si existe) o 0
-  stock_minimo: props.producto.stocks && props.producto.stocks.length > 0 
-                  ? props.producto.stocks[0].stock_minimo 
-                  : 0,
+  motivo: '', 
+  // Ya no enviamos stock_minimo para editar
 });
+
+// Variable solo para visualización
+const stockMinimoVisual = props.producto.stocks && props.producto.stocks.length > 0 
+                  ? props.producto.stocks[0].stock_minimo 
+                  : 0;
 
 const precioError = computed(() => {
     if (props.errors.precios) return props.errors.precios;
@@ -167,18 +169,20 @@ const submitForm = () => {
                             </div>
                         </div>
 
-                        <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
-                            <h3 class="text-md font-bold text-gray-900 mb-3">Inventario</h3>
+                        <div class="bg-gray-50 rounded-lg shadow-sm border border-gray-200 p-6">
+                            <h3 class="text-md font-bold text-gray-800 mb-3 flex items-center justify-between">
+                                Inventario
+                                <span class="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">Informativo</span>
+                            </h3>
                             <div>
-                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo (Alerta)</label>
-                                <input 
-                                    v-model.number="form.stock_minimo" 
-                                    type="number" 
-                                    min="0" 
-                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                >
-                                <InputError :message="form.errors.stock_minimo" class="mt-1" />
-                                <p class="text-xs text-gray-500 mt-1">Se actualizará en todos los depósitos.</p>
+                                <label class="block text-sm font-medium text-gray-500 mb-1">Stock Mínimo Configurado</label>
+                                <div class="text-lg font-semibold text-gray-900">
+                                    {{ stockMinimoVisual }} <span class="text-sm text-gray-400 font-normal">u.</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-2">
+                                    Para modificar niveles de alerta o ajustar cantidades, diríjase al módulo de 
+                                    <Link :href="route('productos.stock')" class="text-indigo-600 hover:underline font-bold">Gestión de Stock</Link>.
+                                </p>
                             </div>
                         </div>
 
