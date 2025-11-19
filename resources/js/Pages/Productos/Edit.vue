@@ -10,7 +10,7 @@ const props = defineProps({
   categorias: Array,
   estados: Array,
   tiposCliente: Array,
-  proveedores: Array, // Nuevo prop
+  proveedores: Array, 
   errors: Object, 
 });
 
@@ -29,9 +29,13 @@ const form = useForm({
   unidadMedida: props.producto.unidadMedida,
   categoriaProductoID: props.producto.categoriaProductoID,
   estadoProductoID: props.producto.estadoProductoID,
-  proveedor_habitual_id: props.producto.proveedor_habitual_id || '', // Nuevo campo
+  proveedor_habitual_id: props.producto.proveedor_habitual_id || '',
   precios: preciosIniciales,
   motivo: '', // Obligatorio por CU-26
+  // Cargamos el stock mínimo del primer depósito (si existe) o 0
+  stock_minimo: props.producto.stocks && props.producto.stocks.length > 0 
+                  ? props.producto.stocks[0].stock_minimo 
+                  : 0,
 });
 
 const precioError = computed(() => {
@@ -160,6 +164,21 @@ const submitForm = () => {
                                     <option value="">-- Sin asignar --</option>
                                     <option v-for="prov in proveedores" :key="prov.id" :value="prov.id">{{ prov.razon_social }}</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <div class="bg-white rounded-lg shadow border border-gray-200 p-6">
+                            <h3 class="text-md font-bold text-gray-900 mb-3">Inventario</h3>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo (Alerta)</label>
+                                <input 
+                                    v-model.number="form.stock_minimo" 
+                                    type="number" 
+                                    min="0" 
+                                    class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                >
+                                <InputError :message="form.errors.stock_minimo" class="mt-1" />
+                                <p class="text-xs text-gray-500 mt-1">Se actualizará en todos los depósitos.</p>
                             </div>
                         </div>
 

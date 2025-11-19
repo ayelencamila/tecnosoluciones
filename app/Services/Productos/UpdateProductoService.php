@@ -5,7 +5,7 @@ namespace App\Services\Productos;
 use App\Models\Producto;
 use App\Models\PrecioProducto;
 use App\Models\Auditoria;
-use Carbon\Carbon; // <-- CORRECCIÓN 1: Importado
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,14 +19,12 @@ class UpdateProductoService
     {
         return DB::transaction(function () use ($producto, $data, $userId) {
             
-            // Capturamos los datos ANTES de cualquier cambio
+            // A. Capturamos datos previos para Auditoría
             $datosAnteriores = $producto->toArray();
-            // También capturamos los precios vigentes anteriores para la auditoría
             $preciosAnteriores = $producto->precios()->whereNull('fechaHasta')->get()->toArray();
             $datosAnteriores['precios_vigentes'] = $preciosAnteriores;
 
-
-            // 1. Actualizar datos maestros del Producto (Catálogo)
+            // 1. Actualizar datos maestros del Producto
             $producto->update([
                 'codigo' => $data['codigo'],
                 'nombre' => $data['nombre'],
@@ -35,11 +33,17 @@ class UpdateProductoService
                 'unidadMedida' => $data['unidadMedida'],
                 'categoriaProductoID' => $data['categoriaProductoID'],
                 'estadoProductoID' => $data['estadoProductoID'],
-                'proveedor_habitual_id' => $data['proveedor_habitual_id'] ?? null, // <-- CORRECCIÓN 2: Añadido
-                
+                'proveedor_habitual_id' => $data['proveedor_habitual_id'] ?? null,
             ]);
 
-            // 2. Gestión de Historial de Precios (Tu lógica es buena, la mantenemos)
+            // 2. Actualizar Stock Mínimo (Configuración de Alerta)
+            // CORRECCIÓN: Usamos $producto (no $cliente) y $data (no $validatedData)
+            if (isset($data['stock_minimo'])) {
+                // Actualizamos el mínimo en todos los depósitos donde exista el producto
+                $producto->stocks()->update(['stock_minimo' => $data['stock_minimo']]);
+            }
+
+            // 3. Gestión de Historial de Precios
             $fechaActual = now()->toDateString();
             $fechaActualUTC = now()->utc()->toDateString();
             
@@ -47,54 +51,49 @@ class UpdateProductoService
                 
                 $precioVigente = PrecioProducto::where('productoID', $producto->id)
                     ->where('tipoClienteID', $precioInput['tipoClienteID'])
-                    ->whereNull('fechaHasta') // Solo los vigentes
+                    ->whereNull('fechaHasta')
                     ->first();
                 
                 if ($precioVigente) {
-                    
+                    // Comparar precios (formateando para evitar errores de flotantes)
                     $precioActual = number_format((float) $precioVigente->precio, 2, '.', '');
                     $precioNuevo = number_format((float) $precioInput['precio'], 2, '.', '');
 
-                    // Si existe y el precio cambió...
                     if ($precioActual !== $precioNuevo) {
-                        
                         $fechaDesdeActual = Carbon::parse($precioVigente->fechaDesde)->utc()->toDateString();
 
-                        if ($fechaDesdeActual == ($fechaActualUTC)) {
-                            // Si el precio se creó HOY, solo lo actualizamos
+                        if ($fechaDesdeActual == $fechaActualUTC) {
+                            // Si el precio se creó hoy, corregimos el mismo registro
                             $precioVigente->precio = $precioNuevo;
                             $precioVigente->save();
-                        
                         } else {
-                            // Si es un precio antiguo, lo cerramos y creamos uno nuevo
-                            // A. Cerrar el precio anterior
+                            // Si es viejo, cerramos historial y creamos nuevo
                             $precioVigente->update(['fechaHasta' => $fechaActual]);
 
-                            // B. Crear el nuevo precio vigente
                             PrecioProducto::create([
                                 'productoID' => $producto->id,
                                 'tipoClienteID' => $precioInput['tipoClienteID'],
                                 'precio' => $precioInput['precio'],
                                 'fechaDesde' => $fechaActual,
                                 'fechaHasta' => null,
+                                'usuarioID' => $userId,
                             ]);
                         }
                     }
-                }
-                // Si no existía precio para este tipo de cliente, lo creamos
-                elseif (!$precioVigente) {
+                } elseif (!$precioVigente) {
+                    // Precio nuevo para un tipo de cliente que no tenía
                     PrecioProducto::create([
                         'productoID' => $producto->id,
                         'tipoClienteID' => $precioInput['tipoClienteID'],
                         'precio' => $precioInput['precio'],
                         'fechaDesde' => $fechaActual,
                         'fechaHasta' => null,
+                        'usuarioID' => $userId,
                     ]);
                 }
             }
 
-            // 3. Auditoría con Motivo (CU-26, Paso 11)
-            // Obtenemos los datos frescos del producto Y sus nuevos precios
+            // 4. Auditoría con Motivo (CU-26)
             $datosNuevos = $producto->fresh()->toArray();
             $preciosNuevos = $producto->precios()->whereNull('fechaHasta')->get()->toArray();
             $datosNuevos['precios_vigentes'] = $preciosNuevos;
@@ -105,7 +104,7 @@ class UpdateProductoService
                 'accion' => 'MODIFICAR_PRODUCTO',
                 'datos_anteriores' => json_encode($datosAnteriores),
                 'datos_nuevos' => json_encode($datosNuevos),
-                'motivo' => $data['motivo'], // Requerido por el CU-26
+                'motivo' => $data['motivo'], // El motivo viene del formulario
                 'usuarioID' => $userId,
                 'detalles' => "Producto modificado: {$producto->nombre}"
             ]);

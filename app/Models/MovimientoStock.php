@@ -10,6 +10,7 @@ class MovimientoStock extends Model
     protected $table = 'movimientos_stock';
 
     protected $fillable = [
+        'stock_id',       
         'productoID',
         'tipoMovimiento',
         'cantidad',
@@ -18,7 +19,7 @@ class MovimientoStock extends Model
         'motivo',
         'referenciaID',
         'referenciaTabla',
-        'user_id',          
+        'user_id',        // Nos aseguramos que esté
         'fecha_movimiento', 
     ];
 
@@ -28,11 +29,19 @@ class MovimientoStock extends Model
         'stockNuevo' => 'integer',
     ];
 
-    /**
-     * Relación: Un movimiento pertenece a un producto
-     */
+    // Relaciones
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class, 'productoID');
+    }
+
+    public function stock(): BelongsTo
+    {
+        return $this->belongsTo(Stock::class, 'stock_id');
+    }
+
+    public function usuario(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

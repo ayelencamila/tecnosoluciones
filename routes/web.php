@@ -9,6 +9,7 @@ use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\DescuentoController;
+use App\Http\Controllers\StockController; 
 use Inertia\Inertia;
 
 /*
@@ -149,6 +150,10 @@ Route::middleware(['auth'])->group(function () {
             // Nota: Si usas Resource standard sería DELETE /productos/{id}, 
             // pero tu controlador usa 'darDeBaja', así que POST está bien.
     });
+
+    // Ruta para CU-30: Ajuste de Stock
+    Route::post('/stock/movimiento', [StockController::class, 'storeMovimiento'])
+      ->name('stock.movimiento.store');
 
 });
 

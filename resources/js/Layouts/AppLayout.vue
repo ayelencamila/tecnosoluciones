@@ -31,9 +31,15 @@ const showingNavigationDropdown = ref(false);
                             <NavLink :href="route('clientes.index')" :active="route().current('clientes.*')">
                                 Clientes
                             </NavLink>
-                            <NavLink :href="route('productos.index')" :active="route().current('productos.*')">
+                            
+                            <NavLink :href="route('productos.index')" :active="route().current('productos.*') && !route().current('productos.stock')">
                                 Productos
                             </NavLink>
+
+                            <NavLink :href="route('productos.stock')" :active="route().current('productos.stock')">
+                                Stock
+                            </NavLink>
+
                             <NavLink :href="route('ventas.index')" :active="route().current('ventas.*')">
                                 Ventas
                             </NavLink>
@@ -95,11 +101,25 @@ const showingNavigationDropdown = ref(false);
                     <ResponsiveNavLink :href="route('clientes.index')" :active="route().current('clientes.*')">
                         Clientes
                     </ResponsiveNavLink>
-                    <ResponsiveNavLink :href="route('productos.index')" :active="route().current('productos.*')">
+                    
+                    <ResponsiveNavLink :href="route('productos.index')" :active="route().current('productos.*') && !route().current('productos.stock')">
                         Productos
                     </ResponsiveNavLink>
+                    <ResponsiveNavLink :href="route('productos.stock')" :active="route().current('productos.stock')">
+                        Stock
+                    </ResponsiveNavLink>
+
                     <ResponsiveNavLink :href="route('ventas.index')" :active="route().current('ventas.*')">
                         Ventas
+                    </ResponsiveNavLink>
+                    <ResponsiveNavLink :href="route('pagos.index')" :active="route().current('pagos.*')">
+                        Pagos
+                    </ResponsiveNavLink>
+                    <ResponsiveNavLink href="/descuentos" :active="$page.component.startsWith('Descuentos')">
+                        Descuentos
+                    </ResponsiveNavLink>
+                    <ResponsiveNavLink href="/auditorias" :active="$page.component.startsWith('Auditorias')">
+                        Auditoría
                     </ResponsiveNavLink>
                 </div>
 
