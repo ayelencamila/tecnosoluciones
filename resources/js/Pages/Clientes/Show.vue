@@ -10,7 +10,6 @@ const props = defineProps({
     historialAuditoria: Array,
 });
 
-// Helper para formato de moneda
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 };
@@ -68,7 +67,6 @@ const formatCurrency = (value) => {
                                     {{ cliente.telefono || '-' }} / {{ cliente.whatsapp || '-' }}
                                 </dd>
                             </div>
-                            
                             <div class="bg-white px-4 py-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                                 <dt class="text-sm font-medium text-gray-500">Dirección</dt>
                                 <dd class="mt-1 text-sm text-gray-900 sm:mt-0 sm:col-span-2">
@@ -111,6 +109,62 @@ const formatCurrency = (value) => {
                                 {{ formatCurrency(cliente.credito_disponible) }}
                             </p>
                         </div>
+                    </div>
+                </div>
+
+                <div v-if="cliente.cuenta_corriente" class="bg-white shadow overflow-hidden sm:rounded-lg mt-6">
+                    <div class="px-4 py-5 sm:px-6 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="text-lg leading-6 font-medium text-gray-900">
+                            Historial de Movimientos
+                        </h3>
+                        <span class="text-xs text-gray-500">Últimos 20 registros</span>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Concepto</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Debe (Entrada)</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Haber (Salida)</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Saldo Parcial</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr v-for="mov in cliente.cuenta_corriente.movimientos" :key="mov.id" class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ new Date(mov.created_at).toLocaleDateString() }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-900 font-medium">
+                                        {{ mov.descripcion || mov.tipoMovimiento }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-red-600 font-medium">
+                                        <span v-if="mov.tipoMovimiento === 'Debito'">
+                                            {{ formatCurrency(mov.monto) }}
+                                        </span>
+                                        <span v-else>-</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-green-600 font-medium">
+                                        <span v-if="mov.tipoMovimiento === 'Credito'">
+                                            {{ formatCurrency(mov.monto) }}
+                                        </span>
+                                        <span v-else>-</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-gray-800">
+                                        {{ formatCurrency(mov.saldoAlMomento) }}
+                                    </td>
+                                </tr>
+                                <tr v-if="!cliente.cuenta_corriente.movimientos || cliente.cuenta_corriente.movimientos.length === 0">
+                                    <td colspan="5" class="px-6 py-12 text-center text-gray-400">
+                                        <div class="flex flex-col items-center justify-center">
+                                            <svg class="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+                                            <span class="text-lg font-medium">Sin movimientos registrados</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
