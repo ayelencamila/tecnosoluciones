@@ -2,31 +2,30 @@
 import { ref } from 'vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import DangerButton from '@/Components/DangerButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
-import AlertMessage from '@/Components/AlertMessage.vue'; 
+import DangerButton from '@/Components/DangerButton.vue';
 
 const props = defineProps({
-    pago: Object, // Viene del PagoController@show
+    pago: Object, // Incluye cliente, cajero y ventasImputadas
 });
 
-// Estado para confirmación de anulación
-const confirmingAnulacion = ref(false);
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+};
+
+const formatDate = (dateString) => {
+    if (!dateString) return '-';
+    return new Date(dateString).toLocaleDateString('es-AR', {
+        year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+};
+
 const formAnular = useForm({});
 
-// Formateadores
-const formatCurrency = (value) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
-const formatDate = (dateString) => new Date(dateString).toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-
-// Acciones
-const imprimir = () => window.print();
-
 const anularPago = () => {
-    // Llamada a la ruta DELETE que creamos en routes/web.php
-    formAnular.delete(route('pagos.anular', props.pago.pago_id), {
-        preserveScroll: true,
-        onSuccess: () => confirmingAnulacion.value = false,
-    });
+    if (confirm('¿Está seguro de anular este pago? Se revertirá el saldo de la cuenta corriente.')) {
+        formAnular.delete(route('pagos.anular', props.pago.pago_id));
+    }
 };
 </script>
 
@@ -36,136 +35,125 @@ const anularPago = () => {
     <AppLayout>
         <template #header>
             <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800">Recibo de Pago #{{ pago.numero_recibo }}</h2>
-                <Link :href="route('pagos.index')" class="text-sm text-indigo-600 hover:underline">&larr; Volver al Listado</Link>
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                    Detalle de Pago
+                </h2>
+                <Link 
+                    :href="route('pagos.index')" 
+                    class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none transition ease-in-out duration-150"
+                >
+                    &larr; Volver al Listado
+                </Link>
             </div>
         </template>
 
         <div class="py-12">
             <div class="max-w-3xl mx-auto sm:px-6 lg:px-8">
                 
-                <!-- Mensajes Flash -->
-                <AlertMessage 
-                    v-if="$page.props.flash?.error" 
-                    type="error" 
-                    :message="$page.props.flash.error"
-                    class="mb-6" 
-                />
-                <AlertMessage 
-                    v-if="$page.props.flash?.success" 
-                    type="success" 
-                    :message="$page.props.flash.success"
-                    class="mb-6" 
-                />
-
-                <div class="bg-white shadow-lg rounded-lg overflow-hidden border border-gray-200">
+                <div class="bg-white shadow-xl sm:rounded-lg overflow-hidden border border-gray-200">
                     
-                    <div class="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                    <div class="bg-gray-50 px-8 py-6 border-b border-gray-200 flex justify-between items-start">
                         <div>
-                            <span class="block text-xs text-gray-500 uppercase tracking-wide">Fecha de Pago</span>
-                            <span class="font-bold text-gray-800">{{ formatDate(pago.fecha_pago) }}</span>
+                            <h1 class="text-2xl font-bold text-gray-900">Recibo de Pago</h1>
+                            <p class="text-sm text-gray-500 mt-1">N° {{ pago.numero_recibo }}</p>
                         </div>
-                        <div v-if="pago.anulado" class="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-bold border border-red-200">
-                            ANULADO
-                        </div>
-                        <div v-else class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-bold border border-green-200">
-                            CONFIRMADO
+                        <div class="text-right">
+                            <p class="text-sm text-gray-500 uppercase tracking-wide">Fecha</p>
+                            <p class="font-bold text-gray-800">{{ formatDate(pago.fecha_pago) }}</p>
+                            <div v-if="pago.anulado" class="mt-2">
+                                <span class="px-3 py-1 text-xs font-bold text-red-800 bg-red-100 rounded-full border border-red-200">
+                                    ANULADO
+                                </span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="p-8">
-                        <div class="text-center mb-8">
-                            <span class="block text-sm text-gray-500 uppercase">Monto Recibido</span>
-                            <span class="text-4xl font-black text-gray-900" :class="{'line-through text-red-300': pago.anulado}">
-                                {{ formatCurrency(pago.monto) }}
-                            </span>
-                        </div>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-                            <div class="border p-4 rounded bg-gray-50">
-                                <h4 class="font-bold text-gray-700 mb-2 border-b pb-1">Cliente</h4>
-                                <p class="text-lg">{{ pago.cliente.apellido }}, {{ pago.cliente.nombre }}</p>
-                                <p class="text-gray-600">DNI: {{ pago.cliente.DNI }}</p>
-                            </div>
-                            <div class="border p-4 rounded bg-gray-50">
-                                <h4 class="font-bold text-gray-700 mb-2 border-b pb-1">Detalles</h4>
-                                <p><span class="font-semibold">Método:</span> <span class="capitalize">{{ pago.metodo_pago }}</span></p>
-                                <p><span class="font-semibold">Cajero:</span> {{ pago.cajero?.name ?? 'Sistema' }}</p>
-                                <p><span class="font-semibold">Recibo N°:</span> {{ pago.numero_recibo }}</p>
-                            </div>
-                        </div>
-
-                        <div v-if="pago.observaciones" class="mt-6">
-                            <h4 class="font-bold text-gray-700 mb-1">Observaciones:</h4>
-                            <p class="text-gray-600 italic bg-yellow-50 p-3 rounded border border-yellow-100">
-                                "{{ pago.observaciones }}"
-                            </p>
-                        </div>
-                    </div>
-
-                    <div class="bg-gray-100 px-6 py-4 flex justify-between items-center">
-                        <SecondaryButton @click="imprimir">🖨️ Imprimir</SecondaryButton>
+                    <div class="px-8 py-8">
                         
-                        <div v-if="!pago.anulado">
-                            <DangerButton @click="confirmingAnulacion = true" :disabled="formAnular.processing">
-                                Anular Pago
-                            </DangerButton>
+                        <div class="flex justify-between items-center mb-8 p-4 bg-indigo-50 rounded-lg border border-indigo-100">
+                            <div>
+                                <p class="text-xs font-bold text-indigo-400 uppercase tracking-wider">Recibimos de</p>
+                                <p class="text-xl font-bold text-indigo-900">{{ pago.cliente.nombre }} {{ pago.cliente.apellido }}</p>
+                                <p class="text-sm text-indigo-700">DNI: {{ pago.cliente.DNI }}</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-xs font-bold text-indigo-400 uppercase tracking-wider">La suma de</p>
+                                <p class="text-3xl font-extrabold text-indigo-600">{{ formatCurrency(pago.monto) }}</p>
+                            </div>
                         </div>
+
+                        <div class="grid grid-cols-2 gap-4 mb-8 text-sm">
+                            <div>
+                                <span class="block text-gray-500 font-bold">Método de Pago:</span>
+                                <span class="capitalize">{{ pago.metodo_pago }}</span>
+                            </div>
+                            <div>
+                                <span class="block text-gray-500 font-bold">Cajero:</span>
+                                <span>{{ pago.cajero?.name || 'Sistema' }}</span>
+                            </div>
+                            <div class="col-span-2" v-if="pago.observaciones">
+                                <span class="block text-gray-500 font-bold">Observaciones:</span>
+                                <span class="italic text-gray-700">{{ pago.observaciones }}</span>
+                            </div>
+                        </div>
+
+                        <div class="border-t border-gray-200 pt-6">
+                            <h3 class="text-lg font-bold text-gray-800 mb-4">Imputación de Comprobantes</h3>
+                            
+                            <div v-if="pago.ventas_imputadas && pago.ventas_imputadas.length > 0" class="overflow-hidden border rounded-lg">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Comprobante</th>
+                                            <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha Venta</th>
+                                            <th class="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Total Venta</th>
+                                            <th class="px-4 py-2 text-right text-xs font-bold text-gray-700 uppercase bg-gray-100">Imputado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr v-for="venta in pago.ventas_imputadas" :key="venta.venta_id">
+                                            <td class="px-4 py-2 text-sm font-medium text-indigo-600">
+                                                <Link :href="route('ventas.show', venta.venta_id)" class="hover:underline">
+                                                    {{ venta.numero_comprobante }}
+                                                </Link>
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-500">
+                                                {{ formatDate(venta.fecha_venta).split(',')[0] }}
+                                            </td>
+                                            <td class="px-4 py-2 text-sm text-gray-500 text-right">
+                                                {{ formatCurrency(venta.total) }}
+                                            </td>
+                                            <td class="px-4 py-2 text-sm font-bold text-gray-900 text-right bg-gray-50">
+                                                {{ formatCurrency(venta.pivot.monto_imputado) }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div v-else class="text-center py-4 text-gray-500 italic bg-gray-50 rounded-lg">
+                                Este pago quedó como saldo a favor (Anticipo) o no se imputó a ninguna venta específica.
+                            </div>
+                        </div>
+
                     </div>
-                </div>
 
+                    <div class="bg-gray-50 px-8 py-4 border-t border-gray-200 flex justify-between items-center">
+                        <SecondaryButton @click="() => window.print()">
+                            🖨️ Imprimir Recibo
+                        </SecondaryButton>
+
+                        <DangerButton 
+                            v-if="!pago.anulado" 
+                            @click="anularPago" 
+                            :class="{ 'opacity-25': formAnular.processing }" 
+                            :disabled="formAnular.processing"
+                        >
+                            Anular Pago
+                        </DangerButton>
+                    </div>
+
+                </div>
             </div>
         </div>
-
-        <div v-if="confirmingAnulacion" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-            <div class="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-                <h3 class="text-lg font-bold text-gray-900 mb-2">¿Anular este pago?</h3>
-                <p class="text-gray-600 text-sm mb-6">
-                    Esta acción revertirá el dinero en la cuenta corriente del cliente. Esta acción no se puede deshacer.
-                </p>
-                <div class="flex justify-end space-x-3">
-                    <SecondaryButton @click="confirmingAnulacion = false">Cancelar</SecondaryButton>
-                    <DangerButton @click="anularPago" :class="{ 'opacity-25': formAnular.processing }" :disabled="formAnular.processing">
-                        Confirmar Anulación
-                    </DangerButton>
-                </div>
-            </div>
-        </div>
-
     </AppLayout>
 </template>
-<style>
-@media print {
-    /* Ocultar todo lo que no sea el recibo */
-    body * {
-        visibility: hidden;
-    }
-    
-    /* Ocultar la barra de navegación, sidebar y botones */
-    nav, header, .bg-gray-100.px-6.py-4 { 
-        display: none !important; 
-    }
-
-    /* Hacer visible solo la tarjeta del recibo */
-    .max-w-3xl, .max-w-3xl * {
-        visibility: visible;
-    }
-
-    /* Posicionar el recibo arriba de todo en la hoja */
-    .max-w-3xl {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        margin: 0;
-        padding: 0;
-        box-shadow: none; /* Quitar sombras para ahorrar tinta */
-        border: 1px solid #ccc;
-    }
-    
-    /* Asegurar textos en negro para impresoras monocromáticas */
-    .text-gray-500, .text-gray-600 {
-        color: #000 !important;
-    }
-}
-</style>

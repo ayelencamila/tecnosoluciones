@@ -1,91 +1,103 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import AppLayout from '@/Layouts/AppLayout.vue'; 
+import { ref, computed, watch, onMounted } from 'vue';
+import { Head, useForm } from '@inertiajs/vue3';
+import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue';
-import DangerButton from '@/Components/DangerButton.vue';
 import InputError from '@/Components/InputError.vue';
-import AlertMessage from '@/Components/AlertMessage.vue';
 import { debounce } from 'lodash';
 
-// Props pasadas desde PagoController@create
 const props = defineProps({
-    clientes: Array,
-    errors: Object, // Errores de validación de Inertia
+    clientes: Array, // Vienen del Controller (Clientes con CC)
 });
 
-// --- Formulario de Inertia ---
-// Define los campos que se enviarán al backend
-const form = useForm({
-    clienteID: null,
-    monto: '', // String vacío en lugar de null
-    metodo_pago: 'efectivo', // Valor por defecto
-    observaciones: '',
-});
-
-// --- Estado local para el buscador de Clientes ---
+// --- ESTADO LOCAL ---
 const searchTermCliente = ref('');
 const filteredClientes = ref([]);
 const showClienteDropdown = ref(false);
 const clienteSeleccionado = ref(null);
 
-// Filtrar clientes en tiempo real
+const form = useForm({
+    clienteID: '',
+    monto: '',
+    metodo_pago: 'efectivo',
+    observaciones: '',
+});
+
+// --- FORMATEADORES ---
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+};
+
+// --- LÓGICA DE BUSCADOR DE CLIENTES (Consistente con Ventas) ---
 const debouncedFilterClientes = debounce(() => {
-    if (searchTermCliente.value.length < 2) {
+    if (searchTermCliente.value.length >= 2) { // Mínimo 2 letras
+        filteredClientes.value = props.clientes.filter(cliente =>
+            cliente.nombre.toLowerCase().includes(searchTermCliente.value.toLowerCase()) ||
+            cliente.apellido.toLowerCase().includes(searchTermCliente.value.toLowerCase()) ||
+            cliente.DNI.includes(searchTermCliente.value)
+        ).slice(0, 10); // Limitar resultados
+        showClienteDropdown.value = true;
+    } else {
         filteredClientes.value = [];
         showClienteDropdown.value = false;
-        return;
     }
-    filteredClientes.value = props.clientes.filter(cliente =>
-        cliente.nombre.toLowerCase().includes(searchTermCliente.value.toLowerCase()) ||
-        cliente.apellido.toLowerCase().includes(searchTermCliente.value.toLowerCase()) ||
-        cliente.DNI.includes(searchTermCliente.value)
-    ).slice(0, 10);
-    showClienteDropdown.value = true;
 }, 300);
 
 watch(searchTermCliente, debouncedFilterClientes);
 
-// Al seleccionar un cliente del dropdown
 const selectCliente = (cliente) => {
     clienteSeleccionado.value = cliente;
-    form.clienteID = cliente.clienteID; // Setea el ID en el formulario
-    searchTermCliente.value = `${cliente.apellido}, ${cliente.nombre} (${cliente.DNI})`;
+    form.clienteID = cliente.clienteID;
+    searchTermCliente.value = `${cliente.apellido}, ${cliente.nombre}`;
     showClienteDropdown.value = false;
+    
+    // Sugerencia: Si tiene deuda, pre-llenar el monto con el total de la deuda?
+    // form.monto = cliente.cuenta_corriente?.saldo > 0 ? cliente.cuenta_corriente.saldo : '';
 };
 
-// Limpiar la selección de cliente
 const clearCliente = () => {
     clienteSeleccionado.value = null;
-    form.clienteID = null;
+    form.clienteID = '';
     searchTermCliente.value = '';
-    showClienteDropdown.value = false;
+    form.clearErrors();
 };
 
-// Enviar el formulario (CU-10 Paso 9)
+// --- PROPIEDADES COMPUTADAS UI ---
+const infoCuentaCorriente = computed(() => {
+    if (!clienteSeleccionado.value?.cuenta_corriente) return null;
+    return clienteSeleccionado.value.cuenta_corriente;
+});
+
+const esSaldoAFavor = computed(() => {
+    if (!infoCuentaCorriente.value) return false;
+    const saldo = parseFloat(infoCuentaCorriente.value.saldo);
+    const pago = parseFloat(form.monto || 0);
+    return (saldo - pago) < 0; // Si paga más de lo que debe
+});
+
 const submit = () => {
+    if (!form.clienteID) {
+        alert('Debe seleccionar un cliente.');
+        return;
+    }
     form.post(route('pagos.store'), {
-        onSuccess: () => {
-            // No se necesita alert. Inertia redirigirá a pagos.show
-            // y el backend enviará el mensaje 'success' (flash).
-            form.reset();
-        },
-        onError: (errors) => {
-            console.error('Error al registrar el pago:', errors);
-        },
+        preserveScroll: true,
+        onSuccess: () => form.reset(),
+        onError: () => { /* Errores mostrados por InputError */ },
     });
 };
 
-// Opciones para el método de pago
-const metodosPagoOptions = [
-    { value: 'efectivo', label: 'Efectivo' },
-    { value: 'transferencia', label: 'Transferencia Bancaria' },
-    { value: 'tarjeta', label: 'Tarjeta (Débito/Crédito)' },
-    { value: 'cheque', label: 'Cheque' },
-];
+// Cerrar dropdown al hacer clic fuera
+onMounted(() => {
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.cliente-search-container')) {
+            showClienteDropdown.value = false;
+        }
+    });
+});
 </script>
 
 <template>
@@ -94,112 +106,142 @@ const metodosPagoOptions = [
     <AppLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Registrar Nuevo Pago (CU-10)
+                Registrar Nuevo Pago
             </h2>
         </template>
 
         <div class="py-12">
-            <div class="max-w-2xl mx-auto sm:px-6 lg:px-8">
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <form @submit.prevent="submit" class="p-6 md:p-8 space-y-6">
+            <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
+                <form @submit.prevent="submit">
+                    
+                    <div class="bg-white shadow-xl sm:rounded-lg overflow-hidden">
+                        <div class="bg-indigo-50 px-6 py-4 border-b border-indigo-100">
+                            <h3 class="text-lg font-medium text-indigo-800">Detalles del Pago</h3>
+                            <p class="text-sm text-indigo-600">El pago se imputará automáticamente a las deudas más antiguas.</p>
+                        </div>
 
-                        <!-- Mensajes Flash -->
-                        <AlertMessage 
-                            v-if="$page.props.flash?.error" 
-                            type="error" 
-                            :message="$page.props.flash.error" 
-                        />
-                        <AlertMessage 
-                            v-if="$page.props.flash?.success" 
-                            type="success" 
-                            :message="$page.props.flash.success" 
-                        />
-
-                        <section>
-                            <InputLabel for="clienteSearch" value="Buscar Cliente (ObligatorIO)" class="text-lg font-medium" />
-                            <p class="text-sm text-gray-500 mb-2">Selecciona el cliente que realiza el pago.</p>
+                        <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                             
-                            <div class="cliente-search-container relative">
-                                <div class="mt-1 flex rounded-md shadow-sm">
+                            <div class="md:col-span-2 relative cliente-search-container">
+                                <InputLabel for="cliente_search" value="Cliente (Buscar por Nombre o DNI)" />
+                                <div class="flex mt-1">
                                     <TextInput
-                                        id="clienteSearch"
-                                        type="text"
+                                        id="cliente_search"
                                         v-model="searchTermCliente"
-                                        @focus="showClienteDropdown = true"
+                                        placeholder="Escriba para buscar..."
+                                        class="w-full"
                                         autocomplete="off"
-                                        placeholder="Buscar por Nombre, Apellido o DNI..."
-                                        class="flex-1 block w-full rounded-none rounded-l-md"
-                                        :class="{'rounded-r-md': !clienteSeleccionado}"
-                                        :disabled="!!clienteSeleccionado"
+                                        @focus="searchTermCliente.length >= 2 ? showClienteDropdown = true : null"
                                     />
-                                    <DangerButton v-if="clienteSeleccionado" type="button" @click="clearCliente" class="rounded-l-none">X</DangerButton>
+                                    <button 
+                                        type="button" 
+                                        v-if="clienteSeleccionado"
+                                        @click="clearCliente"
+                                        class="ml-2 text-gray-400 hover:text-red-500 transition"
+                                        title="Limpiar selección"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
                                 </div>
                                 
-                                <ul v-if="showClienteDropdown && filteredClientes.length" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-auto">
-                                    <li v-for="cliente in filteredClientes" :key="cliente.clienteID" @click="selectCliente(cliente)" class="p-3 cursor-pointer hover:bg-gray-100 text-sm">
-                                        {{ cliente.apellido }}, {{ cliente.nombre }} (DNI: {{ cliente.DNI }})
+                                <ul v-if="showClienteDropdown && filteredClientes.length" class="absolute z-20 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-60 overflow-y-auto">
+                                    <li v-for="cli in filteredClientes" :key="cli.clienteID" 
+                                        @click="selectCliente(cli)"
+                                        class="px-4 py-3 hover:bg-indigo-50 cursor-pointer border-b last:border-b-0 transition duration-150 ease-in-out"
+                                    >
+                                        <div class="font-bold text-gray-800">{{ cli.apellido }}, {{ cli.nombre }}</div>
+                                        <div class="text-xs text-gray-500 flex justify-between">
+                                            <span>DNI: {{ cli.DNI }}</span>
+                                            <span v-if="cli.cuenta_corriente" :class="cli.cuenta_corriente.saldo > 0 ? 'text-red-600 font-bold' : 'text-green-600'">
+                                                Deuda: {{ formatCurrency(cli.cuenta_corriente.saldo) }}
+                                            </span>
+                                        </div>
                                     </li>
                                 </ul>
+                                <InputError :message="form.errors.clienteID" class="mt-2" />
                             </div>
-                            <InputError class="mt-2" :message="form.errors.clienteID" />
-                        </section>
 
-                        <section class="border-t pt-6">
-                            <h3 class="text-lg font-medium text-gray-900">Detalles del Pago</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                            <div v-if="clienteSeleccionado && infoCuentaCorriente" class="md:col-span-2 bg-gray-50 rounded-lg p-4 border border-gray-200 flex justify-between items-center">
                                 <div>
-                                    <InputLabel for="monto" value="Monto a Pagar" />
+                                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Saldo Actual (Deuda)</span>
+                                    <span class="text-2xl font-bold" :class="infoCuentaCorriente.saldo > 0 ? 'text-red-600' : 'text-green-600'">
+                                        {{ formatCurrency(infoCuentaCorriente.saldo) }}
+                                    </span>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-xs font-bold text-gray-400 uppercase tracking-wider block">Estado</span>
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                        {{ infoCuentaCorriente.estado_cuenta_corrienteID === 1 ? 'Activa' : 'Bloqueada/Revisión' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div>
+                                <InputLabel for="monto" value="Monto a Pagar" />
+                                <div class="relative mt-1">
+                                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <span class="text-gray-500 sm:text-sm">$</span>
+                                    </div>
                                     <TextInput
                                         id="monto"
                                         type="number"
-                                        step="0.01"
-                                        min="0.01"
-                                        class="mt-1 block w-full"
                                         v-model="form.monto"
-                                        required
-                                        placeholder="$ 0.00"
+                                        class="w-full pl-7 font-bold text-lg"
+                                        placeholder="0.00"
+                                        min="0.01"
+                                        step="0.01"
                                     />
-                                    <InputError class="mt-2" :message="form.errors.monto" />
                                 </div>
-
-                                <div>
-                                    <InputLabel for="metodo_pago" value="Método de Pago" />
-                                    <SelectInput
-                                        id="metodo_pago"
-                                        class="mt-1 block w-full"
-                                        v-model="form.metodo_pago"
-                                        :options="metodosPagoOptions"
-                                        required
-                                    />
-                                    <InputError class="mt-2" :message="form.errors.metodo_pago" />
-                                </div>
+                                <InputError :message="form.errors.monto" class="mt-2" />
+                                
+                                <p v-if="esSaldoAFavor" class="text-xs text-green-600 mt-2 font-medium animate-pulse">
+                                    ℹ️ Este monto cubre toda la deuda y genera un saldo a favor.
+                                </p>
                             </div>
-                        </section>
 
-                        <section class="border-t pt-6">
-                            <InputLabel for="observaciones" value="Observaciones (Opcional)" />
-                            <textarea
-                                id="observaciones"
-                                v-model="form.observaciones"
-                                rows="3"
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"
-                                placeholder="Ej: Pago parcial, saldo pendiente, nro de cheque..."
-                            ></textarea>
-                            <InputError class="mt-2" :message="form.errors.observaciones" />
-                        </section>
+                            <div>
+                                <InputLabel for="metodo_pago" value="Método de Pago" />
+                                <SelectInput
+                                    id="metodo_pago"
+                                    v-model="form.metodo_pago"
+                                    class="w-full mt-1"
+                                    :options="[
+                                        { value: 'efectivo', label: 'Efectivo' },
+                                        { value: 'transferencia', label: 'Transferencia Bancaria' },
+                                        { value: 'tarjeta', label: 'Tarjeta de Débito/Crédito' },
+                                        { value: 'cheque', label: 'Cheque' },
+                                    ]"
+                                />
+                                <InputError :message="form.errors.metodo_pago" class="mt-2" />
+                            </div>
 
-                        <div class="flex items-center justify-end space-x-4 border-t pt-6">
-                            <Link :href="route('pagos.index')" class="text-sm text-gray-600 hover:text-gray-900">
-                                Cancelar
-                            </Link>
-                            
-                            <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing || !form.clienteID || !form.monto">
-                                <span v-if="form.processing">Registrando...</span>
-                                <span v-else>Registrar Pago</span>
+                            <div class="md:col-span-2">
+                                <InputLabel for="observaciones" value="Observaciones (Opcional)" />
+                                <TextInput
+                                    id="observaciones"
+                                    v-model="form.observaciones"
+                                    class="w-full mt-1"
+                                    placeholder="N° de comprobante de transferencia, notas, etc."
+                                />
+                                <InputError :message="form.errors.observaciones" class="mt-2" />
+                            </div>
+
+                        </div>
+
+                        <div class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex justify-end">
+                            <PrimaryButton 
+                                :class="{ 'opacity-25': form.processing }" 
+                                :disabled="form.processing"
+                                class="w-full md:w-auto justify-center text-lg px-6 py-3"
+                            >
+                                Registrar Pago
                             </PrimaryButton>
                         </div>
-                    </form>
-                </div>
+                    </div>
+                </form>
             </div>
         </div>
-    </AppLayout> </template>
+    </AppLayout>
+</template>
