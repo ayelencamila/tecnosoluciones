@@ -10,6 +10,7 @@ use App\Http\Controllers\VentaController;
 use App\Http\Controllers\PagoController;
 use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\StockController; 
+use App\Http\Controllers\DashboardController;
 use Inertia\Inertia;
 
 /*
@@ -28,9 +29,9 @@ Route::get('/', function () {
     ]);
 });
 
-Route::get('/dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -158,6 +159,16 @@ Route::middleware(['auth'])->group(function () {
     // NUEVA RUTA: Actualizar Configuración de Stock (Mínimos)
     Route::put('/stock/{stock}', [StockController::class, 'update'])
         ->name('stock.update');
+    
+    // --- MÓDULO DE AUDITORÍA ---
+    // Usamos una ruta simple para listar. Necesitarás crear el AuditoriaController más adelante
+    // si quieres ver la tabla real.
+    Route::get('/auditorias', function () {
+        return Inertia::render('Auditorias/Index', [
+            // Si ya tienes el modelo Auditoria, puedes pasar datos aquí:
+            'auditorias' => \App\Models\Auditoria::with('usuario')->latest()->paginate(15)
+        ]);
+    })->name('auditorias.index');
 
 });
 
