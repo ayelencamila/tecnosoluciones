@@ -3,138 +3,99 @@
 namespace App\Http\Controllers;
 
 use App\Models\Descuento;
+use App\Models\Auditoria; 
+use App\Http\Requests\Descuentos\StoreDescuentoRequest;
 use Illuminate\Http\Request;
-use Illuminate\Database\Eloquent\Builder;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class DescuentoController extends Controller
 {
-    /**
-     * Muestra el listado de descuentos (CU-08).
-     */
     public function index(Request $request)
     {
         $descuentos = Descuento::query()
-            ->select('descuento_id', 'codigo', 'descripcion', 'tipo', 'valor', 'activo', 'valido_desde', 'valido_hasta')
-            ->when($request->input('search'), function (Builder $query, $search) {
+            ->when($request->search, function ($query, $search) {
                 $query->where('codigo', 'like', "%{$search}%")
                       ->orWhere('descripcion', 'like', "%{$search}%");
             })
-            ->when($request->input('tipo'), fn(Builder $q, $tipo) => $q->where('tipo', $tipo))
-            ->when($request->has('activo'), fn(Builder $q) => $q->where('activo', $request->input('activo')))
-            ->orderBy('created_at', 'desc')
-            ->paginate(15)
+            ->orderBy('activo', 'desc') 
+            ->orderBy('valido_hasta', 'desc')
+            ->paginate(10)
             ->withQueryString();
 
+        // CORRECCIÓN AQUÍ: Apuntamos a 'ListadoDescuentos' en lugar de 'Index'
         return Inertia::render('Descuentos/ListadoDescuentos', [
             'descuentos' => $descuentos,
-            'filters' => $request->only(['search', 'tipo', 'activo']),
+            'filters' => $request->only(['search']),
         ]);
     }
 
-    /**
-     * Muestra el formulario para crear un nuevo descuento.
-     */
     public function create()
     {
-        return Inertia::render('Descuentos/FormularioDescuento', [
-            'descuento' => null, // Nuevo descuento
-        ]);
+        return Inertia::render('Descuentos/Create'); 
     }
 
-    /**
-     * Almacena un nuevo descuento en la base de datos.
-     */
-    public function store(Request $request)
+    public function store(StoreDescuentoRequest $request)
     {
-        $validated = $request->validate([
-            'codigo' => 'required|string|max:50|unique:descuentos,codigo',
-            'descripcion' => 'required|string|max:255',
-            'tipo' => 'required|in:porcentaje,monto_fijo',
-            'valor' => 'required|numeric|min:0',
-            'activo' => 'boolean',
-            'valido_desde' => 'nullable|date',
-            'valido_hasta' => 'nullable|date|after_or_equal:valido_desde',
-        ], [
-            'codigo.unique' => 'El código de descuento ya existe.',
-            'valido_hasta.after_or_equal' => 'La fecha de fin debe ser posterior o igual a la fecha de inicio.',
-        ]);
+        DB::transaction(function () use ($request) {
+            $descuento = Descuento::create($request->validated());
 
-        // Validación adicional: Si es porcentaje, no puede ser mayor a 100
-        if ($validated['tipo'] === 'porcentaje' && $validated['valor'] > 100) {
-            return back()->withErrors(['valor' => 'El porcentaje no puede ser mayor a 100.']);
-        }
+            Auditoria::create([
+                'user_id' => auth()->id(),
+                'accion' => 'CREAR_DESCUENTO',
+                'tabla_afectada' => 'descuentos',
+                'registro_id' => $descuento->descuento_id,
+                'datos_nuevos' => json_encode($descuento->toArray()),
+                'detalles' => "Creación de regla de descuento: {$descuento->codigo}",
+                'fecha' => now(),
+            ]);
+        });
 
-        $descuento = Descuento::create($validated);
-
-        Log::info("Descuento creado: ID {$descuento->descuento_id} - Código: {$descuento->codigo}");
-
-        return to_route('descuentos.show', $descuento->descuento_id)
-               ->with('success', '¡Descuento creado con éxito!');
+        return to_route('descuentos.index')->with('success', 'Descuento creado correctamente.');
     }
 
-    /**
-     * Muestra el detalle de un descuento.
-     */
-    public function show(Descuento $descuento)
-    {
-        return Inertia::render('Descuentos/DetalleDescuento', [
-            'descuento' => $descuento,
-        ]);
-    }
-
-    /**
-     * Muestra el formulario para editar un descuento.
-     */
     public function edit(Descuento $descuento)
     {
-        return Inertia::render('Descuentos/FormularioDescuento', [
-            'descuento' => $descuento,
+        return Inertia::render('Descuentos/Edit', [
+            'descuento' => $descuento
         ]);
     }
 
-    /**
-     * Actualiza un descuento existente.
-     */
-    public function update(Request $request, Descuento $descuento)
+    public function update(StoreDescuentoRequest $request, Descuento $descuento)
     {
-        $validated = $request->validate([
-            'codigo' => 'required|string|max:50|unique:descuentos,codigo,' . $descuento->descuento_id . ',descuento_id',
-            'descripcion' => 'required|string|max:255',
-            'tipo' => 'required|in:porcentaje,monto_fijo',
-            'valor' => 'required|numeric|min:0',
-            'activo' => 'boolean',
-            'valido_desde' => 'nullable|date',
-            'valido_hasta' => 'nullable|date|after_or_equal:valido_desde',
-        ], [
-            'codigo.unique' => 'El código de descuento ya existe.',
-            'valido_hasta.after_or_equal' => 'La fecha de fin debe ser posterior o igual a la fecha de inicio.',
-        ]);
+        DB::transaction(function () use ($request, $descuento) {
+            $datosAnteriores = $descuento->toArray();
+            
+            $descuento->update($request->validated());
 
-        // Validación adicional: Si es porcentaje, no puede ser mayor a 100
-        if ($validated['tipo'] === 'porcentaje' && $validated['valor'] > 100) {
-            return back()->withErrors(['valor' => 'El porcentaje no puede ser mayor a 100.']);
-        }
+            Auditoria::create([
+                'user_id' => auth()->id(),
+                'accion' => 'MODIFICAR_DESCUENTO',
+                'tabla_afectada' => 'descuentos',
+                'registro_id' => $descuento->descuento_id,
+                'datos_anteriores' => json_encode($datosAnteriores),
+                'datos_nuevos' => json_encode($descuento->fresh()->toArray()),
+                'detalles' => "Modificación de descuento: {$descuento->codigo}",
+                'fecha' => now(),
+            ]);
+        });
 
-        $descuento->update($validated);
-
-        Log::info("Descuento actualizado: ID {$descuento->descuento_id}");
-
-        return to_route('descuentos.show', $descuento->descuento_id)
-               ->with('success', '¡Descuento actualizado con éxito!');
+        return to_route('descuentos.index')->with('success', 'Descuento actualizado.');
     }
 
-    /**
-     * Desactiva un descuento (no se elimina físicamente).
-     */
     public function destroy(Descuento $descuento)
     {
         $descuento->update(['activo' => false]);
+        
+        Auditoria::create([
+            'user_id' => auth()->id(),
+            'accion' => 'DESACTIVAR_DESCUENTO',
+            'tabla_afectada' => 'descuentos',
+            'registro_id' => $descuento->descuento_id,
+            'detalles' => "Desactivación de descuento: {$descuento->codigo}",
+            'fecha' => now(),
+        ]);
 
-        Log::info("Descuento desactivado: ID {$descuento->descuento_id}");
-
-        return to_route('descuentos.index')
-               ->with('success', 'Descuento desactivado correctamente.');
+        return back()->with('success', 'Descuento desactivado.');
     }
 }
