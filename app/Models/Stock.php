@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory; 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Stock extends Model
 {
-    protected $table = 'stock'; // Tabla singular
+    use HasFactory; 
+
+    protected $table = 'stock'; 
 
     protected $primaryKey = 'stock_id';
 
@@ -38,14 +41,15 @@ class Stock extends Model
 
     public function movimientos(): HasMany
     {
-        return $this->hasMany(MovimientoStock::class, 'stock_id', 'stock_id');
+        // Movimientos de este registro de stock (Deposito + Producto)
+        return $this->hasMany(MovimientoStock::class, 'stock_id', 'stock_id'); 
     }
 
     // --- LÓGICA DE NEGOCIO (GRASP: Experto en Información) ---
-    // Estos son los métodos que faltaban y causaban el error 500
 
     /**
-     * Aumenta la cantidad disponible (Entradas o Ajustes positivos)
+     * Aumenta la cantidad disponible (Entradas / CU-06: Anulación de Venta)
+     * Implementación atómica.
      */
     public function incrementar(int $cantidad): void
     {
@@ -53,7 +57,8 @@ class Stock extends Model
     }
 
     /**
-     * Disminuye la cantidad disponible (Salidas)
+     * Disminuye la cantidad disponible (Salidas / CU-05: Registro de Venta)
+     * Implementación atómica.
      */
     public function descontar(int $cantidad): void
     {
@@ -61,10 +66,11 @@ class Stock extends Model
     }
 
     /**
-     * Verifica si hay suficiente stock para una salida
+     * Verifica si hay suficiente stock para una salida (Paso 9 de CU-05)
      */
     public function tieneDisponibilidad(int $cantidad): bool
     {
+        // Se asegura que no haya stock negativo (CRQ–02)
         return $this->cantidad_disponible >= $cantidad;
     }
 }

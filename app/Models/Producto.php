@@ -25,6 +25,7 @@ class Producto extends Model
         'categoriaProductoID',
         'estadoProductoID',
         'proveedor_habitual_id', // <--- Requerido por CU-25 y CU-26
+        // Se elimina la referencia a 'stockActual' del fillable
     ];
 
     // --- RELACIONES ---
@@ -56,14 +57,26 @@ class Producto extends Model
         return $this->hasMany(Stock::class, 'productoID', 'id');
     }
 
-    // --- LÓGICA DE NEGOCIO ---
+    // --- LÓGICA DE NEGOCIO (EXPERTO) ---
 
     /**
-     * Calcula el stock total sumando depósitos.
+     * Accessor: Calcula el stock total sumando depósitos.
+     * Reemplaza a la columna obsoleta 'stockActual'.
      */
     public function getStockTotalAttribute(): int
     {
+        // Se suma la cantidad disponible de todos los depósitos/registros de Stock.
         return (int) $this->stocks()->sum('cantidad_disponible');
+    }
+
+    /**
+     * Verifica si hay stock suficiente a nivel global (sumando depósitos).
+     * (CU-05 Excepción 3a - Delegación del cálculo a 'stocks')
+     */
+    public function tieneStock(float $cantidadRequerida): bool
+    {
+        // Usamos el accessor para mantener la lógica centralizada
+        return $this->stock_total >= $cantidadRequerida; 
     }
 
     /**
