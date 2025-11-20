@@ -70,4 +70,24 @@ class Venta extends Model
             'descuento_id'          // FK en pivote del modelo destino
         )->withPivot('monto_aplicado'); // Traer el monto "congelado"
     }
+    /**
+     * Relación N:M con Pagos.
+     * Permite calcular cuánto se ha pagado de esta venta.
+     */
+    public function pagos()
+    {
+        return $this->belongsToMany(Pago::class, 'pago_venta_imputacion', 'venta_id', 'pago_id')
+                    ->withPivot('monto_imputado')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Accessor: Calcula el saldo pendiente de ESTA venta específica.
+     * Útil para mostrar en el formulario de pago.
+     */
+    public function getSaldoPendienteAttribute(): float
+    {
+        $pagado = $this->pagos()->sum('pago_venta_imputacion.monto_imputado');
+        return max(0, $this->total - $pagado);
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Pago extends Model
 {
@@ -52,5 +53,15 @@ class Pago extends Model
                 $pago->numero_recibo = 'REC-' . date('Ymd-His') . '-' . substr(microtime(), 2, 6);
             }
         });
+    }
+    /**
+     * Relación N:M con Ventas a través de la imputación.
+     * Permite acceder a $pago->ventasImputadas
+     */
+    public function ventasImputadas()
+    {
+        return $this->belongsToMany(Venta::class, 'pago_venta_imputacion', 'pago_id', 'venta_id')
+                    ->withPivot('monto_imputado')
+                    ->withTimestamps();
     }
 }
