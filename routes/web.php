@@ -11,6 +11,7 @@ use App\Http\Controllers\PagoController;
 use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\StockController; 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\ConfiguracionController;
 use Inertia\Inertia;
 
 /*
@@ -169,6 +170,12 @@ Route::middleware(['auth'])->group(function () {
             'auditorias' => \App\Models\Auditoria::with('usuario')->latest()->paginate(15)
         ]);
     })->name('auditorias.index');
+    
+    // --- MÓDULO DE CONFIGURACIÓN ---
+    Route::prefix('configuracion')->name('configuracion.')->group(function () {
+        Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
+        Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
+    });
 
 });
 
