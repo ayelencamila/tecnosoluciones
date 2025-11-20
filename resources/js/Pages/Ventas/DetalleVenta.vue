@@ -8,16 +8,14 @@ import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 
 const props = defineProps({
-    venta: Object, // Viene del VentaController@show con todas las relaciones cargadas
+    venta: Object, 
 });
 
-// Estado para el modal/formulario de anulación
 const confirmingAnulacion = ref(false);
 const formAnular = useForm({
     motivo_anulacion: '',
 });
 
-// Formateadores
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 };
@@ -29,7 +27,11 @@ const formatDate = (dateString) => {
     });
 };
 
-// Lógica de Anulación (CU-06)
+// --- FUNCIÓN DE IMPRESIÓN (SOLUCIÓN AL ERROR) ---
+const imprimirComprobante = () => {
+    window.print();
+};
+
 const confirmAnulacion = () => {
     confirmingAnulacion.value = true;
 };
@@ -37,6 +39,7 @@ const confirmAnulacion = () => {
 const closeModal = () => {
     confirmingAnulacion.value = false;
     formAnular.reset();
+    formAnular.clearErrors(); 
 };
 
 const anularVenta = () => {
@@ -57,8 +60,14 @@ const anularVenta = () => {
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
                     Detalle de Venta #{{ venta.numero_comprobante }}
                 </h2>
-                <Link :href="route('ventas.index')" class="text-sm text-indigo-600 hover:text-indigo-900 font-medium">
-                    &larr; Volver al Listado
+                <Link 
+                    :href="route('ventas.index')" 
+                    class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 mr-2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+                    </svg>
+                    Volver al Listado
                 </Link>
             </div>
         </template>
@@ -173,17 +182,23 @@ const anularVenta = () => {
                 </div>
 
                 <div class="bg-gray-50 px-6 py-4 shadow-sm sm:rounded-b-lg flex justify-between items-center">
-                    <SecondaryButton @click="() => window.print()">
-                        🖨️ Imprimir Comprobante
-                    </SecondaryButton>
+                    <Link :href="route('ventas.index')" class="text-gray-600 hover:text-gray-900 font-medium">
+                        Volver
+                    </Link>
 
-                    <DangerButton 
-                        v-if="!venta.anulada" 
-                        @click="confirmAnulacion"
-                        :disabled="formAnular.processing"
-                    >
-                        Anular Venta
-                    </DangerButton>
+                    <div class="flex space-x-3">
+                        <SecondaryButton @click="imprimirComprobante">
+                            🖨️ Imprimir
+                        </SecondaryButton>
+
+                        <DangerButton 
+                            v-if="!venta.anulada" 
+                            @click="confirmAnulacion"
+                            :disabled="formAnular.processing"
+                        >
+                            Anular Venta
+                        </DangerButton>
+                    </div>
                 </div>
             </div>
         </div>
@@ -191,32 +206,30 @@ const anularVenta = () => {
         <div v-if="confirmingAnulacion" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
             <div class="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all sm:max-w-lg sm:w-full p-6">
                 <h3 class="text-lg font-medium text-gray-900 mb-4">
-                    ¿Estás seguro de que deseas anular esta venta?
+                    ¿Confirmar Anulación?
                 </h3>
                 <p class="text-sm text-gray-500 mb-4">
                     Esta acción revertirá el stock y actualizará la cuenta corriente del cliente. Esta acción es irreversible.
                 </p>
 
                 <div class="mb-4">
-                    <InputLabel for="motivo" value="Motivo de la anulación (Requerido)" />
+                    <InputLabel for="motivo" value="Motivo (Mín. 10 caracteres)" />
                     <textarea
                         id="motivo"
                         v-model="formAnular.motivo_anulacion"
                         rows="3"
                         class="w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm mt-1"
-                        placeholder="Ej: Error en la carga de items, devolución total..."
+                        placeholder="Ej: Cliente solicitó devolución por..."
                     ></textarea>
                     <InputError :message="formAnular.errors.motivo_anulacion" class="mt-2" />
                 </div>
 
                 <div class="flex justify-end space-x-3">
-                    <SecondaryButton @click="closeModal">
-                        Cancelar
-                    </SecondaryButton>
+                    <SecondaryButton @click="closeModal"> Cancelar </SecondaryButton>
                     <DangerButton 
                         @click="anularVenta"
                         :class="{ 'opacity-25': formAnular.processing }"
-                        :disabled="formAnular.processing || !formAnular.motivo_anulacion"
+                        :disabled="formAnular.processing"
                     >
                         Confirmar Anulación
                     </DangerButton>

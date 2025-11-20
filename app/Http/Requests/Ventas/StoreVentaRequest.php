@@ -14,10 +14,8 @@ class StoreVentaRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // FIX 1 (Simplificado):
-        // En lugar de 'false', que bloquea todo,
-        // pedimos que al menos el usuario esté autenticado.
-        // Esto arregla el error 403, sin meternos con roles.
+        // Esto asegura que solo un usuario autenticado pueda intentar una venta.
+        // La restricción por roles se aplica a nivel de Policy o Middleware.
         return auth()->check();
     }
 
@@ -26,7 +24,6 @@ class StoreVentaRequest extends FormRequest
      */
     public function rules(): array
     {
-        // FIX 2: Añadir las reglas de validación (esto es obligatorio).
         return [
             'clienteID' => [
                 'required',
@@ -46,7 +43,8 @@ class StoreVentaRequest extends FormRequest
                 // Asegura que el producto exista en la BD
                 Rule::exists(Producto::class, 'id'),
             ],
-            'items.*.cantidad' => ['required', 'numeric', 'min:0.01'], // O 'integer' y 'min:1' si no vendes decimales
+            // Asumo que la cantidad puede ser decimal, pero min:1
+            'items.*.cantidad' => ['required', 'numeric', 'min:0.01'], 
 
             // (Opcional pero recomendado) Validación de descuentos
             'descuentos_globales' => ['nullable', 'array'],

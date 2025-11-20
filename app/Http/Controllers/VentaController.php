@@ -17,11 +17,11 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
-use Inertia\Inertia; // Necesario para los filtros avanzados
+use Inertia\Inertia; 
 
 class VentaController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests; // Permite usar $this->authorize()
 
     /**
      * Muestra el listado de ventas con filtros (CU-07).
@@ -107,18 +107,22 @@ class VentaController extends Controller
      */
     public function create()
     {
+        // FIX 1: Carga las relaciones de CC y tipoCliente para la validación en Vue
         $clientes = Cliente::select('clienteID', 'nombre', 'apellido', 'DNI', 'tipoClienteID')
-            ->with([
-                'cuentaCorriente:cuenta_corriente_id,clienteID,estado_cuenta_corriente_id',
-                'cuentaCorriente.estado_cuenta_corriente:id,nombre'
-            ])
+             ->with([
+                 // Usando el with optimizado para las relaciones de CC y estado
+                 'cuentaCorriente:cuentaCorrienteID,limiteCredito,diasGracia,estadoCuentaCorrienteID', 
+                 'cuentaCorriente.estadoCuentaCorriente:estadoCuentaCorrienteID,nombreEstado'
+             ])
             ->get();
 
         $productos = Producto::whereHas('estado', function ($query) {
             $query->where('nombre', 'Activo');
         })
-            ->select('id', 'codigo', 'nombre', 'stockActual')
-            ->with('precios:id,productoID,tipoClienteID,precio')
+            // FIX 2: Quitamos 'stockActual' (obsoleto) y cargamos la relación 'stocks'
+            // para que el Accessor 'stock_total' del modelo Producto funcione en Vue/Store.
+            ->select('id', 'codigo', 'nombre') 
+            ->with(['precios:id,productoID,tipoClienteID,precio', 'stocks']) 
             ->get();
 
         $descuentos = Descuento::where('activo', true)
@@ -140,17 +144,21 @@ class VentaController extends Controller
      */
     public function store(StoreVentaRequest $request, RegistrarVentaService $registrarVentaService)
     {
-        // La autorización ya se maneja en StoreVentaRequest->authorize()
+        // Aplicamos la Policy (RBAC) para esta acción.
+        $this->authorize('create', Venta::class); 
+        
         $datosValidados = $request->validated();
         $datosValidados['userID'] = auth()->id();
 
         try {
             $venta = $registrarVentaService->handle($datosValidados);
 
+            // Paso 12: Confirma el registro exitoso
             return to_route('ventas.show', $venta->venta_id)
                 ->with('success', '¡Venta registrada con éxito!');
 
         } catch (SinStockException|LimiteCreditoExcedidoException $e) {
+            // FIX 3: Manejo consistente de errores de negocio para Inertia
             return back()->withErrors(['message' => $e->getMessage()]);
 
         } catch (\Exception $e) {
@@ -159,7 +167,8 @@ class VentaController extends Controller
                 'request_data' => $request->except('password', 'password_confirmation'),
             ]);
 
-            return back()->withErrors(['message' => 'Error inesperado al procesar la venta. Contacte a soporte. '.$e->getMessage()]);
+            // FIX 3: Manejo consistente de errores de sistema
+            return back()->withErrors(['message' => 'Error inesperado al procesar la venta. Contacte a soporte.']);
         }
     }
 
@@ -168,19 +177,24 @@ class VentaController extends Controller
      */
     public function anular(AnularVentaRequest $request, Venta $venta, AnularVentaService $anularVentaService)
     {
-        // La autorización ya se maneja en AnularVentaRequest->authorize()
+        // Aplicamos la Policy (RBAC) para esta acción.
+        $this->authorize('anular', $venta);
+
         $datosValidados = $request->validated();
         $motivoAnulacion = $datosValidados['motivo_anulacion'];
         $userID = auth()->id();
 
         try {
+            // Paso 8: Procesa la anulación (delegado al Service)
             $anularVentaService->handle($venta, $motivoAnulacion, $userID);
 
+            // Paso 10: Confirma la anulación exitosa
             return to_route('ventas.show', $venta->venta_id)
                 ->with('success', '¡Venta anulada con éxito!');
 
         } catch (VentaYaAnuladaException $e) {
-            return back()->with('error', $e->getMessage());
+             // Excepción de negocio (controlada)
+            return back()->with('error', $e->getMessage()); 
 
         } catch (\Exception $e) {
             Log::error("Error catastrófico al anular venta {$venta->venta_id}: ".$e->getMessage(), [
@@ -190,6 +204,7 @@ class VentaController extends Controller
                 'motivo_anulacion' => $motivoAnulacion,
             ]);
 
+            // Error de sistema (no controlado)
             return back()->with('error', 'Error inesperado al anular la venta. Contacte a soporte.');
         }
     }

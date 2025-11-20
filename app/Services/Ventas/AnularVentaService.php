@@ -4,72 +4,90 @@ namespace App\Services\Ventas;
 
 use App\Events\VentaAnulada;
 use App\Exceptions\Ventas\VentaYaAnuladaException;
-use App\Models\Configuracion;
 use App\Models\Venta;
-use Carbon\Carbon;
+use App\Models\Stock; // Necesario para la reversión
+use App\Models\MovimientoStock; // Necesario para la trazabilidad
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class AnularVentaService
 {
     /**
-     * Anula una venta con validaciones de negocio.
-     * 
-     * @throws VentaYaAnuladaException Si la venta ya está anulada
-     * @throws \Exception Si han transcurrido más días de los permitidos o hay pagos asociados
+     * Procesa la anulación de una venta (CU-06, Pasos 6-10).
      */
     public function handle(Venta $venta, string $motivo, int $userID): Venta
     {
+        // Validación Pre-Condición (CU-06, Paso 6)
         if ($venta->anulada) {
             throw new VentaYaAnuladaException($venta->numero_comprobante);
         }
 
-        // Validación 1: Verificar días transcurridos desde la venta
-        $diasMaximosAnulacion = Configuracion::getInt('dias_maximos_anulacion_venta', 30);
-        $diasTranscurridos = Carbon::parse($venta->fecha_venta)->diffInDays(Carbon::now());
-        
-        if ($diasTranscurridos > $diasMaximosAnulacion) {
-            throw new \Exception(
-                "No se puede anular la venta. Han transcurrido {$diasTranscurridos} días y el límite es de {$diasMaximosAnulacion} días."
-            );
-        }
-
-        // Validación 2: Verificar si es venta a cuenta corriente y hay movimientos de pago
-        // Para ventas a cuenta corriente, verificar que no haya pagos aplicados al débito generado
-        if ($venta->metodo_pago === 'cuenta_corriente') {
-            $cuentaCorriente = $venta->cliente->cuentaCorriente;
-            if ($cuentaCorriente) {
-                $movimientoDebito = $cuentaCorriente->movimientos()
-                    ->where('tipo', 'debito')
-                    ->where('referenciaID', $venta->venta_id)
-                    ->where('referenciaTabla', 'ventas')
-                    ->first();
-                
-                if ($movimientoDebito) {
-                    // Verificar si hay créditos (pagos) posteriores que puedan estar relacionados
-                    $pagosPosteriores = $cuentaCorriente->movimientos()
-                        ->where('tipo', 'credito')
-                        ->where('fecha', '>=', $movimientoDebito->fecha)
-                        ->exists();
-                    
-                    if ($pagosPosteriores) {
-                        Log::warning("Anulación de venta con posibles pagos posteriores. Venta ID: {$venta->venta_id}");
-                        // Advertencia pero no bloqueo - la imputación de pagos es compleja
-                    }
-                }
-            }
-        }
-
         return DB::transaction(function () use ($venta, $motivo, $userID) {
+            // 1. Marcar la Venta como Anulada (Paso 8, parte 1)
             $venta->anulada = true;
             $venta->motivo_anulacion = $motivo;
             $venta->save();
 
+            // 2. Revertir Stock y registrar Movimiento (Paso 8, parte 2 / RF5)
+            $this->revertirStock($venta);
+
+            // 3. Disparar Evento para reversión de CC y Auditoría (Paso 9)
+            // Esto cumple con el flujo: Se emite un registro interno de crédito o se ajusta la cuenta corriente.
             event(new VentaAnulada($venta, $userID));
 
             Log::info("Venta anulada con éxito: ID {$venta->venta_id} por Usuario ID {$userID}");
 
+            // 4. Confirmación (Paso 10, manejado en el Controller con la redirección)
             return $venta;
         });
+    }
+
+    /**
+     * Reincorpora el stock de los productos vendidos y registra el MovimientoStock.
+     * Esta lógica DEBE estar en el Service (Coordinador) para garantizar la atomicidad.
+     */
+    private function revertirStock(Venta $venta): void
+    {
+        // Cargamos los detalles de la venta si no están ya cargados
+        $venta->load('detalles.producto'); 
+        
+        foreach ($venta->detalles as $detalle) {
+            $producto = $detalle->producto;
+            $cantidadRevertida = (int) $detalle->cantidad;
+
+            // Solo reincorporar si es un producto físico/no servicio
+            if ($producto && $producto->unidadMedida !== 'Servicio') {
+                
+                // Asumimos Depósito Único: buscamos el registro de stock para ese producto
+                $stockRegistro = Stock::where('productoID', $producto->id)->first();
+
+                if (!$stockRegistro) {
+                    // Excepción 6a: Inconsistencia de inventario. No encontramos el registro para reincorporar.
+                    Log::error("Error 6a: Stock no encontrado para Producto ID {$producto->id} durante anulación de Venta ID {$venta->venta_id}.");
+                    // No abortamos la anulación de la VENTA, pero registramos la inconsistencia para revisión manual.
+                    // Esto cumple parcialmente con Excepción 6a: "Anulación de venta procesada, pero se detectó una inconsistencia..."
+                    continue; 
+                }
+
+                $stockAnterior = $stockRegistro->cantidad_disponible;
+
+                // 1. Reincorporar Stock (Delegar a Information Expert Stock)
+                $stockRegistro->incrementar($cantidadRevertida); 
+                
+                // 2. Registrar Movimiento de Stock (AUDITORÍA DE MOVIMIENTO - SALIDA)
+                MovimientoStock::create([
+                    'productoID' => $producto->id,
+                    'tipoMovimiento' => 'ENTRADA', 
+                    'cantidad' => $cantidadRevertida,
+                    'stockAnterior' => $stockAnterior,
+                    'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
+                    'motivo' => 'Anulación Venta N° ' . $venta->numero_comprobante . ' - ' . $venta->motivo_anulacion,
+                    'referenciaID' => $venta->venta_id,
+                    'referenciaTabla' => 'ventas',
+                    'user_id' => auth()->id(), 
+                    'fecha_movimiento' => now(), 
+                ]);
+            }
+        }
     }
 }
