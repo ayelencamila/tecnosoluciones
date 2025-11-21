@@ -36,11 +36,13 @@ class ClienteController extends Controller
     public function index(Request $request)
     {
         $filters = $request->only(['search', 'tipo_cliente_id', 'estado_cliente_id', 'provincia_id', 'sort_column', 'sort_direction']);
-        $sortColumn = $filters['sort_column'] ?? 'nombre';
+        $sortColumn = $filters['sort_column'] ?? 'apellido'; // Mejor por defecto apellido
         $sortDirection = $filters['sort_direction'] ?? 'asc';
+        
         $allowedSortColumns = ['nombre', 'apellido', 'DNI', 'mail', 'whatsapp', 'created_at', 'tipoClienteID', 'estadoClienteID'];
+        
         if (! in_array($sortColumn, $allowedSortColumns)) {
-            $sortColumn = 'nombre';
+            $sortColumn = 'apellido';
         }
 
         $query = Cliente::query()
@@ -51,9 +53,11 @@ class ClienteController extends Controller
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('nombre', 'like', '%'.$searchTerm.'%')
                   ->orWhere('apellido', 'like', '%'.$searchTerm.'%')
-                  ->orWhere('DNI', 'like', '%'.$searchTerm.'%');
+                  ->orWhere('DNI', 'like', '%'.$searchTerm.'%')
+                  ->orWhere('mail', 'like', '%'.$searchTerm.'%'); // Agregado mail a la búsqueda
             });
         }
+
         if (isset($filters['tipo_cliente_id']) && $filters['tipo_cliente_id']) {
             $query->where('tipoClienteID', $filters['tipo_cliente_id']);
         }
@@ -65,6 +69,8 @@ class ClienteController extends Controller
                 $q->where('provinciaID', $filters['provincia_id']);
             });
         }
+
+        // Ordenamiento
         if ($sortColumn === 'tipoClienteID') {
             $query->join('tipos_cliente', 'clientes.tipoClienteID', '=', 'tipos_cliente.tipoClienteID')
                 ->orderBy('tipos_cliente.nombreTipo', $sortDirection)
@@ -77,14 +83,13 @@ class ClienteController extends Controller
             $query->orderBy($sortColumn, $sortDirection);
         }
 
-        $clientes = $query->paginate(10)->appends($filters);
+        $clientes = $query->paginate(10)->withQueryString(); // withQueryString mantiene los filtros al paginar
         
-        // (Tu lógica de 'counts'...)
+        // Lógica de contadores (Dashboard en Index)
         $counts = [
             'total' => Cliente::count(),
             'activos' => Cliente::whereHas('estadoCliente', fn($q) => $q->where('nombreEstado', 'Activo'))->count(),
             'inactivos' => Cliente::whereHas('estadoCliente', fn($q) => $q->where('nombreEstado', 'Inactivo'))->count(),
-            // ... etc
         ]; 
 
         return Inertia::render('Clientes/index', [
@@ -112,7 +117,6 @@ class ClienteController extends Controller
 
     /**
      * Almacena un cliente (CU-01)
-     * ¡REFACTORIZADO!
      */
     public function store(StoreClienteRequest $request, RegistrarClienteService $service)
     {
@@ -160,7 +164,6 @@ class ClienteController extends Controller
 
     /**
      * Actualiza un cliente (CU-02)
-     * ¡REFACTORIZADO!
      */
     public function update(UpdateClienteRequest $request, Cliente $cliente, UpdateClienteService $service)
     {
@@ -191,7 +194,6 @@ class ClienteController extends Controller
 
     /**
      * Da de baja un cliente (CU-04)
-     * ¡REFACTORIZADO!
      */
     public function darDeBaja(DarDeBajaClienteRequest $request, Cliente $cliente)
     {
@@ -208,7 +210,6 @@ class ClienteController extends Controller
 
     /**
      * Alterna el estado activo/inactivo de un cliente.
-     * ¡REFACTORIZADO!
      */
     public function toggleActivo(Cliente $cliente, Request $request)
     {
@@ -231,7 +232,6 @@ class ClienteController extends Controller
 
     /**
      * Elimina un cliente (alias de 'darDeBaja')
-     * ¡REFACTORIZADO!
      */
     public function destroy(Cliente $cliente)
     {
@@ -244,5 +244,30 @@ class ClienteController extends Controller
             Log::error('Error al usar destroy (darDeBaja) en cliente: '.$e->getMessage(), ['clienteID' => $cliente->clienteID]);
             return redirect()->back()->withErrors(['error' => 'Error al dar de baja el cliente: '.$e->getMessage()]);
         }
+    }
+
+    // -------------------------------------------------------------------------
+    //  MÉTODOS API (AJAX / AXIOS)
+    // -------------------------------------------------------------------------
+
+    /**
+     * API para buscador asíncrono (Select de Reparaciones/Ventas)
+     * ¡ESTE ES EL MÉTODO QUE TE FALTABA PARA QUE EL BUSCADOR FUNCIONE!
+     */
+    public function buscar(Request $request)
+    {
+        $query = $request->get('q');
+        
+        if (!$query) {
+            return response()->json([]);
+        }
+
+        $clientes = Cliente::where('nombre', 'like', "%{$query}%")
+            ->orWhere('apellido', 'like', "%{$query}%")
+            ->orWhere('dni', 'like', "%{$query}%")
+            ->limit(20) // Traemos un poco más, 20 está bien
+            ->get(['clienteID', 'nombre', 'apellido', 'dni']); // Optimización: Solo columnas necesarias
+
+        return response()->json($clientes);
     }
 }

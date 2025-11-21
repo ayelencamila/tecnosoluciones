@@ -229,4 +229,23 @@ class ReparacionController extends Controller
             return back()->withErrors(['error' => $e->getMessage()]);
         }
     }
+    /**
+     * API para buscador asíncrono (Select de Reparaciones/Ventas)
+     */
+    public function buscar(Request $request)
+    {
+        $query = $request->get('q');
+        
+        if (!$query) {
+            return response()->json([]);
+        }
+
+        $clientes = Cliente::where('nombre', 'like', "%{$query}%")
+            ->orWhere('apellido', 'like', "%{$query}%")
+            ->orWhere('dni', 'like', "%{$query}%")
+            ->limit(10) // Límite para rendimiento
+            ->get(['clienteID', 'nombre', 'apellido', 'dni']); // Solo datos necesarios
+
+        return response()->json($clientes);
+    }
 }

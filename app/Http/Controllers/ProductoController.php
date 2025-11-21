@@ -9,9 +9,9 @@ use App\Models\EstadoProducto;
 use App\Models\MovimientoStock;
 use App\Models\PrecioProducto;
 use App\Models\Producto;
-use App\Models\Proveedor; // Importante para el filtro
+use App\Models\Proveedor; 
 use App\Models\TipoCliente;
-use App\Models\Stock; // Importante para CU-29
+use App\Models\Stock; 
 
 // --- ARQUITECTURA LARMAN (BCE) ---
 // 1. Boundaries (Validación)

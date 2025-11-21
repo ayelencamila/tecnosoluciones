@@ -12,6 +12,7 @@ use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\StockController; 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\ReparacionController;
 use Inertia\Inertia;
 
 /*
@@ -116,6 +117,9 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])
         ->name('darDeBaja'); 
     });
+    // API Interna para buscar clientes (Buscador Asíncrono)
+    Route::get('/api/clientes/buscar', [App\Http\Controllers\ClienteController::class, 'buscar'])
+    ->name('api.clientes.buscar');
 
     //--- MÓDULO DE PRODUCTOS ---
     Route::prefix('productos')->name('productos.')->group(function () {
