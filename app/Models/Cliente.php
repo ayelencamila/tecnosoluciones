@@ -56,6 +56,14 @@ class Cliente extends Model
         return $this->belongsTo(CuentaCorriente::class, 'cuentaCorrienteID', 'cuentaCorrienteID');
     }
 
+    /**
+     * Historial de reparaciones del cliente.
+     */
+    public function reparaciones(): HasMany
+    {
+        return $this->hasMany(Reparacion::class, 'clienteID', 'clienteID');
+    }
+
     // --- ACCESORS (get...Attribute) ---
 
     public function getNombreCompletoAttribute(): string

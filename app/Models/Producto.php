@@ -57,6 +57,15 @@ class Producto extends Model
         return $this->hasMany(Stock::class, 'productoID', 'id');
     }
 
+    /**
+     * Veces que este producto se usó como repuesto.
+     */
+    public function usosEnReparaciones(): HasMany
+    {
+        // Si usas productoID como PK, agrégalo como tercer parámetro
+        return $this->hasMany(DetalleReparacion::class, 'producto_id'); 
+    }
+
     // --- LÓGICA DE NEGOCIO (EXPERTO) ---
 
     /**

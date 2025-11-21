@@ -34,6 +34,14 @@ class User extends Authenticatable
     ];
 
     /**
+     * Reparaciones asignadas a este usuario (técnico).
+     */
+    public function reparacionesAsignadas(): HasMany
+    {
+        return $this->hasMany(Reparacion::class, 'tecnico_id');
+    }
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
