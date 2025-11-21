@@ -177,6 +177,38 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
     });
 
+    // --- MÓDULO DE REPARACIONES (CU-11, CU-12, CU-13) ---
+    Route::prefix('reparaciones')->name('reparaciones.')->group(function () {
+        
+        // Listado (Index)
+        Route::get('/', [ReparacionController::class, 'index'])
+            ->name('index');
+        
+        // Formulario de Ingreso (Create)
+        Route::get('/crear', [ReparacionController::class, 'create'])
+            ->name('create');
+        
+        // Guardar Ingreso (Store)
+        Route::post('/', [ReparacionController::class, 'store'])
+            ->name('store');
+        
+        // Ver Detalle (Show)
+        Route::get('/{reparacion}', [ReparacionController::class, 'show'])
+            ->name('show');
+            
+        // Formulario de Edición/Diagnóstico (Edit)
+        Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])
+            ->name('edit');
+            
+        // Guardar Cambios (Update)
+        Route::put('/{reparacion}', [ReparacionController::class, 'update'])
+            ->name('update');
+            
+        // Anular (Destroy)
+        Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])
+            ->name('destroy');
+    });
+
 });
 
 
