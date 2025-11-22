@@ -49,6 +49,7 @@ const getEstadoBadgeClass = (nombreEstado) => {
     if (estado.includes('listo')) return 'bg-green-100 text-green-800 border-green-200 font-bold'; // Acción requerida (Avisar cliente)
     if (estado.includes('entregado')) return 'bg-gray-100 text-gray-600 border-gray-200'; // Finalizado
     if (estado.includes('demorado')) return 'bg-red-100 text-red-800 border-red-200'; // Alerta
+    if (estado.includes('cancel') || estado.includes('anul')) return 'bg-red-50 text-red-600 border-red-100';
     return 'bg-gray-50 text-gray-600 border-gray-200';
 };
 
@@ -165,6 +166,16 @@ const getPaginationLabel = (label, index, totalLinks) => {
 
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <div class="flex justify-end space-x-3">
+                                            
+                                            <Link :href="route('reparaciones.show', reparacion.reparacionID)" 
+                                                  class="text-blue-600 hover:text-blue-900 bg-blue-50 p-2 rounded-full hover:bg-blue-100 transition" 
+                                                  title="Ver Detalle">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </Link>
+
                                             <Link :href="route('reparaciones.edit', reparacion.reparacionID)" 
                                                   class="text-indigo-600 hover:text-indigo-900 bg-indigo-50 p-2 rounded-full hover:bg-indigo-100 transition" 
                                                   title="Gestionar Reparación">
