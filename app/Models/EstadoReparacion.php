@@ -12,7 +12,19 @@ class EstadoReparacion extends Model
 
     protected $fillable = ['nombreEstado', 'descripcion'];
 
-    // Relación inversa: Un estado puede tener muchas reparaciones
+    // --- CONSTANTES DE ESTADO (Single Source of Truth) ---
+    // Usamos estas constantes en todo el código en lugar de escribir el texto a mano.
+    public const RECIBIDO = 'Recibido';
+    public const DIAGNOSTICO = 'Diagnóstico';
+    public const EN_REPARACION = 'En Reparación';
+    public const ESPERANDO_REPUESTO = 'Esperando Repuesto';
+    public const DEMORADO = 'Demorado';
+    public const LISTO = 'Listo';
+    public const ENTREGADO = 'Entregado';
+    public const CANCELADO = 'Cancelado';
+    public const ANULADO = 'Anulado';
+
+    // Relación inversa
     public function reparaciones(): HasMany
     {
         return $this->hasMany(Reparacion::class, 'estado_reparacion_id', 'estadoReparacionID');
