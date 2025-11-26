@@ -6,13 +6,15 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up(): void
+   public function up(): void
     {
         Schema::create('categorias_producto', function (Blueprint $table) {
             $table->id();
-            $table->enum('nombre', ['Equipos', 'Accesorios', 'Repuestos', 'Servicios Técnicos'])->unique();
+            // CAMBIO AQUÍ: Usamos string para permitir cualquier nombre nuevo en el futuro
+            $table->string('nombre')->unique(); 
             $table->text('descripcion')->nullable();
-            $table->boolean('activo')->default(true);
+            // ¡Perfecto que agregaste el campo activo!
+            $table->boolean('activo')->default(true); 
             $table->timestamps();
         });
     }
