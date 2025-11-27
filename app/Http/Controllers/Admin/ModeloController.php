@@ -12,7 +12,6 @@ class ModeloController extends Controller
 {
     public function index()
     {
-        // 1. Listamos modelos con su marca (para mostrar en la tabla "Samsung - S20")
         $modelos = Modelo::with('marca')
             ->orderBy('marca_id') // Agrupados por marca
             ->orderBy('nombre')
@@ -34,7 +33,7 @@ class ModeloController extends Controller
             'nombre' => 'required|string|max:50',
         ]);
 
-        // Validación extra: Que no exista "S20" dos veces en "Samsung"
+        // ... tu validación de duplicados ...
         $existe = Modelo::where('marca_id', $request->marca_id)
             ->where('nombre', $request->nombre)
             ->exists();
@@ -43,7 +42,8 @@ class ModeloController extends Controller
             return back()->withErrors(['nombre' => 'Este modelo ya existe en la marca seleccionada.']);
         }
 
-        Modelo::create($request->all());
+        Modelo::create($request->except('id')); 
+
         return back()->with('success', 'Modelo creado.');
     }
 
