@@ -18,7 +18,7 @@ class Pago extends Model
         'clienteID',
         'user_id',
         'monto',
-        'metodo_pago',
+        'medioPagoID',
         'fecha_pago',
         'numero_recibo',
         'observaciones',
@@ -63,5 +63,9 @@ class Pago extends Model
         return $this->belongsToMany(Venta::class, 'pago_venta_imputacion', 'pago_id', 'venta_id')
                     ->withPivot('monto_imputado')
                     ->withTimestamps();
+    }
+    public function medioPago()
+    {
+        return $this->belongsTo(MedioPago::class, 'medioPagoID', 'medioPagoID');
     }
 }

@@ -10,7 +10,8 @@ import InputError from '@/Components/InputError.vue';
 import { debounce } from 'lodash';
 
 const props = defineProps({
-    clientes: Array, // Vienen del Controller (Clientes con CC)
+    clientes: Array, 
+    mediosPago: Array, 
 });
 
 // --- ESTADO LOCAL ---
@@ -22,8 +23,15 @@ const clienteSeleccionado = ref(null);
 const form = useForm({
     clienteID: '',
     monto: '',
-    metodo_pago: 'efectivo',
+    medioPagoID: '', 
     observaciones: '',
+});
+
+const mediosOptions = computed(() => {
+    return props.mediosPago.map(m => ({
+        value: m.medioPagoID,
+        label: `${m.nombre} ${m.recargo_porcentaje > 0 ? '(+' + m.recargo_porcentaje + '%)' : ''}`
+    }));
 });
 
 // --- FORMATEADORES ---
@@ -202,19 +210,14 @@ onMounted(() => {
                             </div>
 
                             <div>
-                                <InputLabel for="metodo_pago" value="Método de Pago" />
+                                <InputLabel for="medioPagoID" value="Método de Pago" />
                                 <SelectInput
-                                    id="metodo_pago"
-                                    v-model="form.metodo_pago"
-                                    class="w-full mt-1"
-                                    :options="[
-                                        { value: 'efectivo', label: 'Efectivo' },
-                                        { value: 'transferencia', label: 'Transferencia Bancaria' },
-                                        { value: 'tarjeta', label: 'Tarjeta de Débito/Crédito' },
-                                        { value: 'cheque', label: 'Cheque' },
-                                    ]"
+                                id="medioPagoID"
+                                v-model="form.medioPagoID"
+                                class="w-full mt-1"
+                                :options="mediosOptions"
                                 />
-                                <InputError :message="form.errors.metodo_pago" class="mt-2" />
+                                <InputError :message="form.errors.medioPagoID" class="mt-2" />
                             </div>
 
                             <div class="md:col-span-2">

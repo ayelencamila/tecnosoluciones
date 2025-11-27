@@ -27,10 +27,12 @@ class RegistrarPagoService
                 'clienteID'   => $cliente->clienteID,
                 'user_id'     => $userId,
                 'monto'       => $data['monto'],
-                'metodo_pago' => $data['metodo_pago'],
+                
+                // Guardamos el ID, no el string
+                'medioPagoID' => $data['medioPagoID'], 
+                
                 'fecha_pago'  => now(),
                 'observaciones' => $data['observaciones'] ?? null,
-                // 'numero_recibo' se genera automáticamente en el boot() del modelo
             ]);
 
             // 3. Actualizar el Saldo Global de la Cuenta Corriente (Libro Mayor)

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Pago;
 use App\Models\Cliente;
+use App\Models\MedioPago;
 use App\Services\Pagos\AnularPagoService;
 use App\Services\Pagos\RegistrarPagoService;
 use App\Http\Requests\Pagos\StorePagoRequest;
@@ -52,12 +53,18 @@ class PagoController extends Controller
         // Solo mostramos clientes con Cuenta Corriente activa para imputar pagos
         $clientes = Cliente::whereHas('cuentaCorriente')
             ->select('clienteID', 'nombre', 'apellido', 'DNI')
-            ->with('cuentaCorriente:cuentaCorrienteID,saldo,estadoCuentaCorrienteID') // Traer saldo para mostrar
+            ->with('cuentaCorriente:cuentaCorrienteID,saldo,estadoCuentaCorrienteID') 
             ->orderBy('apellido')
             ->get();
+        
+        // NUEVO: Traemos los medios de pago configurables
+        $mediosPago = MedioPago::where('activo', true)
+            ->orderBy('nombre')
+            ->get(['medioPagoID', 'nombre', 'recargo_porcentaje']);
 
         return Inertia::render('Pagos/FormularioPago', [
-            'clientes' => $clientes
+            'clientes' => $clientes,
+            'mediosPago' => $mediosPago // <--- Se lo enviamos a la vista
         ]);
     }
 

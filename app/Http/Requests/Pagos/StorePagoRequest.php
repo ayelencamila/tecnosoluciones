@@ -17,7 +17,7 @@ class StorePagoRequest extends FormRequest
         return [
             'clienteID'   => ['required', 'integer', 'exists:clientes,clienteID'],
             'monto'       => ['required', 'numeric', 'min:0.01', 'max:99999999.99'], // Evitar negativos
-            'metodo_pago' => ['required', 'string', Rule::in(['efectivo', 'transferencia', 'tarjeta', 'cheque'])],
+            'medioPagoID' => ['required', 'exists:medios_pago,medioPagoID'],
             'observaciones' => ['nullable', 'string', 'max:255'],
         ];
     }
