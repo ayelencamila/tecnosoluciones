@@ -37,18 +37,19 @@ class ReparacionController extends Controller
     {
         $filters = $request->only(['search', 'estado_id']);
 
-        // Eager Loading para optimizar consultas
-        $query = Reparacion::with(['cliente', 'tecnico', 'estado'])
-            ->latest(); // Orden: Más recientes primero
+        // 1. CARGAMOS LAS NUEVAS RELACIONES (Marca, Modelo)
+        $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'marca', 'modelo'])
+            ->latest();
 
-        // Filtro de Búsqueda General
+        // Filtro de Búsqueda General (Actualizado para buscar por Marca/Modelo)
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('codigo_reparacion', 'like', "%{$search}%")
-                  ->orWhere('equipo_marca', 'like', "%{$search}%")
-                  ->orWhere('equipo_modelo', 'like', "%{$search}%")
                   ->orWhere('numero_serie_imei', 'like', "%{$search}%")
+                  // Búsqueda inteligente en las tablas relacionadas
+                  ->orWhereHas('marca', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
+                  ->orWhereHas('modelo', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
                   ->orWhereHas('cliente', function($c) use ($search) {
                       $c->where('apellido', 'like', "%{$search}%")
                         ->orWhere('nombre', 'like', "%{$search}%")
@@ -62,7 +63,7 @@ class ReparacionController extends Controller
             $query->where('estado_reparacion_id', $request->estado_id);
         }
 
-        // Paginación y Transformación de datos para la vista
+        // Transformación de datos para la vista
         $reparaciones = $query->paginate(10)
             ->withQueryString()
             ->through(fn ($r) => [
@@ -74,7 +75,8 @@ class ReparacionController extends Controller
                     'nombre_completo' => "{$r->cliente->apellido}, {$r->cliente->nombre}",
                     'telefono' => $r->cliente->whatsapp ?? $r->cliente->telefono ?? '-',
                 ],
-                'equipo' => "{$r->equipo_marca} {$r->equipo_modelo}",
+                // CORRECCIÓN CLAVE: Concatenamos Marca y Modelo desde las relaciones
+                'equipo' => ($r->marca->nombre ?? 'Sin Marca') . ' ' . ($r->modelo->nombre ?? ''),
                 'falla' => \Illuminate\Support\Str::limit($r->falla_declarada, 30),
                 'estado' => [
                     'nombre' => $r->estado->nombreEstado,
@@ -85,7 +87,7 @@ class ReparacionController extends Controller
 
         return Inertia::render('Reparaciones/Index', [
             'reparaciones' => $reparaciones,
-            'estados' => EstadoReparacion::all(), // Para el select de filtro
+            'estados' => EstadoReparacion::all(),
             'filters' => $filters,
         ]);
     }
@@ -96,14 +98,11 @@ class ReparacionController extends Controller
     public function create(): Response
     {
         return Inertia::render('Reparaciones/Create', [
-            // Cargamos clientes para el selector
-            'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')
-                ->orderBy('apellido')
-                ->get(),
-            
-            // Productos activos para repuestos
+            'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->orderBy('apellido')->get(),
             'productos' => Producto::where('estadoProductoID', 1)->get(),
-            'estados' => EstadoReparacion::all(), 
+            
+            // Se Envia todas las marcas activas
+            'marcas' => \App\Models\Marca::where('activo', true)->orderBy('nombre')->get(),
         ]);
     }
 
