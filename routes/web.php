@@ -65,6 +65,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
         Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class);
         Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class);
+        Route::resource('depositos', \App\Http\Controllers\Admin\DepositoController::class);
+        Route::resource('tipos-cliente', \App\Http\Controllers\Admin\TipoClienteController::class);
+        Route::resource('estados-cliente', \App\Http\Controllers\Admin\EstadoClienteController::class);
+        Route::resource('medios-pago', \App\Http\Controllers\Admin\MedioPagoController::class);
         
     });
 });

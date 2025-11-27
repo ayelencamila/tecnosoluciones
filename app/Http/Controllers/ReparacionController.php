@@ -96,12 +96,14 @@ class ReparacionController extends Controller
     public function create(): Response
     {
         return Inertia::render('Reparaciones/Create', [
-            // Cargamos clientes para el selector (optimizar si son muchos)
+            // Cargamos clientes para el selector
             'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')
                 ->orderBy('apellido')
                 ->get(),
-            // Productos activos para agregar repuestos iniciales si fuera necesario
+            
+            // Productos activos para repuestos
             'productos' => Producto::where('estadoProductoID', 1)->get(),
+            'estados' => EstadoReparacion::all(), 
         ]);
     }
 

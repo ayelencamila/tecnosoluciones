@@ -12,7 +12,9 @@ return new class extends Migration
             $table->id();
             
             // El pago que se está distribuyendo
-            $table->foreignId('pago_id')->constrained('pagos', 'pago_id')->onDelete('cascade');
+            $table->foreignId('pago_id')
+                  ->constrained(table: 'pagos', column: 'pagoID') 
+                  ->onDelete('cascade');
             
             // La venta (deuda) que se está cancelando
             $table->foreignId('venta_id')->constrained('ventas', 'venta_id')->onDelete('restrict');

@@ -44,6 +44,7 @@ class DatabaseSeeder extends Seeder
             TipoClienteSeeder::class,
             EstadoClienteSeeder::class,
             EstadoCuentaCorrienteSeeder::class,
+            
         ]);
 
         // 3. Datos del módulo de Productos
@@ -52,6 +53,7 @@ class DatabaseSeeder extends Seeder
             CategoriaProductoSeeder::class,
             EstadoProductoSeeder::class,
             ProductoSeeder::class,
+            EstadoReparacionSeeder::class,
         ]);
 
         // 4. Datos de ejemplo - Clientes (aquí se llamará a tu ClienteSeeder que crea 30 clientes)
@@ -64,6 +66,8 @@ class DatabaseSeeder extends Seeder
 
         // --- LÓGICA PARA EL CLIENTE "CONSUMIDOR FINAL" ---
         $this->command->info('Creando o verificando cliente "Consumidor Final"...');
+
+        $this->call(MedioPagoSeeder::class);
 
         // 1. OBTENER DEPENDENCIAS (Asegurado que existen por los $this->call anteriores)
         $estadoActivaCC = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->first();
