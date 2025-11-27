@@ -160,17 +160,38 @@ class ReparacionController extends Controller
     {
         $reparacion = Reparacion::with(['cliente', 'repuestos.producto'])->findOrFail($id);
 
+        // --- LÓGICA DE FILTRADO ROBUSTA ---
+        // 1. Intentamos buscar categorías que suenen a "Repuesto" o "Insumo"
+        $categoriasRepuestos = \App\Models\CategoriaProducto::where('nombre', 'like', '%Repuesto%')
+            ->orWhere('nombre', 'like', '%Insumo%')
+            ->pluck('id');
+
+        $queryProductos = Producto::where('estadoProductoID', 1); // Solo activos
+
+        if ($categoriasRepuestos->isNotEmpty()) {
+            // OPCIÓN A: Si encontramos categorías de repuestos, filtramos por ellas (Lista blanca)
+            $queryProductos->whereIn('categoriaProductoID', $categoriasRepuestos);
+        } else {
+            // OPCIÓN B (Respaldo): Si no existen, excluimos lo que seguro NO es repuesto (Equipos y Servicios)
+            // Esto evita que aparezcan celulares nuevos en la lista si la categoría "Repuestos" no existe.
+            $categoriasExcluidas = \App\Models\CategoriaProducto::where('nombre', 'like', '%Equipo%')
+                ->orWhere('nombre', 'like', '%Servicio%')
+                ->pluck('id');
+                
+            if ($categoriasExcluidas->isNotEmpty()) {
+                $queryProductos->whereNotIn('categoriaProductoID', $categoriasExcluidas);
+            }
+        }
+
         return Inertia::render('Reparaciones/Edit', [
             'reparacion' => $reparacion,
             'estados' => EstadoReparacion::all(),
-            // Mapeamos productos para enviar solo datos necesarios al selector de repuestos
-            'productos' => Producto::where('estadoProductoID', 1)
-                ->get()
-                ->map(fn($p) => [
-                    'id' => $p->id,
-                    'nombre' => $p->nombre,
-                    'stock_total' => $p->stock_total // Accessor de tu modelo Producto
-                ]),
+            // Mapeamos para la vista
+            'productos' => $queryProductos->orderBy('nombre')->get()->map(fn($p) => [
+                'id' => $p->id,
+                'nombre' => $p->nombre,
+                'stock_total' => $p->stock_total 
+            ]),
         ]);
     }
 

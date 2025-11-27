@@ -12,12 +12,11 @@ import { debounce } from 'lodash';
 
 const props = defineProps({
     productos: Array, 
-    marcas: Array // <--- NUEVO: Recibimos las marcas desde el controlador
+    marcas: Array
 });
 
 const form = useForm({
     clienteID: '',
-    // CAMBIO: Ahora usamos IDs
     marca_id: '',
     modelo_id: '',
     numero_serie_imei: '',
@@ -29,18 +28,16 @@ const form = useForm({
     imagenes: [],
 });
 
-// --- LÓGICA MARCAS Y MODELOS (DINÁMICO) ---
+// --- LÓGICA MARCAS Y MODELOS ---
 const modelosDisponibles = ref([]);
 const cargandoModelos = ref(false);
 
 watch(() => form.marca_id, async (nuevaMarcaId) => {
-    form.modelo_id = ''; // Reseteamos el modelo al cambiar marca
+    form.modelo_id = ''; 
     modelosDisponibles.value = [];
-    
     if (nuevaMarcaId) {
         cargandoModelos.value = true;
         try {
-            // Llamada a la API que creamos
             const response = await axios.get(route('api.modelos.por-marca', nuevaMarcaId));
             modelosDisponibles.value = response.data;
         } catch (error) {
@@ -90,7 +87,6 @@ const quitarCliente = () => {
 
 // --- IMAGENES ---
 const imagenPreviews = ref([]);
-
 const handleImageUpload = (event) => {
     const files = Array.from(event.target.files);
     if (form.imagenes.length + files.length > 5) {
@@ -104,7 +100,6 @@ const handleImageUpload = (event) => {
         reader.readAsDataURL(file);
     });
 };
-
 const removeImage = (index) => {
     form.imagenes.splice(index, 1);
     imagenPreviews.value.splice(index, 1);
@@ -142,23 +137,16 @@ const submit = () => {
                                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                                 <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                             </div>
-                                            <div v-if="buscando" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                                <svg class="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                            </div>
                                         </div>
                                         <div v-if="resultadosClientes.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
                                             <ul tabindex="-1" role="listbox">
                                                 <li v-for="cliente in resultadosClientes" :key="cliente.clienteID" @click="seleccionarCliente(cliente)" class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-50 text-gray-900 border-b border-gray-100">
-                                                    <div class="flex items-center">
-                                                        <span class="font-bold block truncate">{{ cliente.apellido }}, {{ cliente.nombre }}</span>
-                                                        <span class="ml-2 text-gray-500 text-xs">(DNI: {{ cliente.dni }})</span>
-                                                    </div>
+                                                    <div class="flex items-center"><span class="font-bold block truncate">{{ cliente.apellido }}, {{ cliente.nombre }}</span><span class="ml-2 text-gray-500 text-xs">(DNI: {{ cliente.dni }})</span></div>
                                                 </li>
                                             </ul>
                                         </div>
-                                        <div v-else-if="busquedaCliente.length > 2 && !buscando && resultadosClientes.length === 0" class="absolute z-50 mt-1 w-full bg-white shadow-lg rounded-md py-3 px-4 text-sm text-gray-500 border border-gray-100">No se encontraron clientes.</div>
                                         <div class="mt-2 text-right">
-                                            <Link :href="route('clientes.create')" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold hover:underline flex items-center justify-end"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Agregar Nuevo Cliente</Link>
+                                            <Link :href="route('clientes.create')" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold hover:underline flex items-center justify-end">Agregar Nuevo Cliente</Link>
                                         </div>
                                     </div>
                                     <div v-else class="mt-1 p-4 border border-indigo-200 bg-indigo-50 rounded-lg flex justify-between items-center">
@@ -176,29 +164,22 @@ const submit = () => {
                         <div class="mb-8 border-b pb-6">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Datos del Equipo</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                
                                 <div>
                                     <InputLabel for="marca_id" value="Marca *" />
                                     <select id="marca_id" v-model="form.marca_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                         <option value="" disabled>Selecciona una marca</option>
-                                        <option v-for="marca in marcas" :key="marca.id" :value="marca.id">
-                                            {{ marca.nombre }}
-                                        </option>
+                                        <option v-for="marca in marcas" :key="marca.id" :value="marca.id">{{ marca.nombre }}</option>
                                     </select>
                                     <InputError :message="form.errors.marca_id" class="mt-2" />
                                 </div>
-
                                 <div>
                                     <InputLabel for="modelo_id" value="Modelo *" />
                                     <select id="modelo_id" v-model="form.modelo_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" :disabled="!form.marca_id || cargandoModelos">
                                         <option value="" disabled>{{ cargandoModelos ? 'Cargando...' : 'Selecciona un modelo' }}</option>
-                                        <option v-for="modelo in modelosDisponibles" :key="modelo.id" :value="modelo.id">
-                                            {{ modelo.nombre }}
-                                        </option>
+                                        <option v-for="modelo in modelosDisponibles" :key="modelo.id" :value="modelo.id">{{ modelo.nombre }}</option>
                                     </select>
                                     <InputError :message="form.errors.modelo_id" class="mt-2" />
                                 </div>
-
                                 <div><InputLabel for="numero_serie_imei" value="Nro. Serie / IMEI" /><TextInput id="numero_serie_imei" v-model="form.numero_serie_imei" type="text" class="mt-1 block w-full" /></div>
                                 <div><InputLabel for="clave_bloqueo" value="Clave / Patrón" /><TextInput id="clave_bloqueo" v-model="form.clave_bloqueo" type="text" class="mt-1 block w-full" /></div>
                                 <div class="md:col-span-2"><InputLabel for="accesorios_dejados" value="Accesorios" /><TextInput id="accesorios_dejados" v-model="form.accesorios_dejados" type="text" class="mt-1 block w-full" /></div>
@@ -210,7 +191,23 @@ const submit = () => {
                             <div class="grid grid-cols-1 gap-6">
                                 <div><InputLabel for="falla_declarada" value="Falla Declarada *" /><textarea id="falla_declarada" v-model="form.falla_declarada" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea><InputError :message="form.errors.falla_declarada" class="mt-2" /></div>
                                 <div><InputLabel for="observaciones" value="Observaciones Internas" /><textarea id="observaciones" v-model="form.observaciones" rows="2" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea></div>
-                                <div class="w-full md:w-1/3"><InputLabel for="fecha_promesa" value="Fecha Promesa" /><TextInput id="fecha_promesa" v-model="form.fecha_promesa" type="datetime-local" class="mt-1 block w-full" /></div>
+                                
+                                <div class="w-full md:w-1/3">
+                                    <div class="flex items-center mb-1">
+                                        <InputLabel for="fecha_promesa" value="Fecha Promesa" />
+                                        <div class="group relative flex items-center ml-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4 text-gray-400 cursor-help hover:text-indigo-500">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
+                                            </svg>
+                                            <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 hidden group-hover:block w-48 p-2 bg-gray-800 text-white text-xs rounded shadow-lg z-10 text-center">
+                                                Fecha estimada de entrega al cliente. Se usará para calcular el SLA y alertar demoras.
+                                                <div class="absolute top-full left-1/2 transform -translate-x-1/2 border-4 border-transparent border-t-gray-800"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <TextInput id="fecha_promesa" v-model="form.fecha_promesa" type="datetime-local" class="mt-1 block w-full" />
+                                </div>
+
                             </div>
                         </div>
 
