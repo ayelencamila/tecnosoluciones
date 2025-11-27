@@ -64,8 +64,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // 2. Otras posibles rutas para futuros maestros
         Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
         Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class);
+        Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class);
         
-        // Route::resource('estados-reparacion', EstadoReparacionController::class);
     });
 });
 
