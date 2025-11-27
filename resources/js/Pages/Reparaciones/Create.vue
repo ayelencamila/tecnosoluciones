@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { useForm, Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -12,12 +12,14 @@ import { debounce } from 'lodash';
 
 const props = defineProps({
     productos: Array, 
+    marcas: Array // <--- NUEVO: Recibimos las marcas desde el controlador
 });
 
 const form = useForm({
     clienteID: '',
-    equipo_marca: '',
-    equipo_modelo: '',
+    // CAMBIO: Ahora usamos IDs
+    marca_id: '',
+    modelo_id: '',
     numero_serie_imei: '',
     clave_bloqueo: '',
     accesorios_dejados: '',
@@ -27,26 +29,44 @@ const form = useForm({
     imagenes: [],
 });
 
+// --- LÓGICA MARCAS Y MODELOS (DINÁMICO) ---
+const modelosDisponibles = ref([]);
+const cargandoModelos = ref(false);
+
+watch(() => form.marca_id, async (nuevaMarcaId) => {
+    form.modelo_id = ''; // Reseteamos el modelo al cambiar marca
+    modelosDisponibles.value = [];
+    
+    if (nuevaMarcaId) {
+        cargandoModelos.value = true;
+        try {
+            // Llamada a la API que creamos
+            const response = await axios.get(route('api.modelos.por-marca', nuevaMarcaId));
+            modelosDisponibles.value = response.data;
+        } catch (error) {
+            console.error("Error cargando modelos:", error);
+        } finally {
+            cargandoModelos.value = false;
+        }
+    }
+});
+
 // --- BUSCADOR DE CLIENTES ---
 const busquedaCliente = ref('');
 const resultadosClientes = ref([]);
 const clienteSeleccionado = ref(null);
 const buscando = ref(false);
-const errorBusqueda = ref(false); // Nuevo estado para errores
+const errorBusqueda = ref(false);
 
 const buscarClientes = debounce(async () => {
     if (busquedaCliente.value.length < 2) {
         resultadosClientes.value = [];
         return;
     }
-    
     buscando.value = true;
     errorBusqueda.value = false;
-
     try {
-        const response = await axios.get(route('api.clientes.buscar'), {
-            params: { q: busquedaCliente.value }
-        });
+        const response = await axios.get(route('api.clientes.buscar'), { params: { q: busquedaCliente.value } });
         resultadosClientes.value = response.data;
     } catch (error) {
         console.error("Error buscando clientes:", error);
@@ -80,9 +100,7 @@ const handleImageUpload = (event) => {
     files.forEach(file => {
         form.imagenes.push(file);
         const reader = new FileReader();
-        reader.onload = (e) => {
-            imagenPreviews.value.push({ url: e.target.result, name: file.name });
-        };
+        reader.onload = (e) => imagenPreviews.value.push({ url: e.target.result, name: file.name });
         reader.readAsDataURL(file);
     });
 };
@@ -118,30 +136,16 @@ const submit = () => {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div class="relative">
                                     <InputLabel value="Buscar Cliente (Nombre, Apellido o DNI) *" />
-                                    
                                     <div v-if="!clienteSeleccionado">
                                         <div class="relative">
-                                            <input 
-                                                type="text" 
-                                                v-model="busquedaCliente"
-                                                @input="buscarClientes"
-                                                class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm pl-10"
-                                                placeholder="Escribe para buscar..."
-                                                autocomplete="off"
-                                            />
+                                            <input type="text" v-model="busquedaCliente" @input="buscarClientes" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm pl-10" placeholder="Escribe para buscar..." autocomplete="off" />
                                             <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                                </svg>
+                                                <svg class="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                             </div>
                                             <div v-if="buscando" class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                                                <svg class="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                </svg>
+                                                <svg class="animate-spin h-5 w-5 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                             </div>
                                         </div>
-
                                         <div v-if="resultadosClientes.length > 0" class="absolute z-50 mt-1 w-full bg-white shadow-lg max-h-60 rounded-md py-1 text-base ring-1 ring-black ring-opacity-5 overflow-auto focus:outline-none sm:text-sm">
                                             <ul tabindex="-1" role="listbox">
                                                 <li v-for="cliente in resultadosClientes" :key="cliente.clienteID" @click="seleccionarCliente(cliente)" class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-50 text-gray-900 border-b border-gray-100">
@@ -152,28 +156,15 @@ const submit = () => {
                                                 </li>
                                             </ul>
                                         </div>
-                                        
-                                        <div v-else-if="busquedaCliente.length > 2 && !buscando && resultadosClientes.length === 0" class="absolute z-50 mt-1 w-full bg-white shadow-lg rounded-md py-3 px-4 text-sm text-gray-500 border border-gray-100">
-                                            No se encontraron clientes con ese dato.
-                                        </div>
-                                        
+                                        <div v-else-if="busquedaCliente.length > 2 && !buscando && resultadosClientes.length === 0" class="absolute z-50 mt-1 w-full bg-white shadow-lg rounded-md py-3 px-4 text-sm text-gray-500 border border-gray-100">No se encontraron clientes.</div>
                                         <div class="mt-2 text-right">
-                                            <Link :href="route('clientes.create')" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold hover:underline flex items-center justify-end">
-                                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                                                Agregar Nuevo Cliente
-                                            </Link>
+                                            <Link :href="route('clientes.create')" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold hover:underline flex items-center justify-end"><svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg> Agregar Nuevo Cliente</Link>
                                         </div>
                                     </div>
-
                                     <div v-else class="mt-1 p-4 border border-indigo-200 bg-indigo-50 rounded-lg flex justify-between items-center">
                                         <div class="flex items-center">
-                                            <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold mr-3">
-                                                {{ clienteSeleccionado.nombre.charAt(0) }}{{ clienteSeleccionado.apellido.charAt(0) }}
-                                            </div>
-                                            <div>
-                                                <p class="text-sm font-bold text-gray-900">{{ clienteSeleccionado.apellido }}, {{ clienteSeleccionado.nombre }}</p>
-                                                <p class="text-xs text-gray-500">DNI: {{ clienteSeleccionado.dni }}</p>
-                                            </div>
+                                            <div class="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold mr-3">{{ clienteSeleccionado.nombre.charAt(0) }}{{ clienteSeleccionado.apellido.charAt(0) }}</div>
+                                            <div><p class="text-sm font-bold text-gray-900">{{ clienteSeleccionado.apellido }}, {{ clienteSeleccionado.nombre }}</p><p class="text-xs text-gray-500">DNI: {{ clienteSeleccionado.dni }}</p></div>
                                         </div>
                                         <button type="button" @click="quitarCliente" class="text-red-500 hover:text-red-700 text-xs font-bold uppercase tracking-wider border border-red-200 px-2 py-1 rounded bg-white hover:bg-red-50">Cambiar</button>
                                     </div>
@@ -185,8 +176,29 @@ const submit = () => {
                         <div class="mb-8 border-b pb-6">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Datos del Equipo</h3>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div><InputLabel for="equipo_marca" value="Marca *" /><TextInput id="equipo_marca" v-model="form.equipo_marca" type="text" class="mt-1 block w-full" /><InputError :message="form.errors.equipo_marca" class="mt-2" /></div>
-                                <div><InputLabel for="equipo_modelo" value="Modelo *" /><TextInput id="equipo_modelo" v-model="form.equipo_modelo" type="text" class="mt-1 block w-full" /><InputError :message="form.errors.equipo_modelo" class="mt-2" /></div>
+                                
+                                <div>
+                                    <InputLabel for="marca_id" value="Marca *" />
+                                    <select id="marca_id" v-model="form.marca_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                        <option value="" disabled>Selecciona una marca</option>
+                                        <option v-for="marca in marcas" :key="marca.id" :value="marca.id">
+                                            {{ marca.nombre }}
+                                        </option>
+                                    </select>
+                                    <InputError :message="form.errors.marca_id" class="mt-2" />
+                                </div>
+
+                                <div>
+                                    <InputLabel for="modelo_id" value="Modelo *" />
+                                    <select id="modelo_id" v-model="form.modelo_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" :disabled="!form.marca_id || cargandoModelos">
+                                        <option value="" disabled>{{ cargandoModelos ? 'Cargando...' : 'Selecciona un modelo' }}</option>
+                                        <option v-for="modelo in modelosDisponibles" :key="modelo.id" :value="modelo.id">
+                                            {{ modelo.nombre }}
+                                        </option>
+                                    </select>
+                                    <InputError :message="form.errors.modelo_id" class="mt-2" />
+                                </div>
+
                                 <div><InputLabel for="numero_serie_imei" value="Nro. Serie / IMEI" /><TextInput id="numero_serie_imei" v-model="form.numero_serie_imei" type="text" class="mt-1 block w-full" /></div>
                                 <div><InputLabel for="clave_bloqueo" value="Clave / Patrón" /><TextInput id="clave_bloqueo" v-model="form.clave_bloqueo" type="text" class="mt-1 block w-full" /></div>
                                 <div class="md:col-span-2"><InputLabel for="accesorios_dejados" value="Accesorios" /><TextInput id="accesorios_dejados" v-model="form.accesorios_dejados" type="text" class="mt-1 block w-full" /></div>

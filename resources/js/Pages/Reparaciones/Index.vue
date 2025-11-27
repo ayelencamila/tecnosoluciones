@@ -53,7 +53,7 @@ const getEstadoBadgeClass = (nombreEstado) => {
     return 'bg-gray-50 text-gray-600 border-gray-200';
 };
 
-// Paginación (Tu lógica preferida)
+// Paginación Estilizada
 const getPaginationLabel = (label, index, totalLinks) => {
     if (label.includes('Previous')) return '&laquo;'; 
     if (label.includes('Next')) return '&raquo;'; 

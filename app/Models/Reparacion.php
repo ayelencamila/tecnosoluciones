@@ -33,6 +33,8 @@ class Reparacion extends Model
         'costo_mano_obra',
         'total_final',
         'anulada',
+        'marca_id',
+        'modelo_id',
     ];
 
     protected $casts = [
@@ -91,5 +93,14 @@ class Reparacion extends Model
     {
         return $this->hasMany(MovimientoStock::class, 'referenciaID', 'reparacionID')
                     ->where('referenciaTabla', 'reparaciones');
+    }
+    public function marca()
+    {
+        return $this->belongsTo(Marca::class);
+    }
+
+    public function modelo()
+    {
+        return $this->belongsTo(Modelo::class);
     }
 }

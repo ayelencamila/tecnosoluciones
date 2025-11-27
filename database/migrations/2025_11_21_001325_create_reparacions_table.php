@@ -31,13 +31,13 @@ return new class extends Migration
                   ->constrained('estados_reparacion', 'estadoReparacionID');
 
             // Datos del Equipo (Requisitos IRQ-06)
-            $table->string('codigo_reparacion')->unique(); // Ej: REP-2025-001
-            $table->string('equipo_marca');      // Ej: Samsung
-            $table->string('equipo_modelo');     // Ej: Galaxy S20
+            $table->string('codigo_reparacion')->unique(); 
             $table->string('numero_serie_imei')->nullable(); // Vital para seguridad
             $table->string('clave_bloqueo')->nullable();     // Patrón/PIN
             $table->text('accesorios_dejados')->nullable();  // Ej: "Funda, sin cargador"
-
+            $table->foreignId('marca_id')->constrained('marcas');
+            $table->foreignId('modelo_id')->constrained('modelos');
+            
             // Diagnóstico y Detalles
             $table->text('falla_declarada');           // Lo que dice el cliente
             $table->text('diagnostico_tecnico')->nullable(); // Lo que dice el técnico

@@ -69,7 +69,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('tipos-cliente', \App\Http\Controllers\Admin\TipoClienteController::class);
         Route::resource('estados-cliente', \App\Http\Controllers\Admin\EstadoClienteController::class);
         Route::resource('medios-pago', \App\Http\Controllers\Admin\MedioPagoController::class);
-        
+        Route::resource('marcas', \App\Http\Controllers\Admin\MarcaController::class);
+        Route::resource('modelos', \App\Http\Controllers\Admin\ModeloController::class);
     });
 });
 
@@ -78,6 +79,13 @@ require __DIR__.'/auth.php';
 // --- RUTAS API ---
 Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
     ->name('api.localidades.por-provincia');
+Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
+    ->name('api.localidades.por-provincia');
+
+// API de Modelos por Marca
+Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
+    ->name('api.modelos.por-marca');
+
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
 Route::middleware(['auth'])->group(function () {
