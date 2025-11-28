@@ -9,17 +9,17 @@ import { debounce } from 'lodash';
 
 // Props que vienen del VentaController@index
 const props = defineProps({
-    ventas: Object,         
-    filters: Object,       
+    ventas: Object,         // Paginador de Laravel (data, links, etc.)
+    filters: Object,        // Filtros activos
 });
 
 // Estado reactivo de los filtros
 const form = ref({
     search: props.filters.search || '',
-    // Puedes agregar más filtros si los implementas en el controlador
+    estado: props.filters.estado || '', // 'activa' o 'anulada'
 });
 
-// Watcher con Debounce para búsqueda en vivo
+// Watcher con Debounce
 watch(form, debounce(() => {
     router.get(route('ventas.index'), form.value, {
         preserveState: true,
@@ -29,7 +29,7 @@ watch(form, debounce(() => {
 }, 300), { deep: true });
 
 const resetFilters = () => {
-    form.value = { search: '' };
+    form.value = { search: '', estado: '' };
 };
 
 // --- HELPERS VISUALES ---
@@ -39,13 +39,13 @@ const formatCurrency = (value) => {
 
 const getEstadoBadgeClass = (nombreEstado) => {
     const estado = nombreEstado?.toLowerCase() || '';
-    if (estado === 'completada') return 'bg-green-100 text-green-800 border-green-200';
+    if (estado === 'completada') return 'bg-green-100 text-green-800 border-green-200 font-bold';
     if (estado === 'pendiente') return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     if (estado === 'anulada') return 'bg-red-100 text-red-800 border-red-200';
     return 'bg-gray-100 text-gray-600 border-gray-200';
 };
 
-// Paginación Estilizada (Igual a Reparaciones)
+// Paginación Estilizada (Helper)
 const getPaginationLabel = (label, index, totalLinks) => {
     if (label.includes('Previous')) return '&laquo;'; 
     if (label.includes('Next')) return '&raquo;'; 
@@ -71,16 +71,28 @@ const getPaginationLabel = (label, index, totalLinks) => {
                 <div class="bg-white shadow-sm sm:rounded-lg p-4 mb-6">
                     <div class="flex flex-col md:flex-row justify-between items-center gap-4">
                         
-                        <div class="flex-1 w-full flex gap-2">
-                            <TextInput 
-                                v-model="form.search" 
-                                placeholder="Buscar N° Comprobante, Cliente (Nombre/DNI)..." 
-                                class="w-full md:w-1/2"
-                            />
+                        <div class="flex-1 w-full flex flex-col md:flex-row gap-4">
+                            <div class="w-full md:w-1/2">
+                                <TextInput 
+                                    v-model="form.search" 
+                                    placeholder="Buscar N° Comprobante, Cliente..." 
+                                    class="w-full"
+                                />
+                            </div>
+                            <div class="w-full md:w-40">
+                                <select 
+                                    v-model="form.estado"
+                                    class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm w-full"
+                                >
+                                    <option value="">Todos</option>
+                                    <option value="activa">Activas</option>
+                                    <option value="anulada">Anuladas</option>
+                                </select>
+                            </div>
                             <button 
-                                v-if="form.search"
+                                v-if="form.search || form.estado"
                                 @click="resetFilters" 
-                                class="text-sm text-gray-500 hover:text-indigo-600 underline"
+                                class="text-sm text-gray-500 hover:text-indigo-600 underline mt-2 md:mt-0"
                             >
                                 Limpiar
                             </button>

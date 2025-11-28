@@ -95,7 +95,7 @@ class VentaController extends Controller
                 ->with(['categoria', 'precios'])
                 ->get()
                 ->map(function($p) {
-                    $p->stock_actual = $p->stock_total; 
+                    $p->setAttribute('stock_total', $p->stock_total); 
                     return $p;
                 }),
 
