@@ -12,13 +12,13 @@ class Pago extends Model
     use HasFactory;
 
     protected $table = 'pagos';
-    protected $primaryKey = 'pago_id';
+    protected $primaryKey = 'pagoID'; 
 
     protected $fillable = [
         'clienteID',
         'user_id',
         'monto',
-        'medioPagoID',
+        'medioPagoID', 
         'fecha_pago',
         'numero_recibo',
         'observaciones',
@@ -42,30 +42,29 @@ class Pago extends Model
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    // Automatización: Generar número de recibo al crear
+    public function medioPago(): BelongsTo
+    {
+        return $this->belongsTo(MedioPago::class, 'medioPagoID', 'medioPagoID');
+    }
+
     protected static function boot()
     {
         parent::boot();
 
         static::creating(function ($pago) {
             if (empty($pago->numero_recibo)) {
-                // Formato: REC-YYYYMMDD-HHMMSS-MICROSEC (garantiza unicidad sin depender del ID)
                 $pago->numero_recibo = 'REC-' . date('Ymd-His') . '-' . substr(microtime(), 2, 6);
+            }
+            if (empty($pago->fecha_pago)) {
+                $pago->fecha_pago = now();
             }
         });
     }
-    /**
-     * Relación N:M con Ventas a través de la imputación.
-     * Permite acceder a $pago->ventasImputadas
-     */
+
     public function ventasImputadas()
     {
         return $this->belongsToMany(Venta::class, 'pago_venta_imputacion', 'pago_id', 'venta_id')
                     ->withPivot('monto_imputado')
                     ->withTimestamps();
-    }
-    public function medioPago()
-    {
-        return $this->belongsTo(MedioPago::class, 'medioPagoID', 'medioPagoID');
     }
 }

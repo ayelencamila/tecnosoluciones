@@ -22,25 +22,37 @@ class PagoController extends Controller
     public function index(Request $request)
     {
         $pagos = Pago::query()
-            ->with(['cliente:clienteID,nombre,apellido,DNI', 'cajero:id,name'])
-            ->select('pago_id', 'clienteID', 'user_id', 'numero_recibo', 'fecha_pago', 'monto', 'metodo_pago', 'anulado')
-            // --- FILTROS QUE FALTABAN ---
+            ->with(['cliente:clienteID,nombre,apellido,DNI', 'cajero:id,name', 'medioPago']) 
+            ->select('pagoID', 'clienteID', 'user_id', 'numero_recibo', 'fecha_pago', 'monto', 'medioPagoID', 'anulado')
+            
+            // Filtros
             ->when($request->input('search'), function (Builder $query, $search) {
                 $query->where('numero_recibo', 'like', "%{$search}%")
-                    ->orWhereHas('cliente', fn($q) => $q->where('nombre', 'like', "%{$search}%")->orWhere('apellido', 'like', "%{$search}%")->orWhere('DNI', 'like', "%{$search}%"));
+                    ->orWhereHas('cliente', fn($q) => $q->where('nombre', 'like', "%{$search}%")
+                        ->orWhere('apellido', 'like', "%{$search}%")
+                        ->orWhere('DNI', 'like', "%{$search}%"));
             })
             ->when($request->input('cliente_id'), fn(Builder $q, $id) => $q->where('clienteID', $id))
             ->when($request->input('fecha_desde'), fn(Builder $q, $fecha) => $q->whereDate('fecha_pago', '>=', $fecha))
             ->when($request->input('fecha_hasta'), fn(Builder $q, $fecha) => $q->whereDate('fecha_pago', '<=', $fecha))
-            // -----------------------------
+            
             ->orderBy('fecha_pago', 'desc')
             ->paginate(15)
-            ->withQueryString();
+            ->withQueryString()
+            ->through(fn ($p) => [
+                'pagoID' => $p->pagoID, 
+                'numero_recibo' => $p->numero_recibo,
+                'fecha' => $p->fecha_pago->format('d/m/Y H:i'),
+                'cliente' => $p->cliente ? "{$p->cliente->apellido}, {$p->cliente->nombre}" : 'Consumidor Final',
+                'monto' => $p->monto,
+                'medio_pago' => $p->medioPago->nombre ?? 'Desconocido', 
+                'anulado' => $p->anulado,
+            ]);
 
+        // --- ¡AQUÍ FALTABA EL RETURN! ---
         return Inertia::render('Pagos/ListadoPagos', [
             'pagos' => $pagos,
             'filters' => $request->only(['search', 'cliente_id', 'fecha_desde', 'fecha_hasta']),
-            // ESTA ES LA VARIABLE QUE FALTABA:
             'clientes_filtro' => Cliente::select('clienteID', 'nombre', 'apellido')->orderBy('apellido')->get()
         ]);
     }
@@ -50,21 +62,19 @@ class PagoController extends Controller
      */
     public function create()
     {
-        // Solo mostramos clientes con Cuenta Corriente activa para imputar pagos
         $clientes = Cliente::whereHas('cuentaCorriente')
             ->select('clienteID', 'nombre', 'apellido', 'DNI')
             ->with('cuentaCorriente:cuentaCorrienteID,saldo,estadoCuentaCorrienteID') 
             ->orderBy('apellido')
             ->get();
         
-        // NUEVO: Traemos los medios de pago configurables
         $mediosPago = MedioPago::where('activo', true)
             ->orderBy('nombre')
             ->get(['medioPagoID', 'nombre', 'recargo_porcentaje']);
 
         return Inertia::render('Pagos/FormularioPago', [
             'clientes' => $clientes,
-            'mediosPago' => $mediosPago // <--- Se lo enviamos a la vista
+            'mediosPago' => $mediosPago
         ]);
     }
 
@@ -74,14 +84,12 @@ class PagoController extends Controller
     public function store(StorePagoRequest $request, RegistrarPagoService $registrarPagoService)
     {
         try {
-            // El StorePagoRequest ya validó los datos
             $datosValidados = $request->validated();
             
-            // Llamamos al cerebro (Servicio)
             $pago = $registrarPagoService->handle($datosValidados, auth()->id());
 
-            // Redirigimos al recibo (show)
-            return to_route('pagos.show', $pago->pago_id)
+            // CORRECCIÓN: Usamos pagoID (tu PK real)
+            return to_route('pagos.show', $pago->pagoID)
                    ->with('success', '¡Pago registrado e imputado con éxito!');
 
         } catch (Exception $e) {
@@ -95,7 +103,6 @@ class PagoController extends Controller
      */
     public function show(Pago $pago)
     {
-        // Cargamos las relaciones para mostrar el recibo completo
         $pago->load(['cliente', 'cajero', 'ventasImputadas']);
 
         return Inertia::render('Pagos/DetallePago', [
@@ -112,7 +119,8 @@ class PagoController extends Controller
             $anularPagoService->handle($pago, auth()->id());
 
             return redirect()
-                   ->route('pagos.show', $pago->pago_id)
+                   // CORRECCIÓN: Usamos pagoID
+                   ->route('pagos.show', $pago->pagoID)
                    ->with('success', '¡Pago anulado con éxito! Se revirtió el saldo en la cuenta corriente.');
 
         } catch (Exception $e) {
