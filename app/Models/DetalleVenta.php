@@ -11,19 +11,8 @@ class DetalleVenta extends Model
 {
     use HasFactory;
 
-    /**
-     * El nombre de la tabla asociada al modelo.
-     */
     protected $table = 'detalle_ventas';
-
-    /**
-     * La clave primaria asociada con la tabla.
-     */
     protected $primaryKey = 'detalle_venta_id';
-
-    /**
-     * Los atributos que no son asignables masivamente.
-     */
     protected $guarded = ['detalle_venta_id'];
 
     protected $casts = [
@@ -36,7 +25,6 @@ class DetalleVenta extends Model
 
     /**
      * Relación: Un detalle pertenece a una Venta.
-     * FK: 'venta_id' (en detalle_ventas) -> PK: 'venta_id' (en ventas)
      */
     public function venta(): BelongsTo
     {
@@ -45,16 +33,16 @@ class DetalleVenta extends Model
 
     /**
      * Relación: Un detalle referencia a un Producto.
-     * FK: 'productoID' (en detalle_ventas) -> PK: 'id' (en productos)
+     * CORREGIDO: Usamos 'producto_id' para estandarizar con el resto del sistema.
      */
     public function producto(): BelongsTo
     {
-        return $this->belongsTo(Producto::class, 'productoID', 'id');
+        // Antes: 'productoID' -> Ahora: 'producto_id'
+        return $this->belongsTo(Producto::class, 'producto_id', 'id');
     }
 
     /**
-     * Relación: Un detalle usó un PrecioProducto específico.
-     * FK: 'precio_producto_id' (en detalle_ventas) -> PK: 'id' (en precios_producto)
+     * Relación: Precio histórico usado.
      */
     public function precioProducto(): BelongsTo
     {
@@ -62,13 +50,13 @@ class DetalleVenta extends Model
     }
 
     /**
-     * Relación N:M: Descuentos aplicados a ESTE ITEM.
+     * Relación N:M: Descuentos aplicados a este ítem.
      */
     public function descuentos(): BelongsToMany
     {
         return $this->belongsToMany(
             Descuento::class,
-            'descuento_detalle_venta', // La segunda tabla pivote
+            'descuento_detalle_venta',
             'detalle_venta_id',
             'descuento_id'
         )->withPivot('monto_aplicado_item');

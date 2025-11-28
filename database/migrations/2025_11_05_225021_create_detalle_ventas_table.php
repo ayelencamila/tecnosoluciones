@@ -15,7 +15,7 @@ return new class extends Migration
             $table->foreignId('venta_id')->constrained('ventas', 'venta_id')->onDelete('cascade');
 
             // FK a productos (asumiendo PK 'productoID' en 'productos')
-            $table->foreignId('productoID')->constrained('productos');
+            $table->foreignId('producto_id')->constrained('productos');
 
             // FK a precios_producto (asumiendo PK 'id' en 'precios_producto')
             // Es nullable() por si vendes un "servicio" o algo con precio manual

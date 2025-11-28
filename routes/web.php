@@ -13,7 +13,6 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ReparacionController;
-// Importación del nuevo controlador de administración
 use App\Http\Controllers\Admin\CategoriaProductoController;
 use Inertia\Inertia;
 
