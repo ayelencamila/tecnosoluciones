@@ -44,7 +44,8 @@ class DatabaseSeeder extends Seeder
             TipoClienteSeeder::class,
             EstadoClienteSeeder::class,
             EstadoCuentaCorrienteSeeder::class,
-            
+            EstadoReparacionSeeder::class,
+            EstadoVentaSeeder::class,
         ]);
 
         // 3. Datos del módulo de Productos
@@ -52,8 +53,7 @@ class DatabaseSeeder extends Seeder
             DepositoSeeder::class,
             CategoriaProductoSeeder::class,
             EstadoProductoSeeder::class,
-            ProductoSeeder::class,
-            EstadoReparacionSeeder::class,
+            ProductoSeeder::class,           
         ]);
 
         // 4. Datos de ejemplo - Clientes (aquí se llamará a tu ClienteSeeder que crea 30 clientes)

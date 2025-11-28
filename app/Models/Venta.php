@@ -12,68 +12,63 @@ class Venta extends Model
 {
     use HasFactory;
 
-    /**
-     * La clave primaria asociada con la tabla.
-     */
     protected $primaryKey = 'venta_id';
 
-    /**
-     * Los atributos que no son asignables masivamente.
-     */
-    protected $guarded = ['venta_id'];
+    protected $fillable = [
+        'clienteID',
+        'user_id',
+        'estado_venta_id',
+        'medio_pago_id', 
+        // -----------------------
+        'numero_comprobante',
+        'fecha_venta',
+        'subtotal',
+        'total_descuentos',
+        'total',
+        'motivo_anulacion',
+        'observaciones',
+    ];
 
     protected $casts = [
         'fecha_venta' => 'datetime',
-        'fecha_vencimiento' => 'date',
         'subtotal' => 'decimal:2',
         'total_descuentos' => 'decimal:2',
         'total' => 'decimal:2',
-        'anulada' => 'boolean',
     ];
 
-    /**
-     * Relación: Una venta pertenece a un Cliente.
-     * FK: 'clienteID' (en ventas) -> PK: 'clienteID' (en clientes)
-     */
+    // RELACIONES NUEVAS
+    public function estado(): BelongsTo
+    {
+        return $this->belongsTo(EstadoVenta::class, 'estado_venta_id', 'estadoVentaID');
+    }
+
+    public function medioPago(): BelongsTo
+    {
+        return $this->belongsTo(MedioPago::class, 'medio_pago_id', 'medioPagoID');
+    }
+
+    // Relaciones existentes (Cliente, Vendedor, Detalles...)
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class, 'clienteID', 'clienteID');
     }
 
-    /**
-     * Relación: Una venta fue registrada por un Usuario (vendedor).
-     * FK: 'user_id' (en ventas) -> PK: 'id' (en users)
-     */
     public function vendedor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id', 'id');
     }
 
-    /**
-     * Relación: Una venta tiene muchos items (detalles).
-     * FK: 'venta_id' (en detalle_ventas) -> PK: 'venta_id' (en ventas)
-     */
     public function detalles(): HasMany
     {
         return $this->hasMany(DetalleVenta::class, 'venta_id', 'venta_id');
     }
 
-    /**
-     * Relación N:M: Descuentos aplicados al TOTAL de la venta.
-     */
     public function descuentos(): BelongsToMany
     {
-        return $this->belongsToMany(
-            Descuento::class,       // Modelo destino
-            'descuento_venta',      // Tabla pivote
-            'venta_id',             // FK en pivote de este modelo
-            'descuento_id'          // FK en pivote del modelo destino
-        )->withPivot('monto_aplicado'); // Traer el monto "congelado"
+        return $this->belongsToMany(Descuento::class, 'descuento_venta', 'venta_id', 'descuento_id')
+                    ->withPivot('monto_aplicado');
     }
-    /**
-     * Relación N:M con Pagos.
-     * Permite calcular cuánto se ha pagado de esta venta.
-     */
+
     public function pagos()
     {
         return $this->belongsToMany(Pago::class, 'pago_venta_imputacion', 'venta_id', 'pago_id')
@@ -81,10 +76,6 @@ class Venta extends Model
                     ->withTimestamps();
     }
 
-    /**
-     * Accessor: Calcula el saldo pendiente de ESTA venta específica.
-     * Útil para mostrar en el formulario de pago.
-     */
     public function getSaldoPendienteAttribute(): float
     {
         $pagado = $this->pagos()->sum('pago_venta_imputacion.monto_imputado');

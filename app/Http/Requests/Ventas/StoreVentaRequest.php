@@ -25,34 +25,18 @@ class StoreVentaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'clienteID' => [
-                'required',
-                'integer',
-                // Asegura que el cliente exista en la BD
-                Rule::exists(Cliente::class, 'clienteID'),
-            ],
-            'metodo_pago' => ['required', 'string', Rule::in(['efectivo', 'tarjeta', 'cuenta_corriente'])],
-            'observaciones' => ['nullable', 'string', 'max:1000'],
-            'numero_comprobante' => ['nullable', 'string', 'max:255', 'unique:ventas,numero_comprobante'],
-
-            // --- Validación del Carrito (Items) ---
+            'clienteID' => ['required', 'exists:clientes,clienteID'],
+            
+            // CAMBIO: Validar Medio de Pago Configurable
+            'medio_pago_id' => ['required', 'exists:medios_pago,medioPagoID'],
+            
+            // Productos
             'items' => ['required', 'array', 'min:1'],
-            'items.*.productoID' => [
-                'required',
-                'integer',
-                // Asegura que el producto exista en la BD
-                Rule::exists(Producto::class, 'id'),
-            ],
-            // Asumo que la cantidad puede ser decimal, pero min:1
-            'items.*.cantidad' => ['required', 'numeric', 'min:0.01'], 
-
-            // (Opcional pero recomendado) Validación de descuentos
-            'descuentos_globales' => ['nullable', 'array'],
-            'descuentos_globales.*.descuento_id' => [
-                'required_with:descuentos_globales',
-                'integer',
-                Rule::exists('descuentos', 'descuento_id'),
-            ],
+            'items.*.producto_id' => ['required', 'exists:productos,id'],
+            'items.*.cantidad' => ['required', 'integer', 'min:1'],
+            
+            'descuento_global_id' => ['nullable', 'exists:descuentos,id'],
+            'observaciones' => ['nullable', 'string', 'max:500'],
         ];
     }
 }
