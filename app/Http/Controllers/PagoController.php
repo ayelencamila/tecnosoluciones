@@ -87,8 +87,7 @@ class PagoController extends Controller
             $datosValidados = $request->validated();
             
             $pago = $registrarPagoService->handle($datosValidados, auth()->id());
-
-            // CORRECCIÓN: Usamos pagoID (tu PK real)
+            
             return to_route('pagos.show', $pago->pagoID)
                    ->with('success', '¡Pago registrado e imputado con éxito!');
 
@@ -119,7 +118,6 @@ class PagoController extends Controller
             $anularPagoService->handle($pago, auth()->id());
 
             return redirect()
-                   // CORRECCIÓN: Usamos pagoID
                    ->route('pagos.show', $pago->pagoID)
                    ->with('success', '¡Pago anulado con éxito! Se revirtió el saldo en la cuenta corriente.');
 

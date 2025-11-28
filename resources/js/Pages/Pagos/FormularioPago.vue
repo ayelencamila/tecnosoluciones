@@ -32,7 +32,6 @@ const clienteSeleccionado = ref(null);
 const form = useForm({
     clienteID: '',
     monto: '',
-    // CORRECCIÓN: Usamos el nombre nuevo
     medioPagoID: '', 
     observaciones: '',
 });
