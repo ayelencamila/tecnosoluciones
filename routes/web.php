@@ -60,7 +60,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         
         // 1. Categorías de Producto (Implementación Actual)
         Route::resource('categorias', CategoriaProductoController::class);
-        // 2. Otras posibles rutas para futuros maestros
+        Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
+        Route::resource('proveedores', \App\Http\Controllers\Admin\ProveedorController::class);
+        // 2. Otras posibles rutas para  maestros
         Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
         Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class);
         Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class);
