@@ -4,15 +4,15 @@ import { Link, useForm, Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue'; 
 import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue'; // Asegúrate de importarlo
+import SecondaryButton from '@/Components/SecondaryButton.vue'; 
 
 const props = defineProps({
   categorias: Array,
   estados: Array,
   tiposCliente: Array,
   proveedores: Array, 
-  marcas: Array,       // <--- Recibido del controlador
-  unidades: Array,     // <--- Recibido del controlador
+  marcas: Array, 
+  unidades: Array, 
   errors: Object, 
 });
 
@@ -20,16 +20,19 @@ const form = useForm({
   codigo: '',
   nombre: '',
   descripcion: '',
-  marca_id: '',           
-  unidad_medida_id: '',   
+  marca_id: '', 
+  unidad_medida_id: '', 
   categoriaProductoID: '',
   estadoProductoID: props.estados.find(e => e.nombre === 'Activo')?.id || '',
   proveedor_habitual_id: '',
-  stock_minimo: 0,        
+  
+  // STOCK
+  stock_minimo: 0,
+  cantidad_inicial: 0, // <--- NUEVO CAMPO
+  
   precios: {}, 
 });
 
-// Helper para mostrar error general de precios
 const precioError = computed(() => {
     if (props.errors.precios) return props.errors.precios;
     if (props.errors['precios.*.precio']) return props.errors['precios.*.precio'];
@@ -172,9 +175,16 @@ const submitForm = () => {
                                         <InputError :message="form.errors.proveedor_habitual_id" class="mt-1" />
                                     </div>
 
-                                     <div>
-                                        <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo (Alerta)</label>
-                                        <input v-model="form.stock_minimo" type="number" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                    <div class="grid grid-cols-2 gap-4 pt-4 border-t">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Stock Inicial</label>
+                                            <input v-model="form.cantidad_inicial" type="number" min="0" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            <p class="text-xs text-gray-500 mt-1">Depósito Principal</p>
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo</label>
+                                            <input v-model="form.stock_minimo" type="number" min="0" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        </div>
                                     </div>
                                 </div>
                             </div>

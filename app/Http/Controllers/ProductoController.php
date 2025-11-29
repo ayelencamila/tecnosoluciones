@@ -190,6 +190,7 @@ class ProductoController extends Controller
     {
         $query = Stock::query()->with(['producto.categoria', 'deposito']);
 
+        // Filtros... (tu código de filtros sigue igual)
         if ($request->filled('deposito_id')) {
             $query->where('deposito_id', $request->input('deposito_id'));
         }
@@ -210,6 +211,10 @@ class ProductoController extends Controller
             'stocks' => $stocks, 
             'categorias' => CategoriaProducto::where('activo', true)->get(['id', 'nombre']),
             'depositos' => \App\Models\Deposito::where('activo', true)->get(['deposito_id', 'nombre']),
+            
+            // CORRECCIÓN 1: Enviamos los tipos de movimiento para que el desplegable funcione
+            'tiposMovimiento' => \App\Models\TipoMovimientoStock::where('activo', true)->get(),
+
             'filters' => $request->only(['search', 'categoria_id', 'stock_bajo', 'deposito_id']),
             'stats' => [
                 'totalItems' => Stock::count(),

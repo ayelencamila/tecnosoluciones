@@ -1,6 +1,6 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3'; // <--- IMPORTAR LINK
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue';
@@ -15,12 +15,11 @@ const props = defineProps({
     stocks: Object,
     categorias: Array,
     depositos: Array,
-    tiposMovimiento: Array, // <--- NUEVO
+    tiposMovimiento: Array, // <--- Prop del controlador
     filters: Object,
     stats: Object,
 });
 
-// --- FILTROS ---
 const form = ref({
     search: props.filters.search || '',
     categoria_id: props.filters.categoria_id || '',
@@ -30,6 +29,15 @@ const form = ref({
 
 const categoriasOptions = computed(() => [{ value: '', label: 'Todas las Categorías' }, ...props.categorias.map(c => ({ value: c.id, label: c.nombre }))]);
 const depositosOptions = computed(() => [{ value: '', label: 'Todos los Depósitos' }, ...props.depositos.map(d => ({ value: d.deposito_id, label: d.nombre }))]);
+
+// Transformamos los tipos de movimiento para el Select
+const movementTypesOptions = computed(() => {
+    if(!props.tiposMovimiento) return [];
+    return props.tiposMovimiento.map(t => ({
+        value: t.id,
+        label: `${t.nombre} (${t.signo > 0 ? '+' : '-'})`
+    }));
+});
 
 watch(form, debounce(() => {
     router.get(route('productos.stock'), form.value, { preserveState: true, replace: true });
@@ -43,7 +51,7 @@ const stockToAdjust = ref(null);
 
 const adjustmentForm = useForm({
     stock_id: '',
-    tipo_movimiento_id: '', // Cambio: ID en vez de string
+    tipo_movimiento_id: '', // ID
     cantidad: '',
     motivo: '',
 });
@@ -51,7 +59,7 @@ const adjustmentForm = useForm({
 const openAdjustmentModal = (stock) => {
     stockToAdjust.value = stock;
     adjustmentForm.stock_id = stock.stock_id;
-    adjustmentForm.tipo_movimiento_id = ''; // Reset
+    adjustmentForm.tipo_movimiento_id = ''; 
     adjustmentForm.cantidad = ''; 
     adjustmentForm.motivo = '';
     adjustmentForm.clearErrors();
@@ -71,7 +79,7 @@ const submitAdjustment = () => {
     });
 };
 
-// ... (Resto del código de configuración de mínimos igual) ...
+// --- CONFIG ---
 const showingConfigModal = ref(false);
 const stockToConfig = ref(null);
 const configForm = useForm({ stock_minimo: 0 });
@@ -128,7 +136,6 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                     <th class="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Depósito</th>
                                     <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Disponible</th>
                                     <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Mínimo</th>
-                                    <th class="px-6 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Estado</th>
                                     <th class="px-6 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
@@ -139,19 +146,14 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                     <td class="px-6 py-4 text-sm text-gray-900">{{ stock.deposito?.nombre }}</td>
                                     <td class="px-6 py-4 text-center"><span class="text-lg font-bold" :class="stock.cantidad_disponible <= stock.stock_minimo ? 'text-red-600' : 'text-green-600'">{{ stock.cantidad_disponible }}</span><span class="text-xs text-gray-400 ml-1">{{ stock.producto?.unidadMedida?.abreviatura || 'u' }}</span></td>
                                     <td class="px-6 py-4 text-center text-sm text-gray-500 font-mono">{{ stock.stock_minimo }}</td>
-                                    <td class="px-6 py-4 text-center">
-                                        <span v-if="stock.cantidad_disponible <= 0" class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Sin Stock</span>
-                                        <span v-else-if="stock.cantidad_disponible <= stock.stock_minimo" class="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Bajo</span>
-                                        <span v-else class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Normal</span>
-                                    </td>
                                     <td class="px-6 py-4 text-right whitespace-nowrap">
                                         <div class="flex justify-end space-x-2">
-                                            <button @click="openConfigModal(stock)" class="text-gray-500 hover:text-indigo-600 transition p-1 border border-gray-200 rounded-md bg-gray-50" title="Configurar Alertas"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
-                                            <button @click="openAdjustmentModal(stock)" class="text-indigo-600 hover:text-indigo-900 transition p-1 border border-gray-200 rounded-md bg-gray-50" title="Movimiento de Stock"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg></button>
+                                            <button @click="openConfigModal(stock)" class="text-gray-500 hover:text-indigo-600 p-1 border rounded-md" title="Configurar"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></button>
+                                            <button @click="openAdjustmentModal(stock)" class="text-indigo-600 hover:text-indigo-900 p-1 border rounded-md" title="Ajustar Stock"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg></button>
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="stocks.data.length === 0"><td colspan="7" class="px-6 py-12 text-center text-gray-400">No hay registros de stock.</td></tr>
+                                <tr v-if="stocks.data.length === 0"><td colspan="6" class="px-6 py-12 text-center text-gray-400">No hay registros de stock.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -168,18 +170,13 @@ const getPaginationLabel = (label, index, totalLinks) => {
                 <div v-if="stockToAdjust" class="mb-4 p-3 bg-gray-50 rounded border border-gray-200 text-sm text-gray-600">
                     Producto: <strong>{{ stockToAdjust.producto?.nombre }}</strong> <br>
                     Depósito: <strong>{{ stockToAdjust.deposito?.nombre }}</strong> <br>
-                    Actual: <strong>{{ stockToAdjust.cantidad_disponible }}</strong> {{ stockToAdjust.producto?.unidadMedida?.abreviatura }}
+                    Actual: <strong>{{ stockToAdjust.cantidad_disponible }}</strong>
                 </div>
 
                 <form @submit.prevent="submitAdjustment" class="space-y-4">
                     <div>
                         <InputLabel for="tipo_movimiento" value="Tipo de Movimiento" />
-                        <select id="tipo_movimiento" v-model="adjustmentForm.tipo_movimiento_id" class="w-full mt-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
-                            <option value="" disabled>Seleccione...</option>
-                            <option v-for="tipo in tiposMovimiento" :key="tipo.id" :value="tipo.id">
-                                {{ tipo.nombre }} ({{ tipo.signo > 0 ? '+' : '-' }})
-                            </option>
-                        </select>
+                        <SelectInput id="tipo_movimiento" v-model="adjustmentForm.tipo_movimiento_id" class="w-full mt-1" :options="movementTypesOptions" />
                         <InputError :message="adjustmentForm.errors.tipo_movimiento_id" class="mt-2" />
                     </div>
                     <div>
@@ -199,7 +196,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                 </form>
             </div>
         </Modal>
-
+        
         <Modal :show="showingConfigModal" @close="closeConfigModal">
             <div class="p-6">
                 <h2 class="text-lg font-medium text-gray-900 mb-4">Configurar Alertas</h2>

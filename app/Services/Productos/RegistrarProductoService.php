@@ -49,12 +49,36 @@ class RegistrarProductoService
                               ?? Deposito::where('activo', true)->first();
 
             if ($depositoPrincipal) {
-                Stock::create([
+                $cantidadInicial = $data['cantidad_inicial'] ?? 0;
+
+                $stock = Stock::create([
                     'productoID' => $producto->id,
                     'deposito_id' => $depositoPrincipal->deposito_id,
-                    'cantidad_disponible' => 0, 
-                    'stock_minimo' => $data['stock_minimo'] ?? 0, // Si viene del form
+                    'cantidad_disponible' => $cantidadInicial,
+                    'stock_minimo' => $data['stock_minimo'] ?? 0,
                 ]);
+
+                // Registrar movimiento de inventario inicial si corresponde
+                if ($cantidadInicial > 0) {
+                    // Buscamos un tipo de movimiento de "Entrada" o "Ajuste"
+                    // Nota: Idealmente usar el modelo TipoMovimientoStock
+                    $tipoEntrada = \App\Models\TipoMovimientoStock::where('signo', 1)->first(); 
+                    
+                    if ($tipoEntrada) {
+                         \App\Models\MovimientoStock::create([
+                            'productoID' => $producto->id,
+                            'deposito_id' => $depositoPrincipal->deposito_id,
+                            'tipo_movimiento_id' => $tipoEntrada->id,
+                            'cantidad' => $cantidadInicial,
+                            'signo' => 1,
+                            'stockAnterior' => 0,
+                            'stockNuevo' => $cantidadInicial,
+                            'motivo' => 'Inventario Inicial al Crear Producto',
+                            'user_id' => $userId,
+                            'fecha_movimiento' => now(),
+                        ]);
+                    }
+                }
             }
             
             return $producto;
