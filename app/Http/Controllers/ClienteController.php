@@ -137,7 +137,16 @@ class ClienteController extends Controller
      */
     public function show(Cliente $cliente)
     {
-        $cliente->load(['tipoCliente', 'estadoCliente', 'direccion.localidad.provincia', 'cuentaCorriente.estadoCuentaCorriente']);
+        $cliente->load([
+            'tipoCliente', 
+            'estadoCliente', 
+            'direccion.localidad.provincia', 
+            'cuentaCorriente.estadoCuentaCorriente',
+            'cuentaCorriente.movimientosCC' => function($q) {
+                $q->latest('created_at')->limit(20);
+            }
+        ]);
+        
         $historialAuditoria = Auditoria::historialCliente($cliente->clienteID);
 
         return Inertia::render('Clientes/Show', [

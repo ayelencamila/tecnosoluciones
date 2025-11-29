@@ -4,6 +4,11 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
+import { onMounted } from 'vue';
+
+onMounted(() => {
+    console.log("Datos de Cuenta Corriente:", props.cliente.cuenta_corriente);
+});
 
 const props = defineProps({
     cliente: Object,
@@ -132,7 +137,7 @@ const formatCurrency = (value) => {
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-for="mov in cliente.cuenta_corriente.movimientos" :key="mov.id" class="hover:bg-gray-50">
+                                <tr v-for="mov in cliente.cuenta_corriente.movimientos_c_c" :key="mov.id" class="hover:bg-gray-50">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                         {{ new Date(mov.created_at).toLocaleDateString() }}
                                     </td>
@@ -155,7 +160,7 @@ const formatCurrency = (value) => {
                                         {{ formatCurrency(mov.saldoAlMomento) }}
                                     </td>
                                 </tr>
-                                <tr v-if="!cliente.cuenta_corriente.movimientos || cliente.cuenta_corriente.movimientos.length === 0">
+                                <tr v-if="!cliente.cuenta_corriente.movimientos_c_c || cliente.cuenta_corriente.movimientos_c_c.length === 0">
                                     <td colspan="5" class="px-6 py-12 text-center text-gray-400">
                                         <div class="flex flex-col items-center justify-center">
                                             <svg class="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>

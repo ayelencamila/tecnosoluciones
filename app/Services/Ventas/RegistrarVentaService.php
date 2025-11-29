@@ -13,41 +13,45 @@ use App\Models\PrecioProducto;
 use App\Models\Producto;
 use App\Models\Stock;
 use App\Models\Venta;
-use App\Models\EstadoVenta;
+use App\Models\EstadoVenta; 
+use App\Models\MedioPago; // <--- Necesario para buscar el nombre
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class RegistrarVentaService
 {
-    /**
-     * Orquesta el caso de uso completo para registrar una nueva venta.
-     */
-    // CORRECCIÓN AQUÍ: Agregamos int $vendedorUserID como parámetro
     public function handle(array $datosValidados, int $vendedorUserID): Venta
     {
         // 1. OBTENER ENTIDADES
         $cliente = Cliente::with('tipoCliente', 'cuentaCorriente.estadoCuentaCorriente')->findOrFail($datosValidados['clienteID']);
-        
-        // ELIMINAMOS LA LÍNEA QUE CAUSABA EL ERROR ($datosValidados['userID'])
-        
         $medioPagoId = $datosValidados['medio_pago_id'];
 
-        // 2. CÁLCULO (Pre-Transacción)
+        // 2. CÁLCULO
         $calculos = $this->calcularTotalesVenta($datosValidados, $cliente);
 
-        // 3. VALIDACIÓN DE LÓGICA DE NEGOCIO
+        // 3. VALIDACIÓN DE REGLAS DE NEGOCIO
         $this->validarStockPrevio($calculos['itemsAProcesar']);
+        
+        // Verificar si es Cuenta Corriente para validar límite
+        $medioPagoObj = MedioPago::find($medioPagoId);
+        // Lógica: Si el nombre del medio de pago tiene "corriente" (insensible a mayúsculas)
+        $esCuentaCorriente = $medioPagoObj && str_contains(strtolower($medioPagoObj->nombre), 'corriente');
 
-        // 4. INICIAR TRANSACCIÓN ATÓMICA
-        return DB::transaction(function () use ($datosValidados, $cliente, $vendedorUserID, $medioPagoId, $calculos) {
+        if ($esCuentaCorriente) {
+            $this->validarEstadoCredito($cliente, $calculos['totalFinalVenta']);
+        }
 
-            $estadoInicial = EstadoVenta::COMPLETADA; 
+        // 4. TRANSACCIÓN
+        return DB::transaction(function () use ($datosValidados, $cliente, $vendedorUserID, $medioPagoId, $calculos, $esCuentaCorriente) {
 
-            // 5. CREAR LA VENTA (Maestro)
+            // Estado Inicial: Si es CC, queda 'Pendiente'. Si no, 'Completada'.
+            $estadoInicial = $esCuentaCorriente ? EstadoVenta::PENDIENTE : EstadoVenta::COMPLETADA; 
+
+            // 5. CREAR VENTA
             $venta = Venta::create([
                 'clienteID' => $cliente->clienteID,
-                'user_id' => $vendedorUserID, // Usamos el ID que vino por parámetro
+                'user_id' => $vendedorUserID,
                 'medio_pago_id' => $medioPagoId,
                 'estado_venta_id' => $estadoInicial,
                 'numero_comprobante' => $datosValidados['numero_comprobante'] ?? 'V-'.time(),
@@ -58,14 +62,14 @@ class RegistrarVentaService
                 'observaciones' => $datosValidados['observaciones'] ?? null,
             ]);
 
-            // 6. GUARDAR DETALLES Y PIVOTES
+            // 6. GUARDAR DETALLES
             $venta->detalles()->saveMany($calculos['detallesParaGuardar']);
 
             if (! empty($calculos['descuentosGlobalesParaGuardar'])) {
                 $venta->descuentos()->attach($calculos['descuentosGlobalesParaGuardar']);
             }
 
-            // === Lógica de Descuento de Stock y Registro de Movimiento ===
+            // === STOCK ===
             foreach ($calculos['detallesParaGuardar'] as $detalle) {
                 $descuentoInfo = collect($calculos['descuentosItemParaGuardar'])->firstWhere('detalle', $detalle);
                 if ($descuentoInfo && !empty($descuentoInfo['mapaPivote'])) {
@@ -73,33 +77,56 @@ class RegistrarVentaService
                 }
 
                 if ($detalle->producto->unidadMedida !== 'Servicio') {
-                    $stockRegistro = Stock::where('productoID', $detalle->producto_id)->first();
+                    $stockRegistro = Stock::where('productoID', $detalle->producto_id)->first(); // Usamos producto_id corregido
                     
-                    if (!$stockRegistro) {
-                         throw new SinStockException($detalle->producto->nombre, $detalle->cantidad, 0, "No hay registro de stock para el producto.");
-                    }
-                    
-                    $stockAnterior = $stockRegistro->cantidad_disponible;
-                    $cantidadVendida = (int) $detalle->cantidad;
+                    if ($stockRegistro) {
+                        $stockAnterior = $stockRegistro->cantidad_disponible;
+                        $cantidadVendida = (int) $detalle->cantidad;
 
-                    $stockRegistro->decrement('cantidad_disponible', $cantidadVendida); 
-                    
-                    MovimientoStock::create([
-                        'productoID' => $detalle->producto_id,
-                        'tipoMovimiento' => 'SALIDA',
-                        'cantidad' => $cantidadVendida,
-                        'stockAnterior' => $stockAnterior,
-                        'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible, 
-                        'motivo' => 'Venta N° ' . $venta->numero_comprobante,
-                        'referenciaID' => $venta->venta_id,
-                        'referenciaTabla' => 'ventas',
-                        // IMPORTANTE: Asegúrate de que tu tabla movimientos_stock tenga la columna user_id si quieres guardarlo
-                         'user_id' => $vendedorUserID 
-                    ]);
+                        $stockRegistro->decrement('cantidad_disponible', $cantidadVendida); 
+                        
+                        MovimientoStock::create([
+                            'productoID' => $detalle->producto_id,
+                            'tipoMovimiento' => 'SALIDA',
+                            'cantidad' => $cantidadVendida,
+                            'stockAnterior' => $stockAnterior,
+                            'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible, 
+                            'motivo' => 'Venta N° ' . $venta->numero_comprobante,
+                            'referenciaID' => $venta->venta_id,
+                            'referenciaTabla' => 'ventas',
+                            'user_id' => $vendedorUserID 
+                        ]);
+                    }
                 }
             }
 
-            // 7. LÓGICA CUENTA CORRIENTE (Pendiente de implementación completa)
+            // 7. LÓGICA CUENTA CORRIENTE (ACTIVADA AHORA SÍ)
+            if ($esCuentaCorriente && $calculos['totalFinalVenta'] > 0) {
+                
+                $cuentaCorriente = $cliente->cuentaCorriente;
+                
+                if (!$cuentaCorriente) {
+                    throw new \Exception('El cliente no tiene una cuenta corriente habilitada.');
+                }
+
+                $diasGracia = $cuentaCorriente->diasGracia ?? 0;
+                $fechaVencimientoCC = Carbon::now()->addDays($diasGracia);
+
+                // REGISTRAR DÉBITO (Aumenta Deuda)
+                $cuentaCorriente->registrarDebito(
+                    $calculos['totalFinalVenta'],
+                    'Venta N° ' . $venta->numero_comprobante,
+                    $fechaVencimientoCC, 
+                    $venta->venta_id, 
+                    'ventas',
+                    $vendedorUserID
+                );
+                
+                Log::info("Deuda registrada en CC Cliente {$cliente->clienteID}: {$calculos['totalFinalVenta']}");
+            }
+
+            // 8. EVENTO
+            // event(new VentaRegistrada($venta, $vendedorUserID));
 
             Log::info("Venta registrada con éxito: ID {$venta->venta_id}");
 
@@ -111,7 +138,6 @@ class RegistrarVentaService
     {
         foreach ($itemsAProcesar as $item) {
             $producto = Producto::findOrFail($item['producto_id']);
-            
             if ($producto->unidadMedida !== 'Servicio') {
                  if (! $producto->tieneStock($item['cantidad'])) {
                     throw new SinStockException($producto->nombre, $item['cantidad'], $producto->stock_total);
@@ -154,6 +180,7 @@ class RegistrarVentaService
             $totalVentaBruto += $subtotalItem;
             $totalDescuentosItems += $totalDescuentoEsteItem;
 
+            // IMPORTANTE: Usamos 'producto_id' para que coincida con la BD
             $detalleVenta = new DetalleVenta([
                 'producto_id' => $producto->id, 
                 'precio_producto_id' => $item['precio_producto_id'] ?? null,
@@ -195,6 +222,32 @@ class RegistrarVentaService
         ];
     }
 
+    private function validarEstadoCredito(Cliente $cliente, float $montoDeEstaVenta): void
+    {
+        if (! $cliente->cuentaCorriente) {
+            throw new LimiteCreditoExcedidoException("El cliente {$cliente->nombre_completo} no tiene una cuenta corriente habilitada.", 0, 0);
+        }
+        $cuentaCorriente = $cliente->cuentaCorriente;
+        $estadoNombre = $cuentaCorriente->estadoCuentaCorriente?->nombreEstado ?? 'Desconocido';
+
+        if ($estadoNombre === 'Bloqueada') {
+            throw new LimiteCreditoExcedidoException("La cuenta corriente de {$cliente->nombre_completo} está BLOQUEADA.", 0, 0);
+        }
+        if ($estadoNombre === 'Pendiente de Aprobación') {
+            throw new LimiteCreditoExcedidoException("La cuenta corriente está PENDIENTE DE APROBACIÓN.", 0, 0);
+        }
+
+        $saldoActual = $cuentaCorriente->saldo; 
+        $limiteCredito = $cuentaCorriente->getLimiteCreditoAplicable(); 
+
+        if (($saldoActual + $montoDeEstaVenta) > $limiteCredito) {
+            $disponible = $limiteCredito - $saldoActual;
+            throw new LimiteCreditoExcedidoException(
+                "Excede límite de crédito. Límite: $$limiteCredito. Disp: $$disponible", $limiteCredito, $saldoActual
+            );
+        }
+    }
+
     private function obtenerPrecioParaCliente(Producto $producto, Cliente $cliente): float
     {
         $precioProducto = PrecioProducto::where('productoID', $producto->id) 
@@ -210,7 +263,9 @@ class RegistrarVentaService
         if ($precioProducto) {
             return (float) $precioProducto->precio;
         }
-
-        throw new \Exception("No se encontró un precio vigente para el producto '{$producto->nombre}' y el tipo de cliente '{$cliente->tipoCliente->nombreEstado}'.");
+        // Si no encuentra precio específico, intenta fallback (opcional)
+        // return 100.00; 
+        
+        throw new \Exception("No se encontró un precio vigente para el producto '{$producto->nombre}'.");
     }
 }

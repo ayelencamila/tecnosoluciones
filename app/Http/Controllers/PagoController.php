@@ -102,7 +102,7 @@ class PagoController extends Controller
      */
     public function show(Pago $pago)
     {
-        $pago->load(['cliente', 'cajero', 'ventasImputadas']);
+        $pago->load(['cliente', 'cajero', 'ventasImputadas', 'medioPago']);
 
         return Inertia::render('Pagos/DetallePago', [
             'pago' => $pago

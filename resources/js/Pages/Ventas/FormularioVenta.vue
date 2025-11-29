@@ -175,6 +175,9 @@ const submit = () => {
     if (!ventaStore.clienteSeleccionado) return alert('Falta Cliente.');
     if (ventaStore.items.length === 0) return alert('Carrito vacío.');
     if (esCuentaCorriente.value && limiteExcedido.value) return alert('Límite Excedido.');
+    
+    // Validar que haya medio de pago seleccionado
+    if (!ventaStore.metodoPago) return alert('Selecciona un Medio de Pago.');
 
     form.clienteID = ventaStore.clienteSeleccionado.clienteID;
     form.medio_pago_id = ventaStore.metodoPago;
@@ -206,6 +209,11 @@ const submit = () => {
 };
 
 onMounted(() => {
+    // Seleccionar el primer medio de pago por defecto si no hay uno
+    if (props.mediosPago && props.mediosPago.length > 0 && !ventaStore.metodoPago) {
+        ventaStore.metodoPago = props.mediosPago[0].medioPagoID;
+    }
+
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.cliente-search-container')) showClienteDropdown.value = false;
         if (!e.target.closest('.producto-search-container')) showProductoDropdown.value = false;
@@ -220,9 +228,7 @@ onMounted(() => {
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">Registrar Nueva Venta</h2>
                 <Link :href="route('ventas.index')">
-                    <SecondaryButton>
-                        &larr; Volver al Listado
-                    </SecondaryButton>
+                    <SecondaryButton> &larr; Volver al Listado </SecondaryButton>
                 </Link>
             </div>
         </template>
@@ -232,20 +238,11 @@ onMounted(() => {
                 <form @submit.prevent="submit">
                     <div class="bg-white shadow-xl sm:rounded-lg p-6 mb-6 border-t-4 border-indigo-500">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4">Datos de la Transacción</h3>
-                        
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div class="md:col-span-2 relative cliente-search-container">
-                                <InputLabel for="input_buscar_cliente" value="Cliente" />
+                                <InputLabel value="Cliente" />
                                 <div class="flex items-center">
-                                    <TextInput 
-                                        id="input_buscar_cliente" 
-                                        name="cliente_search"
-                                        v-model="searchTermCliente" 
-                                        placeholder="Buscar por Nombre o DNI..." 
-                                        class="w-full" 
-                                        autocomplete="off" 
-                                        @focus="searchTermCliente.length>=3 && (showClienteDropdown=true)" 
-                                    />
+                                    <TextInput v-model="searchTermCliente" placeholder="Buscar por Nombre o DNI..." class="w-full" autocomplete="off" @focus="searchTermCliente.length>=3 && (showClienteDropdown=true)" />
                                     <button type="button" @click="clearCliente" class="ml-2 text-red-500 hover:text-red-700" v-if="ventaStore.clienteSeleccionado">
                                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-6 h-6"><path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" /></svg>
                                     </button>
@@ -258,41 +255,24 @@ onMounted(() => {
                                 <div v-if="buscandoCliente" class="absolute right-10 top-8"><span class="text-xs text-gray-500">Buscando...</span></div>
                                 <InputError :message="form.errors.clienteID" class="mt-2" />
                             </div>
-
                             <div class="flex flex-col justify-center p-3 bg-gray-50 rounded-md">
                                 <p v-if="ventaStore.clienteSeleccionado" class="text-sm"><span class="font-medium">Tipo:</span> {{ ventaStore.clienteSeleccionado.tipo_cliente?.nombreTipo }}</p>
                                 <p v-if="ventaStore.clienteSeleccionado" class="text-sm mt-1"><span class="font-medium">CC:</span> <span :class="estadoCC === 'Activa' ? 'text-green-600 font-bold' : 'text-red-600'">{{ estadoCC }}</span></p>
                             </div>
                         </div>
-
                         <div class="mt-6 border-t pt-4">
-                            <InputLabel for="select_medio_pago" value="Método de Pago" />
-                            <SelectInput 
-                                id="select_medio_pago"
-                                name="medio_pago"
-                                v-model="ventaStore.metodoPago" 
-                                :options="mediosOptions" 
-                                class="w-full md:w-1/3" 
-                            />
+                            <InputLabel value="Método de Pago" />
+                            <SelectInput v-model="ventaStore.metodoPago" :options="mediosOptions" class="w-full md:w-1/3" />
                             <InputError :message="form.errors.medio_pago_id" class="mt-2" />
                             <div v-if="limiteExcedido" class="mt-2 text-sm text-red-600 font-bold bg-red-50 p-2 rounded">⚠️ Límite de crédito excedido.</div>
                         </div>
                     </div>
-
                     <div class="bg-white shadow-xl sm:rounded-lg p-6 mb-6 border-t-4 border-yellow-500">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4">Productos</h3>
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6 bg-yellow-50 p-4 rounded-lg">
                             <div class="md:col-span-6 relative producto-search-container">
-                                <InputLabel for="input_add_producto" value="Buscar Producto" />
-                                <TextInput
-                                    id="input_add_producto" 
-                                    name="add_producto_search"
-                                    v-model="searchTermProducto" 
-                                    placeholder="Nombre o Código..." 
-                                    class="w-full" 
-                                    autocomplete="off" 
-                                    @focus="searchTermProducto.length>=3 && (showProductoDropdown=true)" 
-                                />
+                                <InputLabel value="Buscar Producto" />
+                                <TextInput v-model="searchTermProducto" placeholder="Nombre o Código..." class="w-full" autocomplete="off" @focus="searchTermProducto.length>=3 && (showProductoDropdown=true)" />
                                 <ul v-if="showProductoDropdown && filteredProductos.length" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
                                     <li v-for="prod in filteredProductos" :key="prod.id" @click="selectProductToAdd(prod)" class="px-4 py-2 cursor-pointer hover:bg-yellow-100 text-sm border-b">
                                         <div class="font-bold">{{ prod.nombre }}</div>
@@ -300,32 +280,16 @@ onMounted(() => {
                                     </li>
                                 </ul>
                             </div>
-                            <div class="md:col-span-2">
-                                <InputLabel for="input_add_cantidad" value="Cant." />
-                                <TextInput id="input_add_cantidad" name="add_cantidad" type="number" v-model.number="quantityToAdd" class="w-full text-center" />
-                            </div>
-                            <div class="md:col-span-3">
-                                <InputLabel for="input_add_precio" value="Precio" />
-                                <TextInput id="input_add_precio" name="add_precio" type="number" v-model.number="priceToAdd" class="w-full" />
-                            </div>
+                            <div class="md:col-span-2"><InputLabel value="Cant." /><TextInput type="number" v-model.number="quantityToAdd" class="w-full text-center" /></div>
+                            <div class="md:col-span-3"><InputLabel value="Precio" /><TextInput type="number" v-model.number="priceToAdd" class="w-full" /></div>
                             <div class="md:col-span-1"><PrimaryButton type="button" @click="addProductToCart" class="w-full justify-center bg-yellow-600 hover:bg-yellow-700">+</PrimaryButton></div>
                         </div>
-
                         <table class="min-w-full divide-y divide-gray-200 border rounded-lg">
                             <thead class="bg-gray-50"><tr><th class="px-4 py-2 text-left">Producto</th><th class="px-4 py-2 text-center">Cant.</th><th class="px-4 py-2 text-right">Subtotal</th><th class="px-4 py-2"></th></tr></thead>
                             <tbody>
                                 <tr v-for="(item, index) in ventaStore.items" :key="item.productoID">
                                     <td class="px-4 py-2">{{ item.nombre }}</td>
-                                    <td class="px-4 py-2 text-center">
-                                        <TextInput 
-                                            :id="'qty_' + index" 
-                                            :name="'qty_' + index"
-                                            type="number" 
-                                            :model-value="item.cantidad" 
-                                            @input="updateItemQuantity(index, $event)" 
-                                            class="w-20 text-center text-sm" 
-                                        />
-                                    </td>
+                                    <td class="px-4 py-2 text-center">{{ item.cantidad }}</td>
                                     <td class="px-4 py-2 text-right font-bold">${{ item.subtotalCalculado }}</td>
                                     <td class="px-4 py-2 text-right"><DangerButton @click="ventaStore.removerItem(index)">&times;</DangerButton></td>
                                 </tr>
@@ -334,11 +298,10 @@ onMounted(() => {
                         </table>
                         <InputError :message="form.errors['items']" class="mt-2" />
                     </div>
-
                     <div class="bg-white shadow-xl sm:rounded-lg p-6 border-t-4 border-indigo-700 text-right">
                         <div class="space-y-1 mb-4 text-sm text-gray-600" v-if="applyDiscountCode || ventaStore.descuentosGlobalesAplicados.length">
                             <div class="flex space-x-3 justify-end items-center mb-2">
-                                <TextInput id="input_cupon" name="cupon_code" v-model="applyDiscountCode" placeholder="Cupón..." class="w-32" />
+                                <TextInput v-model="applyDiscountCode" placeholder="Cupón..." class="w-32" />
                                 <SecondaryButton type="button" @click="buscarYAplicarDescuento">Aplicar</SecondaryButton>
                             </div>
                             <div v-for="desc in ventaStore.descuentosGlobalesAplicados" :key="desc.descuento_id" class="flex justify-end items-center">
@@ -346,7 +309,6 @@ onMounted(() => {
                                 <button type="button" @click="removeGlobalDiscount(desc.descuento_id)" class="text-red-500 font-bold">&times;</button>
                             </div>
                         </div>
-
                         <p class="text-2xl font-bold text-gray-900">TOTAL: ${{ (parseFloat(totales?.totalNeto)||0).toFixed(2) }}</p>
                         <div class="mt-4"><PrimaryButton type="submit" class="px-6 py-3 text-lg" :disabled="form.processing">Confirmar Venta</PrimaryButton></div>
                     </div>
