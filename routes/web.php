@@ -62,6 +62,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('categorias', CategoriaProductoController::class);
         Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
         Route::resource('proveedores', \App\Http\Controllers\Admin\ProveedorController::class);
+        Route::resource('unidades-medida', \App\Http\Controllers\Admin\UnidadMedidaController::class);
         // 2. Otras posibles rutas para  maestros
         Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
         Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class);
