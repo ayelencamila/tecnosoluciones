@@ -66,7 +66,7 @@ const navItems = computed(() => {
     // Verificamos si el usuario tiene el rol 'admin'
     if (page.props.auth.user.role === 'admin') {
         items.push({
-            name: 'Categorías (ABM)',
+            name: 'Categorías de Producto',
             route: 'admin.categorias.index', 
             icon: 'M4 6h16M4 10h16M4 14h16M4 18h16' // Icono de lista
         });
