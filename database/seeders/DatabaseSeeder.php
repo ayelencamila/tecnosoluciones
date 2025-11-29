@@ -46,6 +46,7 @@ class DatabaseSeeder extends Seeder
             EstadoCuentaCorrienteSeeder::class,
             EstadoReparacionSeeder::class,
             EstadoVentaSeeder::class,
+            DescuentosParametrosSeeder::class,
         ]);
 
         // 3. Datos del módulo de Productos
@@ -133,18 +134,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->command->info('✅ Cliente "Consumidor Final" asegurado (ID: '.$clienteConsumidorFinal->clienteID.').');
-        // --- FIN LÓGICA PARA EL CLIENTE "CONSUMIDOR FINAL" ---
-
-        // 5. Usuario administrador para testing (opcional)
-        // Descomenta si necesitas un usuario para pruebas
-        /*
-        User::factory()->create([
-            'name' => 'Administrador',
-            'mail' => 'admin@tecnosoluciones.com',
-            'password' => bcrypt('password'),
-        ]);
-        */
-
+        
         $this->command->info(' Base de datos poblada exitosamente');
         $this->command->info(' Datos disponibles:');
         $this->command->info('   • Provincias argentinas con localidades principales');

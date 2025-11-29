@@ -7,20 +7,23 @@ import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
-import SelectInput from '@/Components/SelectInput.vue';
 
 const props = defineProps({
     descuento: Object,
+    tipos: Array,            // <--- Recibido
+    aplicabilidades: Array,  // <--- Recibido
 });
 
 const form = useForm({
     codigo: props.descuento.codigo,
     descripcion: props.descuento.descripcion,
-    tipo: props.descuento.tipo,
+    
+    // IDs en lugar de texto
+    tipo_descuento_id: props.descuento.tipo_descuento_id,
+    aplicabilidad_descuento_id: props.descuento.aplicabilidad_descuento_id,
+    
     valor: props.descuento.valor,
-    valido_desde: props.descuento.valido_desde,
     valido_hasta: props.descuento.valido_hasta,
-    aplicabilidad: props.descuento.aplicabilidad,
     activo: Boolean(props.descuento.activo),
 });
 
@@ -28,18 +31,15 @@ const submit = () => {
     form.put(route('descuentos.update', props.descuento.descuento_id));
 };
 
-// Lógica para desactivar (Baja lógica - Paso 4)
 const desactivarDescuento = () => {
-    if (confirm('¿Está seguro de desactivar este descuento? Quedará inutilizable para nuevas ventas.')) {
-        // Usamos DELETE semántico, aunque el controlador hace un update(activo=false)
+    if (confirm('¿Está seguro de desactivar este descuento?')) {
         form.delete(route('descuentos.destroy', props.descuento.descuento_id));
     }
 };
 
-// Lógica para reactivar (Opcional pero útil)
 const reactivarDescuento = () => {
     form.activo = true;
-    submit(); // Simplemente guardamos con activo=true
+    submit();
 };
 </script>
 
@@ -67,124 +67,57 @@ const reactivarDescuento = () => {
                             
                             <div class="md:col-span-1">
                                 <InputLabel for="codigo" value="Código" />
-                                <TextInput
-                                    id="codigo"
-                                    v-model="form.codigo"
-                                    type="text"
-                                    class="mt-1 block w-full uppercase bg-gray-50"
-                                    required
-                                />
+                                <TextInput id="codigo" v-model="form.codigo" type="text" class="mt-1 block w-full uppercase bg-gray-50" required />
                                 <InputError :message="form.errors.codigo" class="mt-2" />
                             </div>
 
                             <div class="md:col-span-1">
                                 <InputLabel for="descripcion" value="Descripción" />
-                                <TextInput
-                                    id="descripcion"
-                                    v-model="form.descripcion"
-                                    type="text"
-                                    class="mt-1 block w-full"
-                                    required
-                                />
+                                <TextInput id="descripcion" v-model="form.descripcion" type="text" class="mt-1 block w-full" required />
                                 <InputError :message="form.errors.descripcion" class="mt-2" />
                             </div>
 
                             <div class="md:col-span-1">
                                 <InputLabel for="tipo" value="Tipo" />
-                                <SelectInput
-                                    id="tipo"
-                                    v-model="form.tipo"
-                                    class="mt-1 block w-full"
-                                    :options="[
-                                        { value: 'porcentaje', label: 'Porcentaje (%)' },
-                                        { value: 'monto_fijo', label: 'Monto Fijo ($)' }
-                                    ]"
-                                />
-                                <InputError :message="form.errors.tipo" class="mt-2" />
+                                <select id="tipo" v-model="form.tipo_descuento_id" class="w-full border-gray-300 rounded-md shadow-sm mt-1">
+                                    <option v-for="t in tipos" :key="t.id" :value="t.id">{{ t.nombre }}</option>
+                                </select>
+                                <InputError :message="form.errors.tipo_descuento_id" class="mt-2" />
+                            </div>
+
+                            <div class="md:col-span-1">
+                                <InputLabel for="aplicabilidad" value="Aplicabilidad" />
+                                <select id="aplicabilidad" v-model="form.aplicabilidad_descuento_id" class="w-full border-gray-300 rounded-md shadow-sm mt-1">
+                                    <option v-for="a in aplicabilidades" :key="a.id" :value="a.id">{{ a.nombre }}</option>
+                                </select>
+                                <InputError :message="form.errors.aplicabilidad_descuento_id" class="mt-2" />
                             </div>
 
                             <div class="md:col-span-1">
                                 <InputLabel for="valor" value="Valor" />
-                                <div class="relative mt-1 rounded-md shadow-sm">
-                                    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                                        <span class="text-gray-500 sm:text-sm">
-                                            {{ form.tipo === 'monto_fijo' ? '$' : '%' }}
-                                        </span>
-                                    </div>
-                                    <TextInput
-                                        id="valor"
-                                        v-model="form.valor"
-                                        type="number"
-                                        step="0.01"
-                                        class="block w-full pl-7"
-                                        required
-                                    />
-                                </div>
+                                <TextInput id="valor" v-model="form.valor" type="number" step="0.01" class="block w-full" required />
                                 <InputError :message="form.errors.valor" class="mt-2" />
                             </div>
 
                             <div class="md:col-span-1">
-                                <InputLabel for="valido_desde" value="Válido Desde" />
-                                <TextInput
-                                    id="valido_desde"
-                                    v-model="form.valido_desde"
-                                    type="date"
-                                    class="mt-1 block w-full"
-                                    required
-                                />
-                                <InputError :message="form.errors.valido_desde" class="mt-2" />
-                            </div>
-
-                            <div class="md:col-span-1">
                                 <InputLabel for="valido_hasta" value="Válido Hasta" />
-                                <TextInput
-                                    id="valido_hasta"
-                                    v-model="form.valido_hasta"
-                                    type="date"
-                                    class="mt-1 block w-full"
-                                />
+                                <TextInput id="valido_hasta" v-model="form.valido_hasta" type="date" class="mt-1 block w-full" />
                                 <InputError :message="form.errors.valido_hasta" class="mt-2" />
-                            </div>
-
-                            <div class="md:col-span-2">
-                                <InputLabel for="aplicabilidad" value="Aplicabilidad" />
-                                <SelectInput
-                                    id="aplicabilidad"
-                                    v-model="form.aplicabilidad"
-                                    class="mt-1 block w-full"
-                                    :options="[
-                                        { value: 'total', label: 'Total (Global)' },
-                                        { value: 'item', label: 'Por Ítem' },
-                                        { value: 'ambos', label: 'Ambos' }
-                                    ]"
-                                />
                             </div>
                         </div>
 
                         <div class="flex items-center justify-between mt-8 border-t pt-4">
                             
                             <div v-if="descuento.activo">
-                                <DangerButton type="button" @click="desactivarDescuento">
-                                    Desactivar Descuento
-                                </DangerButton>
+                                <DangerButton type="button" @click="desactivarDescuento">Desactivar</DangerButton>
                             </div>
                             <div v-else>
-                                <SecondaryButton type="button" @click="reactivarDescuento" class="bg-green-50 text-green-700 border-green-200 hover:bg-green-100">
-                                    Reactivar
-                                </SecondaryButton>
+                                <SecondaryButton type="button" @click="reactivarDescuento" class="bg-green-50 text-green-700 border-green-200">Reactivar</SecondaryButton>
                             </div>
 
-                            <div class="flex items-center">
-                                <Link :href="route('descuentos.index')" class="mr-4">
-                                    <SecondaryButton>Cancelar</SecondaryButton>
-                                </Link>
-                                
-                                <PrimaryButton 
-                                    :class="{ 'opacity-25': form.processing }" 
-                                    :disabled="form.processing"
-                                >
-                                    Actualizar
-                                </PrimaryButton>
+                            <div class="flex items-center gap-4">
+                                <Link :href="route('descuentos.index')"><SecondaryButton>Cancelar</SecondaryButton></Link>
+                                <PrimaryButton :disabled="form.processing">Actualizar</PrimaryButton>
                             </div>
                         </div>
                     </form>

@@ -4,20 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Descuento extends Model
 {
     use HasFactory;
 
-    /**
-     * La clave primaria asociada con la tabla.
-     */
     protected $primaryKey = 'descuento_id';
-
-    /**
-     * Los atributos que no son asignables masivamente.
-     */
     protected $guarded = ['descuento_id'];
 
     protected $casts = [
@@ -27,44 +21,42 @@ class Descuento extends Model
         'valido_hasta' => 'date',
     ];
 
-    /**
-     * Relación N:M: Ventas donde este descuento se aplicó al TOTAL.
-     */
+    // --- RELACIONES NUEVAS (Configurables) ---
+    public function tipo(): BelongsTo
+    {
+        return $this->belongsTo(TipoDescuento::class, 'tipo_descuento_id');
+    }
+
+    public function aplicabilidad(): BelongsTo
+    {
+        return $this->belongsTo(AplicabilidadDescuento::class, 'aplicabilidad_descuento_id');
+    }
+
+    // --- RELACIONES EXISTENTES ---
     public function ventas(): BelongsToMany
     {
-        return $this->belongsToMany(
-            Venta::class,
-            'descuento_venta',
-            'descuento_id',
-            'venta_id'
-        )->withPivot('monto_aplicado');
+        return $this->belongsToMany(Venta::class, 'descuento_venta', 'descuento_id', 'venta_id')
+                    ->withPivot('monto_aplicado');
     }
 
-    /**
-     * Relación N:M: Items donde este descuento se aplicó.
-     */
     public function detalleVentas(): BelongsToMany
     {
-        return $this->belongsToMany(
-            DetalleVenta::class,
-            'descuento_detalle_venta',
-            'descuento_id',
-            'detalle_venta_id'
-        )->withPivot('monto_aplicado_item');
+        return $this->belongsToMany(DetalleVenta::class, 'descuento_detalle_venta', 'descuento_id', 'detalle_venta_id')
+                    ->withPivot('monto_aplicado_item');
     }
 
     /**
-     * Lógica de dominio (Information Expert)
-     * Calcula el monto a descontar basado en un subtotal.
+     * Lógica de dominio actualizada: usa el código del TipoDescuento
      */
     public function calcularMonto(float $montoBase): float
     {
-        if ($this->tipo === 'porcentaje') {
+        // Asumimos que la tabla tipos_descuento tiene columna 'codigo' (PORCENTAJE / FIJO)
+        // Usamos strterm para seguridad o carga previa
+        if ($this->tipo->codigo === 'PORCENTAJE') {
             return ($montoBase * (float) $this->valor) / 100;
         }
 
-        if ($this->tipo === 'monto_fijo') {
-            // El descuento no puede ser mayor que el monto base
+        if ($this->tipo->codigo === 'FIJO') {
             return min((float) $this->valor, $montoBase);
         }
 
