@@ -4,12 +4,15 @@ import { Link, useForm, Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue'; 
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue'; // Asegúrate de importarlo
 
 const props = defineProps({
   categorias: Array,
   estados: Array,
   tiposCliente: Array,
   proveedores: Array, 
+  marcas: Array,       // <--- Recibido del controlador
+  unidades: Array,     // <--- Recibido del controlador
   errors: Object, 
 });
 
@@ -17,11 +20,12 @@ const form = useForm({
   codigo: '',
   nombre: '',
   descripcion: '',
-  marca: '',
-  unidadMedida: 'UNIDAD',
+  marca_id: '',           
+  unidad_medida_id: '',   
   categoriaProductoID: '',
   estadoProductoID: props.estados.find(e => e.nombre === 'Activo')?.id || '',
-  proveedor_habitual_id: '', // Campo para CU-25
+  proveedor_habitual_id: '',
+  stock_minimo: 0,        
   precios: {}, 
 });
 
@@ -89,20 +93,20 @@ const submitForm = () => {
 
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Marca</label>
-                                        <input v-model="form.marca" type="text" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                        <InputError :message="form.errors.marca" class="mt-1" />
+                                        <select v-model="form.marca_id" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            <option value="" disabled>Seleccione...</option>
+                                            <option v-for="m in marcas" :key="m.id" :value="m.id">{{ m.nombre }}</option>
+                                        </select>
+                                        <InputError :message="form.errors.marca_id" class="mt-1" />
                                     </div>
 
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Unidad de Medida <span class="text-red-500">*</span></label>
-                                        <select v-model="form.unidadMedida" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                                            <option value="UNIDAD">Unidad (Pieza)</option>
-                                            <option value="SERVICIO">Servicio (Hora/Global)</option>
-                                            <option value="METRO">Metro</option>
-                                            <option value="KG">Kilogramo</option>
-                                            <option value="LITRO">Litro</option>
+                                        <select v-model="form.unidad_medida_id" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                            <option value="" disabled>Seleccione...</option>
+                                            <option v-for="u in unidades" :key="u.id" :value="u.id">{{ u.nombre }} ({{ u.abreviatura }})</option>
                                         </select>
-                                        <InputError :message="form.errors.unidadMedida" class="mt-1" />
+                                        <InputError :message="form.errors.unidad_medida_id" class="mt-1" />
                                     </div>
 
                                     <div class="md:col-span-2">
@@ -166,6 +170,11 @@ const submitForm = () => {
                                         </select>
                                         <p class="text-xs text-gray-500 mt-1">Proveedor por defecto para compras.</p>
                                         <InputError :message="form.errors.proveedor_habitual_id" class="mt-1" />
+                                    </div>
+
+                                     <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Stock Mínimo (Alerta)</label>
+                                        <input v-model="form.stock_minimo" type="number" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
                                     </div>
                                 </div>
                             </div>

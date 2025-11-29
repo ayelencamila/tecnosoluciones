@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('estados_venta', function (Blueprint $table) {
-            $table->id('estadoVentaID'); // PK
-            $table->string('nombreEstado', 50)->unique(); // Pendiente, Completada, Anulada
+            $table->id('estadoVentaID');
+            $table->string('nombreEstado', 50)->unique();
             $table->timestamps();
         });
     }

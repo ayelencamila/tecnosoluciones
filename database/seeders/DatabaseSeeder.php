@@ -51,10 +51,14 @@ class DatabaseSeeder extends Seeder
         // 3. Datos del módulo de Productos
         $this->call([
             DepositoSeeder::class,
+            UnidadMedidaSeeder::class, 
             CategoriaProductoSeeder::class,
             EstadoProductoSeeder::class,
-            ProductoSeeder::class,           
+            ProductoSeeder::class,      
         ]);
+
+        //llama al seede de tipo de movimiento stock
+        $this->call(TipoMovimientoStockSeeder::class);
 
         // 4. Datos de ejemplo - Clientes (aquí se llamará a tu ClienteSeeder que crea 30 clientes)
         $this->call([

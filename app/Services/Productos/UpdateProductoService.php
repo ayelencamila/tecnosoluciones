@@ -7,92 +7,88 @@ use App\Models\PrecioProducto;
 use App\Models\Auditoria;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
-class UpdateProductoService
+class UpdateProductoService 
 {
-    public function handle(Producto $producto, array $data, int $userId): Producto
+    // CORRECCIÓN: Agregué los nombres de las variables ($producto, $validatedData, $userID) que faltaban
+    public function handle(Producto $producto, array $validatedData, int $userID): Producto
     {
-        return DB::transaction(function () use ($producto, $data, $userId) {
-            
+        DB::beginTransaction();
+        try {
             $datosAnteriores = $producto->toArray();
-            $preciosAnteriores = $producto->precios()->whereNull('fechaHasta')->get()->toArray();
-            $datosAnteriores['precios_vigentes'] = $preciosAnteriores;
+            $fechaActual = now()->toDateString();
+            $motivo = $validatedData['motivo'];
 
-            // 1. Actualizar datos maestros
+            // 1. ACTUALIZAR PRODUCTO
             $producto->update([
-                'codigo' => $data['codigo'],
-                'nombre' => $data['nombre'],
-                'descripcion' => $data['descripcion'] ?? null,
-                'marca' => $data['marca'] ?? null,
-                'unidadMedida' => $data['unidadMedida'],
-                'categoriaProductoID' => $data['categoriaProductoID'],
-                'estadoProductoID' => $data['estadoProductoID'],
-                'proveedor_habitual_id' => $data['proveedor_habitual_id'] ?? null,
+                'codigo' => $validatedData['codigo'],
+                'nombre' => $validatedData['nombre'],
+                'descripcion' => $validatedData['descripcion'] ?? null,
+                'marca_id' => $validatedData['marca_id'] ?? null,
+                'unidad_medida_id' => $validatedData['unidad_medida_id'],
+                'categoriaProductoID' => $validatedData['categoriaProductoID'],
+                'estadoProductoID' => $validatedData['estadoProductoID'],
+                'proveedor_habitual_id' => $validatedData['proveedor_habitual_id'] ?? null,
             ]);
 
-            // [ELIMINADO] Ya no actualizamos stock_minimo aquí. Eso corresponde al módulo de Stock.
-
-            // 2. Gestión de Historial de Precios
-            $fechaActual = now()->toDateString();
-            $fechaActualUTC = now()->utc()->toDateString();
-            
-            foreach ($data['precios'] as $precioInput) {
-                $precioVigente = PrecioProducto::where('productoID', $producto->id)
-                    ->where('tipoClienteID', $precioInput['tipoClienteID'])
-                    ->whereNull('fechaHasta')
-                    ->first();
-                
-                if ($precioVigente) {
-                    $precioActual = number_format((float) $precioVigente->precio, 2, '.', '');
-                    $precioNuevo = number_format((float) $precioInput['precio'], 2, '.', '');
-
-                    if ($precioActual !== $precioNuevo) {
-                        $fechaDesdeActual = Carbon::parse($precioVigente->fechaDesde)->utc()->toDateString();
-
-                        if ($fechaDesdeActual == $fechaActualUTC) {
-                            $precioVigente->precio = $precioNuevo;
-                            $precioVigente->save();
-                        } else {
-                            $precioVigente->update(['fechaHasta' => $fechaActual]);
-                            PrecioProducto::create([
-                                'productoID' => $producto->id,
-                                'tipoClienteID' => $precioInput['tipoClienteID'],
-                                'precio' => $precioInput['precio'],
-                                'fechaDesde' => $fechaActual,
-                                'fechaHasta' => null,
-                                'usuarioID' => $userId,
-                            ]);
-                        }
-                    }
-                } elseif (!$precioVigente) {
-                    PrecioProducto::create([
-                        'productoID' => $producto->id,
-                        'tipoClienteID' => $precioInput['tipoClienteID'],
-                        'precio' => $precioInput['precio'],
-                        'fechaDesde' => $fechaActual,
-                        'fechaHasta' => null,
-                        'usuarioID' => $userId,
+            // 2. ACTUALIZAR STOCK MÍNIMO
+            if (isset($validatedData['stockMinimo'])) {
+                $stockRegistro = $producto->stocks()->first(); 
+                if ($stockRegistro) {
+                    $stockRegistro->update([
+                        'stock_minimo' => $validatedData['stockMinimo'],
                     ]);
                 }
             }
 
-            // 3. Auditoría
-            $datosNuevos = $producto->fresh()->toArray();
-            $preciosNuevos = $producto->precios()->whereNull('fechaHasta')->get()->toArray();
-            $datosNuevos['precios_vigentes'] = $preciosNuevos;
+            // 3. ACTUALIZAR PRECIOS
+            foreach ($validatedData['precios'] as $precioData) {
+                 $precioVigente = PrecioProducto::where('productoID', $producto->id)
+                    ->where('tipoClienteID', $precioData['tipoClienteID'])
+                    ->whereNull('fechaHasta')
+                    ->first();
 
+                 if ($precioVigente && (float)$precioVigente->precio != (float)$precioData['precio']) {
+                    $precioVigente->update(['fechaHasta' => $fechaActual]);
+                    PrecioProducto::create([
+                        'productoID' => $producto->id,
+                        'tipoClienteID' => $precioData['tipoClienteID'],
+                        'precio' => $precioData['precio'],
+                        'fechaDesde' => $fechaActual,
+                        'usuarioID' => $userID,
+                    ]);
+                 } elseif (!$precioVigente) {
+                    PrecioProducto::create([
+                        'productoID' => $producto->id,
+                        'tipoClienteID' => $precioData['tipoClienteID'],
+                        'precio' => $precioData['precio'],
+                        'fechaDesde' => $fechaActual,
+                        'usuarioID' => $userID,
+                    ]);
+                 }
+            }
+
+            // 4. AUDITORÍA
+            $datosNuevos = $producto->fresh()->toArray();
             Auditoria::create([
                 'tabla_afectada' => 'productos',
                 'registro_id' => $producto->id,
                 'accion' => 'MODIFICAR_PRODUCTO',
                 'datos_anteriores' => json_encode($datosAnteriores),
                 'datos_nuevos' => json_encode($datosNuevos),
-                'motivo' => $data['motivo'],
-                'usuarioID' => $userId,
-                'detalles' => "Producto modificado: {$producto->nombre}"
+                'motivo' => $motivo,
+                'detalles' => 'Producto modificado: '.$producto->nombre,
+                'usuarioID' => $userID
             ]);
 
-            return $producto;
-        });
+            DB::commit();
+            return $producto->fresh();
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Error en UpdateProductoService: '.$e->getMessage());
+            throw new \Exception('Error de servicio al modificar el producto: '.$e->getMessage());
+        }
     }
 }
