@@ -20,12 +20,11 @@ class Producto extends Model
         'codigo',
         'nombre',
         'descripcion',
-        'marca',
-        'unidadMedida',
+        'marca_id',
+        'unidad_medida_id',
         'categoriaProductoID',
         'estadoProductoID',
-        'proveedor_habitual_id', // <--- Requerido por CU-25 y CU-26
-        // Se elimina la referencia a 'stockActual' del fillable
+        'proveedor_habitual_id',
     ];
 
     // --- RELACIONES ---
@@ -64,6 +63,16 @@ class Producto extends Model
     {
         // Si usas productoID como PK, agrégalo como tercer parámetro
         return $this->hasMany(DetalleReparacion::class, 'producto_id'); 
+    }
+    public function marca(): BelongsTo
+    {
+        return $this->belongsTo(Marca::class);
+    }
+
+    // Relación con Unidad de Medida (Nueva)
+    public function unidadMedida(): BelongsTo
+    {
+        return $this->belongsTo(UnidadMedida::class, 'unidad_medida_id');
     }
 
     // --- LÓGICA DE NEGOCIO (EXPERTO) ---
