@@ -6,36 +6,29 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        // Este bloque SOLO CREA la tabla
         Schema::create('productos', function (Blueprint $table) {
             $table->id();
             $table->string('codigo', 50)->unique();
             $table->string('nombre', 100);
             $table->text('descripcion')->nullable();
-            $table->string('marca', 100)->nullable();
-            $table->string('unidadMedida', 20);
+            
+            // --- CAMBIO: Relaciones Configurables ---
+            $table->foreignId('marca_id')->nullable()->constrained('marcas'); 
+            $table->foreignId('unidad_medida_id')->constrained('unidades_medida');
+            // --------------------------------------
+
+            // Mantenemos tus nombres existentes para no romper todo el historial
             $table->foreignId('categoriaProductoID')->constrained('categorias_producto');
             $table->foreignId('estadoProductoID')->constrained('estados_producto');
-            
-            // ¡Ni 'stock' ni 'proveedor' van aquí!
-            
-            $table->timestamps();
 
-            // Índices
-            $table->index('codigo');
+            $table->timestamps();
+            
             $table->index('nombre');
-            $table->index('categoriaProductoID');
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('productos');
