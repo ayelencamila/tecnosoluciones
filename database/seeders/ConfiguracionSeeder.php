@@ -147,6 +147,25 @@ class ConfiguracionSeeder extends Seeder
             'Cantidad de intentos de reenvío ante falla de comunicación.'
         );
 
+        Configuracion::set(
+            'whatsapp_plantilla_bloqueo',
+            "⚠️ *CUENTA BLOQUEADA*\nHola [nombre_cliente], su cuenta ha sido suspendida temporalmente.\nMotivo: _[motivo]_.\nPor favor regularice su situación.",
+            'Plantilla para notificación de bloqueo automático.'
+        );
+
+        Configuracion::set(
+            'whatsapp_plantilla_revision',
+            "⚠️ *CUENTA EN REVISIÓN*\nHola [nombre_cliente], su estado de crédito está bajo análisis administrativo.\nMotivo: _[motivo]_.",
+            'Plantilla para notificación de revisión de cuenta.'
+        );
+
+        Configuracion::set(
+            'whatsapp_plantilla_recordatorio',
+            "🔔 *RECORDATORIO DE PAGO*\nHola [nombre_cliente], le recordamos que presenta saldos pendientes.\nEstado: _[motivo]_.\nEvite el bloqueo de su cuenta.",
+            'Plantilla para recordatorio de deuda.'
+        );
+
+
         $this->command->info('✅ Configuraciones globales del sistema (Todos los módulos) cargadas correctamente.');
     }
 }
