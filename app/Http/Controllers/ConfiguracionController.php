@@ -7,7 +7,6 @@ use App\Models\Auditoria;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class ConfiguracionController extends Controller
 {
@@ -15,13 +14,18 @@ class ConfiguracionController extends Controller
     {
         $todas = Configuracion::all()->map(function ($item) {
             // Casteo inteligente para el Frontend
-            if ($item->valor === 'true') $item->valor = true;
-            elseif ($item->valor === 'false') $item->valor = false;
-            elseif (is_numeric($item->valor)) $item->valor = +$item->valor; // Convertir a int/float
+            if ($item->valor === 'true') {
+                $item->valor = true;
+            } elseif ($item->valor === 'false') {
+                $item->valor = false;
+            } elseif (is_numeric($item->valor) && !in_array($item->clave, ['cuit_empresa', 'whatsapp_admin_notificaciones', 'telefono_empresa'])) {
+                // CORRECCIÓN: Solo convertimos a número si NO es un campo de texto como CUIT o Teléfono
+                $item->valor = +$item->valor; 
+            }
             return $item;
         });
 
-        // Definimos los grupos según tu Seeder
+        // Definimos los grupos
         $grupos = [
             'Generales' => $todas->filter(fn($c) => in_array($c->clave, ['nombre_empresa', 'cuit_empresa', 'email_contacto', 'direccion_empresa']))->values(),
             
@@ -51,17 +55,16 @@ class ConfiguracionController extends Controller
 
     public function update(Request $request)
     {
-        // Validamos todo lo que mandaste en el Seeder
         $validated = $request->validate([
             'nombre_empresa' => 'required|string',
-            'cuit_empresa' => 'required|string',
+            'cuit_empresa' => 'required|string', // Ahora pasará como string
             'email_contacto' => 'required|email',
             'direccion_empresa' => 'nullable|string',
             
             'limite_credito_global' => 'required|numeric|min:0',
             'dias_gracia_global' => 'required|integer|min:0',
             'politicaAutoBlock' => 'boolean',
-            'whatsapp_admin_notificaciones' => 'nullable|string',
+            'whatsapp_admin_notificaciones' => 'nullable|string', // Ahora pasará como string
 
             'dias_maximos_anulacion_venta' => 'required|integer|min:0',
             'permitir_venta_sin_stock' => 'boolean',
@@ -77,12 +80,15 @@ class ConfiguracionController extends Controller
             'whatsapp_horario_inicio' => 'required',
             'whatsapp_horario_fin' => 'required',
             'whatsapp_reintentos_maximos' => 'required|integer',
+            
+            'whatsapp_plantilla_bloqueo' => 'required|string',
+            'whatsapp_plantilla_revision' => 'required|string',
+            'whatsapp_plantilla_recordatorio' => 'required|string',
         ]);
 
         try {
             DB::transaction(function () use ($validated) {
                 foreach ($validated as $clave => $valor) {
-                    // Convertimos booleanos de vuelta a string para la BD
                     if (is_bool($valor)) {
                         $valor = $valor ? 'true' : 'false';
                     }

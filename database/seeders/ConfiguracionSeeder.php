@@ -9,163 +9,55 @@ class ConfiguracionSeeder extends Seeder
 {
     public function run(): void
     {
-        // =======================================================
-        // 1. GENERALES (Empresa y Sistema)
-        // =======================================================
+        // 1. GENERALES
+        Configuracion::set('nombre_empresa', 'TecnoSoluciones', 'Nombre legal de la empresa.');
+        Configuracion::set('cuit_empresa', '30-12345678-9', 'CUIT de la empresa.');
+        Configuracion::set('email_contacto', 'contacto@tecnosoluciones.com', 'Email visible.');
+        Configuracion::set('direccion_empresa', 'Av. Principal 123, CABA', 'Dirección física.');
+
+        // 2. CUENTA CORRIENTE
+        Configuracion::set('dias_gracia_global', 30, 'Días de gracia por defecto.');
+        Configuracion::set('limite_credito_global', 100000.00, 'Límite de crédito por defecto (ARS).');
+        Configuracion::set('politicaAutoBlock', 'true', 'Bloqueo automático ante incumplimientos (true/false).');
+        Configuracion::set('whatsapp_admin_notificaciones', '+5491112345678', 'WhatsApp del admin para alertas críticas.');
+
+        // 3. VENTAS
+        Configuracion::set('dias_maximos_anulacion_venta', 7, 'Días máximos para anular venta.');
+        Configuracion::set('permitir_venta_sin_stock', 'false', 'Permitir ventas con stock cero.');
+
+        // 4. STOCK
+        Configuracion::set('stock_minimo_global', 5, 'Alerta stock bajo por defecto.');
+        Configuracion::set('alerta_stock_bajo', 'true', 'Activar alertas visuales de stock.');
+
+        // 5. REPARACIONES
+        Configuracion::set('reparacion_sla_dias_estandar', 3, 'SLA estándar (días).');
+        Configuracion::set('reparacion_habilitar_bonificacion', 'true', 'Habilitar descuentos por demora.');
+        Configuracion::set('reparacion_bonificacion_diaria_porc', 0.5, '% Descuento diario por demora.');
+        Configuracion::set('reparacion_tope_bonificacion_porc', 20, 'Tope máximo de bonificación (%).');
+
+        // 6. COMUNICACIÓN
+        Configuracion::set('whatsapp_activo', 'true', 'Activar envío de WhatsApp.');
+        Configuracion::set('whatsapp_horario_inicio', '09:00', 'Hora inicio notificaciones.');
+        Configuracion::set('whatsapp_horario_fin', '20:00', 'Hora fin notificaciones.');
+        Configuracion::set('whatsapp_reintentos_maximos', 3, 'Intentos de reenvío.');
+
+        // 7. PLANTILLAS (¡ESTO ES LO NUEVO QUE FALTABA!)
         Configuracion::set(
-            'nombre_empresa',
-            'TecnoSoluciones',
-            'Nombre legal de la empresa para comprobantes y encabezados.'
+            'whatsapp_plantilla_bloqueo', 
+            'Hola [nombre_cliente], su cuenta ha sido BLOQUEADA por: [motivo]. Por favor regularice su situación.',
+            'Plantilla mensaje de bloqueo.'
+        );
+        Configuracion::set(
+            'whatsapp_plantilla_revision', 
+            'Hola [nombre_cliente], su cuenta está en REVISIÓN por: [motivo].',
+            'Plantilla mensaje de revisión.'
+        );
+        Configuracion::set(
+            'whatsapp_plantilla_recordatorio', 
+            'Hola [nombre_cliente], recordatorio de saldo pendiente: [motivo].',
+            'Plantilla mensaje recordatorio.'
         );
 
-        Configuracion::set(
-            'cuit_empresa',
-            '30-12345678-9',
-            'CUIT de la empresa para reportes internos.'
-        );
-
-        Configuracion::set(
-            'email_contacto',
-            'contacto@tecnosoluciones.com',
-            'Email de contacto visible en el sistema.'
-        );
-
-        Configuracion::set(
-            'direccion_empresa',
-            'Av. Principal 123, CABA',
-            'Dirección física de la empresa.'
-        );
-
-        // =======================================================
-        // 2. MÓDULO CUENTA CORRIENTE (CU-09)
-        // =======================================================
-        Configuracion::set(
-            'dias_gracia_global',
-            30,
-            'Días de gracia por defecto para pagos de cuenta corriente (si el cliente no tiene específico).'
-        );
-
-        Configuracion::set(
-            'limite_credito_global',
-            100000.00, // Ajustado a un valor más realista
-            'Límite de crédito por defecto en ARS para nuevos clientes mayoristas.'
-        );
-
-        Configuracion::set(
-            'politicaAutoBlock',
-            'true',
-            'Habilitar bloqueo automático de CC ante incumplimientos (true/false).'
-        );
-
-        Configuracion::set(
-            'whatsapp_admin_notificaciones',
-            '+5491112345678',
-            'Número de WhatsApp del administrador para recibir alertas críticas de CC.'
-        );
-
-        // =======================================================
-        // 3. MÓDULO VENTAS
-        // =======================================================
-        Configuracion::set(
-            'dias_maximos_anulacion_venta',
-            7, // Ajustado: 30 días suele ser mucho para anulación directa
-            'Días máximos permitidos para anular una venta después de registrada.'
-        );
-
-        Configuracion::set(
-            'permitir_venta_sin_stock',
-            'false',
-            'Permite registrar ventas aunque el sistema indique stock cero (true/false).'
-        );
-
-        // =======================================================
-        // 4. MÓDULO STOCK
-        // =======================================================
-        Configuracion::set(
-            'stock_minimo_global',
-            5,
-            'Punto de pedido por defecto. Alerta cuando stock < este valor.'
-        );
-
-        Configuracion::set(
-            'alerta_stock_bajo',
-            'true',
-            'Activar notificaciones visuales automáticas cuando el stock esté bajo.'
-        );
-
-        // =======================================================
-        // 5. MÓDULO REPARACIONES (Soporte para CU-14 y RF15)
-        // =======================================================
-        Configuracion::set(
-            'reparacion_sla_dias_estandar',
-            3,
-            'Días hábiles estimados por defecto para una reparación estándar (SLA).'
-        );
-
-        Configuracion::set(
-            'reparacion_habilitar_bonificacion',
-            'true',
-            'Habilitar política de descuentos automáticos por demoras en reparaciones (true/false).'
-        );
-
-        Configuracion::set(
-            'reparacion_bonificacion_diaria_porc',
-            0.5,
-            'Porcentaje de descuento diario sobre la mano de obra por cada día de demora fuera de SLA.'
-        );
-
-        Configuracion::set(
-            'reparacion_tope_bonificacion_porc',
-            20,
-            'Tope máximo de bonificación acumulada (porcentaje) por demora.'
-        );
-
-        // =======================================================
-        // 6. MÓDULO COMUNICACIÓN / WHATSAPP (Soporte para CU-30)
-        // =======================================================
-        Configuracion::set(
-            'whatsapp_activo',
-            'true',
-            'Interruptor general para el envío de mensajes automáticos por WhatsApp.'
-        );
-
-        Configuracion::set(
-            'whatsapp_horario_inicio',
-            '09:00',
-            'Hora de inicio permitida para el envío de notificaciones automáticas.'
-        );
-
-        Configuracion::set(
-            'whatsapp_horario_fin',
-            '20:00',
-            'Hora de fin para el envío de notificaciones automáticas (evita mensajes nocturnos).'
-        );
-        
-        Configuracion::set(
-            'whatsapp_reintentos_maximos',
-            3,
-            'Cantidad de intentos de reenvío ante falla de comunicación.'
-        );
-
-        Configuracion::set(
-            'whatsapp_plantilla_bloqueo',
-            "⚠️ *CUENTA BLOQUEADA*\nHola [nombre_cliente], su cuenta ha sido suspendida temporalmente.\nMotivo: _[motivo]_.\nPor favor regularice su situación.",
-            'Plantilla para notificación de bloqueo automático.'
-        );
-
-        Configuracion::set(
-            'whatsapp_plantilla_revision',
-            "⚠️ *CUENTA EN REVISIÓN*\nHola [nombre_cliente], su estado de crédito está bajo análisis administrativo.\nMotivo: _[motivo]_.",
-            'Plantilla para notificación de revisión de cuenta.'
-        );
-
-        Configuracion::set(
-            'whatsapp_plantilla_recordatorio',
-            "🔔 *RECORDATORIO DE PAGO*\nHola [nombre_cliente], le recordamos que presenta saldos pendientes.\nEstado: _[motivo]_.\nEvite el bloqueo de su cuenta.",
-            'Plantilla para recordatorio de deuda.'
-        );
-
-
-        $this->command->info('✅ Configuraciones globales del sistema (Todos los módulos) cargadas correctamente.');
+        $this->command->info('✅ Configuraciones globales cargadas correctamente.');
     }
 }
