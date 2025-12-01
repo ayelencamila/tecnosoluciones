@@ -40,6 +40,11 @@ class EventServiceProvider extends ServiceProvider
             \App\Listeners\RevertirCuentaCorrientePorAnulacion::class,
             \App\Listeners\RegistrarAnulacionEnAuditoria::class,
         ],
+
+        // Flujo de Pago (CU-09 Paso 7: Normalización)
+        \App\Events\PagoRegistrado::class => [
+            \App\Listeners\VerificarNormalizacionCC::class,
+        ],
     ];
 
     /**

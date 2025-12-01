@@ -3,6 +3,7 @@ import { ref, computed } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
+import NotificationBell from '@/Components/NotificationBell.vue';
 
 const showingSidebar = ref(false);
 // Estado para el menú desplegable de Maestros
@@ -210,6 +211,9 @@ const isActive = (routeName) => {
                 </div>
 
                 <div class="ml-4 flex items-center gap-4">
+                    <!-- Campanita de Notificaciones -->
+                    <NotificationBell v-if="$page.props.auth.user.role === 'admin'" />
+                    
                     <div class="relative">
                         <Dropdown align="right" width="48">
                             <template #trigger>

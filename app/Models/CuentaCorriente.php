@@ -158,30 +158,81 @@ class CuentaCorriente extends Model
 
     public function bloquear(string $motivo = 'Incumplimiento', ?int $userID = null): bool
     {
-        $estadoBloqueada = EstadoCuentaCorriente::where('nombreEstado', 'Bloqueada')->first();
+        $estadoBloqueada = EstadoCuentaCorriente::bloqueada();
         if ($estadoBloqueada && $this->estadoCuentaCorrienteID !== $estadoBloqueada->estadoCuentaCorrienteID) {
+            $estadoAnterior = $this->estadoCuentaCorrienteID;
             $this->estadoCuentaCorrienteID = $estadoBloqueada->estadoCuentaCorrienteID;
-            return $this->save();
+            $guardado = $this->save();
+            
+            // Paso 8 CU-09: Registrar bloqueo en auditoría
+            if ($guardado) {
+                Auditoria::registrar(
+                    Auditoria::ACCION_BLOQUEAR_CC,
+                    'cuentas_corriente',
+                    $this->cuentaCorrienteID,
+                    ['estadoCuentaCorrienteID' => $estadoAnterior],
+                    ['estadoCuentaCorrienteID' => $this->estadoCuentaCorrienteID],
+                    $motivo,
+                    "Cuenta Corriente {$this->cuentaCorrienteID} bloqueada.",
+                    $userID
+                );
+            }
+            
+            return $guardado;
         }
         return false;
     }
 
     public function desbloquear(string $motivo = 'Normalizado', ?int $userID = null): bool
     {
-        $estadoActiva = EstadoCuentaCorriente::where('nombreEstado', 'Activa')->first();
+        $estadoActiva = EstadoCuentaCorriente::activa();
         if ($estadoActiva && $this->estadoCuentaCorrienteID !== $estadoActiva->estadoCuentaCorrienteID) {
+            $estadoAnterior = $this->estadoCuentaCorrienteID;
             $this->estadoCuentaCorrienteID = $estadoActiva->estadoCuentaCorrienteID;
-            return $this->save();
+            $guardado = $this->save();
+            
+            // Paso 8 CU-09: Registrar desbloqueo en auditoría
+            if ($guardado) {
+                Auditoria::registrar(
+                    Auditoria::ACCION_DESBLOQUEAR_CC,
+                    'cuentas_corriente',
+                    $this->cuentaCorrienteID,
+                    ['estadoCuentaCorrienteID' => $estadoAnterior],
+                    ['estadoCuentaCorrienteID' => $this->estadoCuentaCorrienteID],
+                    $motivo,
+                    "Cuenta Corriente {$this->cuentaCorrienteID} desbloqueada.",
+                    $userID
+                );
+            }
+            
+            return $guardado;
         }
         return false;
     }
 
     public function ponerEnRevision(string $motivo = 'Revisión', ?int $userID = null): bool
     {
-        $estadoPendiente = EstadoCuentaCorriente::where('nombreEstado', 'Pendiente de Aprobación')->first();
+        $estadoPendiente = EstadoCuentaCorriente::pendienteAprobacion();
         if ($estadoPendiente && $this->estadoCuentaCorrienteID !== $estadoPendiente->estadoCuentaCorrienteID) {
+            $estadoAnterior = $this->estadoCuentaCorrienteID;
             $this->estadoCuentaCorrienteID = $estadoPendiente->estadoCuentaCorrienteID;
-            return $this->save();
+            $guardado = $this->save();
+            
+            // Paso 8 CU-09: Registrar cambio a pendiente de aprobación en auditoría
+            if ($guardado) {
+                Auditoria::registrar(
+                    Auditoria::ACCION_PENDIENTE_APROBACION_CC,
+                    'cuentas_corriente',
+                    $this->cuentaCorrienteID,
+                    ['estadoCuentaCorrienteID' => $estadoAnterior],
+                    ['estadoCuentaCorrienteID' => $this->estadoCuentaCorrienteID],
+                    $motivo,
+                    "Cuenta Corriente {$this->cuentaCorrienteID} marcada como pendiente de aprobación.",
+                    $userID
+                );
+            }
+            
+            return $guardado;
         }
         return false;
     }

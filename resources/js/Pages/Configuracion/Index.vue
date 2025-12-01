@@ -40,9 +40,20 @@ const formatLabel = (key, desc) => {
 
     <AppLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Configuración Global del Sistema
-            </h2>
+            <div class="flex justify-between items-center">
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                    Configuración Global del Sistema
+                </h2>
+                <a 
+                    :href="route('configuracion.historial')" 
+                    class="inline-flex items-center px-4 py-2 bg-gray-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition"
+                >
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Ver Historial de Cambios
+                </a>
+            </div>
         </template>
 
         <div class="py-12">
@@ -76,7 +87,25 @@ const formatLabel = (key, desc) => {
 
                                     <div v-else>
                                         <InputLabel :for="param.clave" :value="param.descripcion || param.clave" />
+                                        
+                                        <!-- Mostrar variables disponibles para plantillas WhatsApp -->
+                                        <div v-if="param.clave.includes('whatsapp_plantilla')" class="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
+                                            <strong class="text-blue-800">Variables disponibles:</strong>
+                                            <code class="ml-1 text-blue-600">[nombre_cliente]</code>
+                                            <code class="ml-1 text-blue-600">[motivo]</code>
+                                        </div>
+                                        
                                         <TextInput 
+                                            v-if="param.clave.includes('plantilla')"
+                                            :id="param.clave" 
+                                            v-model="form[param.clave]" 
+                                            class="mt-1 block w-full" 
+                                            type="text"
+                                            as="textarea"
+                                            rows="3"
+                                        />
+                                        <TextInput 
+                                            v-else
                                             :id="param.clave" 
                                             v-model="form[param.clave]" 
                                             class="mt-1 block w-full" 

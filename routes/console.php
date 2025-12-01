@@ -10,7 +10,7 @@ Artisan::command('inspire', function () {
 
 // --- SCHEDULER PARA CU-09: Control Automático de Cuentas Corrientes ---
 // Ejecuta el comando diariamente a las 7:00 AM
-Schedule::command('cuentas:check-vencidas')
+Schedule::command('cc:check-vencimientos')
     ->dailyAt('07:00')
     ->timezone('America/Argentina/Buenos_Aires')
     ->withoutOverlapping()

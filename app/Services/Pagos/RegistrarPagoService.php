@@ -2,6 +2,7 @@
 
 namespace App\Services\Pagos;
 
+use App\Events\PagoRegistrado;
 use App\Models\Pago;
 use App\Models\Cliente;
 use App\Models\Venta;
@@ -33,17 +34,16 @@ class RegistrarPagoService
                 $cliente->cuentaCorriente->registrarCredito(
                     $pago->monto,
                     $descripcion,
-                    $pago->pagoID, // <--- PK correcta
+                    $pago->pagoID,
                     'pagos',
                     $userId
                 );
-
-                if ($cliente->cuentaCorriente->saldo <= 0 && $cliente->cuentaCorriente->estaBloqueada()) {
-                    $cliente->cuentaCorriente->desbloquear("Desbloqueo automático por pago total", $userId);
-                }
             }
 
             $this->imputarPagoAutomaticamente($pago, $cliente);
+
+            // CU-09 Paso 7: Disparar evento para verificar normalización
+            event(new PagoRegistrado($pago, $userId));
 
             Log::info("Pago registrado e imputado: ID {$pago->pagoID}");
 

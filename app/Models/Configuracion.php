@@ -71,4 +71,42 @@ class Configuracion extends Model
     {
         return filter_var(self::get($clave, $default ? 'true' : 'false'), FILTER_VALIDATE_BOOLEAN);
     }
+
+    /**
+     * Obtiene el historial de cambios de una configuración específica
+     * CU-31: Versionado y trazabilidad
+     */
+    public static function historialClave(string $clave)
+    {
+        return Auditoria::where('tabla_afectada', 'configuracion')
+            ->where(function ($query) use ($clave) {
+                $query->whereRaw("JSON_EXTRACT(datos_nuevos, '$.clave') = ?", [$clave])
+                      ->orWhereRaw("JSON_EXTRACT(datos_anteriores, '$.clave') = ?", [$clave]);
+            })
+            ->with('usuario')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($auditoria) {
+                return [
+                    'fecha' => $auditoria->created_at->format('d/m/Y H:i'),
+                    'usuario' => $auditoria->usuario->name ?? 'Sistema',
+                    'accion' => $auditoria->accion,
+                    'valor_anterior' => $auditoria->datos_anteriores['valor'] ?? null,
+                    'valor_nuevo' => $auditoria->datos_nuevos['valor'] ?? null,
+                    'motivo' => $auditoria->motivo,
+                ];
+            });
+    }
+
+    /**
+     * Obtiene todo el historial de cambios de configuración
+     */
+    public static function historialCompleto(int $limite = 50)
+    {
+        return Auditoria::where('tabla_afectada', 'configuracion')
+            ->with('usuario')
+            ->orderBy('created_at', 'desc')
+            ->limit($limite)
+            ->get();
+    }
 }

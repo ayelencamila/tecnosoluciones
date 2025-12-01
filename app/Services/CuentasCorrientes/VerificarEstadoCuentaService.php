@@ -6,8 +6,11 @@ use App\Models\Cliente;
 use App\Models\Configuracion;
 use App\Models\CuentaCorriente;
 use App\Models\EstadoCuentaCorriente;
+use App\Models\User;
 use App\Jobs\NotificarIncumplimientoCC;
+use App\Notifications\IncumplimientoCCNotification;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Notification;
 
 class VerificarEstadoCuentaService
 {
@@ -50,6 +53,46 @@ class VerificarEstadoCuentaService
     }
 
     /**
+     * CU-09 Paso 4: Notificar al administrador/vendedor (Panel + WhatsApp)
+     */
+    private function notificarAdministradores(
+        CuentaCorriente $cc, 
+        string $motivo, 
+        string $tipoAccion,
+        float $saldoTotal,
+        float $saldoVencido,
+        float $limiteCredito
+    ): void {
+        // 1. Obtener administradores (usuarios con role 'admin')
+        $administradores = User::where('role', 'admin')->get();
+        
+        if ($administradores->isEmpty()) {
+            Log::warning("[CU-09 Paso 4] No hay administradores configurados para recibir notificaciones.");
+            return;
+        }
+
+        // 2. Enviar notificación al panel del sistema (campanita)
+        Notification::send($administradores, new IncumplimientoCCNotification(
+            $cc->cliente,
+            $motivo,
+            $tipoAccion,
+            $saldoTotal,
+            $saldoVencido,
+            $limiteCredito
+        ));
+
+        Log::info("🔔 [CU-09 Paso 4] Notificación enviada al panel de " . $administradores->count() . " administrador(es).");
+
+        // 3. Enviar WhatsApp al administrador principal (si está configurado)
+        $adminWhatsApp = Configuracion::get('whatsapp_admin_notificaciones');
+        if ($adminWhatsApp) {
+            // Usar el Job existente para WhatsApp
+            NotificarIncumplimientoCC::dispatch($cc, $motivo, 'admin_alert');
+            Log::info("📱 [CU-09 Paso 4] WhatsApp programado para administrador: {$adminWhatsApp}");
+        }
+    }
+
+    /**
      * Evalúa una cuenta individual (Pasos 2 a 7)
      */
     private function procesarCuenta(CuentaCorriente $cc, bool $bloqueoAutomatico): string
@@ -75,27 +118,36 @@ class VerificarEstadoCuentaService
             if ($tieneVencidos) $motivos[] = "Saldo vencido ($$saldoVencido)";
             $motivoTexto = implode(', ', $motivos);
 
-            // Paso 4: Notificación Interna (Se envía al Job)
+            // Paso 4: Notificación Interna (Panel + WhatsApp)
             // Excepción 4a / 4b: Detección de incumplimiento
+            $this->notificarAdministradores(
+                $cc, 
+                $motivoTexto, 
+                $bloqueoAutomatico ? 'bloqueo' : 'revision',
+                $saldoTotal,
+                $saldoVencido,
+                $limiteCredito
+            );
             
             // Paso 5: Acción sobre el crédito
             if ($bloqueoAutomatico) {
                 // Excepción 5a: Bloqueo Automático
                 if ($estadoActual !== 'Bloqueada') {
-                    $cc->bloquear("Automático: $motivoTexto", 1); // ID 1 = Sistema
+                    $cc->bloquear("Automático: $motivoTexto", null); // null = Sistema automático
                     Log::warning("[CU-09] CC {$cc->cuentaCorrienteID} BLOQUEADA. Motivo: $motivoTexto");
                     $accionTomada = 'bloqueada';
                     
-                    // Notificar cambio crítico
+                    // Notificar cambio crítico al cliente
                     NotificarIncumplimientoCC::dispatch($cc, $motivoTexto, 'bloqueo');
                 }
             } else {
                 // Excepción 5b: Pendiente de Aprobación
                 if ($estadoActual === 'Activa') {
-                    $cc->ponerEnRevision("Automático: $motivoTexto", 1);
+                    $cc->ponerEnRevision("Automático: $motivoTexto", null);
                     Log::info("[CU-09] CC {$cc->cuentaCorrienteID} en REVISIÓN. Motivo: $motivoTexto");
                     $accionTomada = 'revision';
                     
+                    // Notificar al cliente
                     NotificarIncumplimientoCC::dispatch($cc, $motivoTexto, 'revision');
                 }
             }

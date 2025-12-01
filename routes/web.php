@@ -88,6 +88,26 @@ Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::clas
 Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
     ->name('api.modelos.por-marca');
 
+// --- API DE NOTIFICACIONES ---
+Route::middleware(['auth'])->group(function () {
+    Route::get('/api/notifications', function () {
+        return auth()->user()->notifications()
+            ->take(20)
+            ->get();
+    });
+    
+    Route::post('/api/notifications/{id}/read', function ($id) {
+        auth()->user()->notifications()
+            ->where('id', $id)
+            ->update(['read_at' => now()]);
+        return response()->json(['success' => true]);
+    });
+    
+    Route::post('/api/notifications/mark-all-read', function () {
+        auth()->user()->unreadNotifications->markAsRead();
+        return response()->json(['success' => true]);
+    });
+});
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
 Route::middleware(['auth'])->group(function () {
@@ -173,6 +193,7 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('configuracion')->name('configuracion.')->group(function () {
         Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
         Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
+        Route::get('/historial', [ConfiguracionController::class, 'historial'])->name('historial'); // CU-31
     });
 
     // --- MÓDULO DE REPARACIONES (CU-11, CU-12, CU-13) ---

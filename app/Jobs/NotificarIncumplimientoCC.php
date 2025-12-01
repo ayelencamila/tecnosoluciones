@@ -57,13 +57,23 @@ class NotificarIncumplimientoCC implements ShouldQueue
             }
         }
 
-        // 2. Preparar Datos del Cliente
+        // 2. Preparar Datos del Destinatario
         $cliente = $this->cuentaCorriente->cliente;
-        $telefonoDestino = $cliente->whatsapp ?? $cliente->telefono;
-
-        if (!$telefonoDestino) {
-            Log::warning("⚠️ No se pudo notificar al cliente {$cliente->clienteID}: Sin teléfono registrado.");
-            return;
+        
+        // Si es alerta de admin, usar teléfono del administrador
+        if ($this->tipoAccion === 'admin_alert') {
+            $telefonoDestino = Configuracion::get('whatsapp_admin_notificaciones');
+            if (!$telefonoDestino) {
+                Log::warning("⚠️ No hay teléfono de administrador configurado para WhatsApp.");
+                return;
+            }
+        } else {
+            // Para cliente normal
+            $telefonoDestino = $cliente->whatsapp ?? $cliente->telefono;
+            if (!$telefonoDestino) {
+                Log::warning("⚠️ No se pudo notificar al cliente {$cliente->clienteID}: Sin teléfono registrado.");
+                return;
+            }
         }
 
         // Formato internacional para Twilio
@@ -76,7 +86,8 @@ class NotificarIncumplimientoCC implements ShouldQueue
         $mensaje = $this->construirMensaje($cliente->nombre, $this->motivo);
 
         // 4. Notificación Interna
-        Log::alert("🚨 NOTIFICACIÓN INTERNA: Cliente {$cliente->nombre} - Acción: {$this->tipoAccion} - Motivo: {$this->motivo}");
+        $destinatarioLog = $this->tipoAccion === 'admin_alert' ? 'ADMIN' : "Cliente {$cliente->nombre}";
+        Log::alert("🚨 NOTIFICACIÓN WHATSAPP: {$destinatarioLog} - Acción: {$this->tipoAccion} - Motivo: {$this->motivo}");
 
         // 5. Envío Real (WhatsApp via Twilio)
         try {
@@ -114,9 +125,29 @@ class NotificarIncumplimientoCC implements ShouldQueue
         $this->release($segundosEspera);
     }
 
+    /**
+     * CU-30: Construir mensaje usando plantillas parametrizables
+     * 
+     * Variables disponibles en plantillas:
+     * - [nombre_cliente]: Nombre del cliente
+     * - [motivo]: Motivo del incumplimiento/alerta
+     * 
+     * Tipos de plantillas configurables:
+     * - whatsapp_plantilla_bloqueo: Para cuentas bloqueadas
+     * - whatsapp_plantilla_revision: Para cuentas en revisión
+     * - whatsapp_plantilla_recordatorio: Para recordatorios de mora
+     */
     private function construirMensaje($nombreCliente, $motivo)
     {
-        // Mapeo de tipo de acción a clave de configuración
+        // Mensaje especial para administradores
+        if ($this->tipoAccion === 'admin_alert') {
+            return "🚨 ALERTA ADMIN - TecnoSoluciones\n\n" .
+                   "Cliente: {$nombreCliente}\n" .
+                   "Motivo: {$motivo}\n\n" .
+                   "Requiere atención inmediata.";
+        }
+
+        // Mapeo de tipo de acción a clave de configuración para clientes
         $clavePlantilla = match ($this->tipoAccion) {
             'bloqueo' => 'whatsapp_plantilla_bloqueo',
             'revision' => 'whatsapp_plantilla_revision',

@@ -222,28 +222,51 @@ class RegistrarVentaService
         ];
     }
 
+    /**
+     * CU-09 Paso 5: Validar estado de crédito antes de venta a cuenta corriente
+     * Impide ventas si la CC está bloqueada o pendiente de aprobación
+     */
     private function validarEstadoCredito(Cliente $cliente, float $montoDeEstaVenta): void
     {
         if (! $cliente->cuentaCorriente) {
-            throw new LimiteCreditoExcedidoException("El cliente {$cliente->nombre_completo} no tiene una cuenta corriente habilitada.", 0, 0);
+            throw new LimiteCreditoExcedidoException(
+                "El cliente {$cliente->nombre_completo} no tiene una cuenta corriente habilitada.", 
+                0, 
+                0
+            );
         }
+        
         $cuentaCorriente = $cliente->cuentaCorriente;
         $estadoNombre = $cuentaCorriente->estadoCuentaCorriente?->nombreEstado ?? 'Desconocido';
 
+        // CU-09 Paso 5: Si bloqueo automático = ON -> Solo contado
         if ($estadoNombre === 'Bloqueada') {
-            throw new LimiteCreditoExcedidoException("La cuenta corriente de {$cliente->nombre_completo} está BLOQUEADA.", 0, 0);
+            throw new LimiteCreditoExcedidoException(
+                "La cuenta corriente de {$cliente->nombre_completo} está BLOQUEADA por incumplimiento. Solo se permite venta en efectivo.", 
+                0, 
+                0
+            );
         }
+        
+        // CU-09 Excepción 5b: Si OFF -> Pendiente de aprobación
         if ($estadoNombre === 'Pendiente de Aprobación') {
-            throw new LimiteCreditoExcedidoException("La cuenta corriente está PENDIENTE DE APROBACIÓN.", 0, 0);
+            throw new LimiteCreditoExcedidoException(
+                "La cuenta corriente está PENDIENTE DE APROBACIÓN. Debe ser revisada por un administrador antes de autorizar nuevas ventas a crédito.", 
+                0, 
+                0
+            );
         }
 
+        // Validar límite de crédito
         $saldoActual = $cuentaCorriente->saldo; 
         $limiteCredito = $cuentaCorriente->getLimiteCreditoAplicable(); 
 
         if (($saldoActual + $montoDeEstaVenta) > $limiteCredito) {
-            $disponible = $limiteCredito - $saldoActual;
+            $disponible = max(0, $limiteCredito - $saldoActual);
             throw new LimiteCreditoExcedidoException(
-                "Excede límite de crédito. Límite: $$limiteCredito. Disp: $$disponible", $limiteCredito, $saldoActual
+                "Excede límite de crédito. Límite: $$limiteCredito. Saldo actual: $$saldoActual. Disponible: $$disponible", 
+                $limiteCredito, 
+                $saldoActual
             );
         }
     }

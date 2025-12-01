@@ -53,11 +53,34 @@ class ConfiguracionController extends Controller
         ]);
     }
 
+    /**
+     * CU-31: Muestra el historial de cambios de configuración
+     */
+    public function historial()
+    {
+        $historial = Configuracion::historialCompleto(100);
+
+        return Inertia::render('Configuracion/Historial', [
+            'historial' => $historial->map(function ($item) {
+                return [
+                    'id' => $item->auditoriaID,
+                    'fecha' => $item->created_at->format('d/m/Y H:i:s'),
+                    'usuario' => $item->usuario->name ?? 'Sistema',
+                    'accion' => $item->accion,
+                    'parametro' => $item->datos_nuevos['clave'] ?? $item->datos_anteriores['clave'] ?? 'N/A',
+                    'valor_anterior' => $item->datos_anteriores['valor'] ?? null,
+                    'valor_nuevo' => $item->datos_nuevos['valor'] ?? null,
+                    'motivo' => $item->motivo ?? 'Sin motivo especificado',
+                ];
+            }),
+        ]);
+    }
+
     public function update(Request $request)
     {
         $validated = $request->validate([
             'nombre_empresa' => 'required|string',
-            'cuit_empresa' => 'required|string', // Ahora pasará como string
+            'cuit_empresa' => 'required|string',
             'email_contacto' => 'required|email',
             'direccion_empresa' => 'nullable|string',
             

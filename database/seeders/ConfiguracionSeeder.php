@@ -41,21 +41,22 @@ class ConfiguracionSeeder extends Seeder
         Configuracion::set('whatsapp_horario_fin', '20:00', 'Hora fin notificaciones.');
         Configuracion::set('whatsapp_reintentos_maximos', 3, 'Intentos de reenvío.');
 
-        // 7. PLANTILLAS (¡ESTO ES LO NUEVO QUE FALTABA!)
+        // 7. PLANTILLAS WHATSAPP (CU-30)
+        // Variables disponibles: [nombre_cliente], [motivo]
         Configuracion::set(
             'whatsapp_plantilla_bloqueo', 
             'Hola [nombre_cliente], su cuenta ha sido BLOQUEADA por: [motivo]. Por favor regularice su situación.',
-            'Plantilla mensaje de bloqueo.'
+            'Plantilla para bloqueo. Variables: [nombre_cliente], [motivo]'
         );
         Configuracion::set(
             'whatsapp_plantilla_revision', 
             'Hola [nombre_cliente], su cuenta está en REVISIÓN por: [motivo].',
-            'Plantilla mensaje de revisión.'
+            'Plantilla para revisión. Variables: [nombre_cliente], [motivo]'
         );
         Configuracion::set(
             'whatsapp_plantilla_recordatorio', 
             'Hola [nombre_cliente], recordatorio de saldo pendiente: [motivo].',
-            'Plantilla mensaje recordatorio.'
+            'Plantilla para recordatorio. Variables: [nombre_cliente], [motivo]'
         );
 
         $this->command->info('✅ Configuraciones globales cargadas correctamente.');
