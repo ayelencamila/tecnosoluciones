@@ -138,4 +138,124 @@ class Reparacion extends Model
                     ->where('estado', 'pendiente')
                     ->latest();
     }
+
+    /**
+     * Obtiene el SLA vigente desde configuración
+     * @return int Días de SLA
+     */
+    public function getSLAVigente(): int
+    {
+        return (int) Configuracion::get('sla_reparaciones_default', 7);
+    }
+
+    /**
+     * Calcula los días efectivos transcurridos desde el ingreso
+     * Excluye períodos en estados que pausan el SLA
+     * 
+     * @return int Días efectivos
+     */
+    public function calcularDiasEfectivos(): int
+    {
+        if (!$this->fecha_ingreso) {
+            return 0;
+        }
+
+        // Obtener estados que pausan SLA desde configuración
+        $estadosPausaSLA = Configuracion::get('estados_pausa_sla', '');
+        $estadosArray = array_filter(array_map('trim', explode(',', $estadosPausaSLA)));
+
+        // Si no hay estados que pauset SLA, calcular días corridos
+        if (empty($estadosArray)) {
+            $fechaFin = $this->fecha_entrega_real ?? now();
+            return $this->fecha_ingreso->diffInDays($fechaFin);
+        }
+
+        // TODO: Implementar lógica completa de pausas cuando exista tabla de historial de estados
+        // Por ahora, si el estado actual pausa SLA, no contar desde la última transición
+        $estadoActual = $this->estado?->nombreEstado;
+        
+        if (in_array($estadoActual, $estadosArray)) {
+            // Si está pausado actualmente, retornar días hasta ahora
+            // (en producción se debería calcular con historial de estados)
+            return $this->fecha_ingreso->diffInDays(now());
+        }
+
+        // Calcular días corridos
+        $fechaFin = $this->fecha_entrega_real ?? now();
+        return $this->fecha_ingreso->diffInDays($fechaFin);
+    }
+
+    /**
+     * Determina si la reparación excede o incumple el SLA
+     * 
+     * @return array ['excede' => bool, 'incumple' => bool, 'dias_efectivos' => int, 'sla_vigente' => int]
+     */
+    public function excedeOIncumpleSLA(): array
+    {
+        $diasEfectivos = $this->calcularDiasEfectivos();
+        $slaVigente = $this->getSLAVigente();
+
+        return [
+            'dias_efectivos' => $diasEfectivos,
+            'sla_vigente' => $slaVigente,
+            'excede' => $diasEfectivos > $slaVigente, // Pasó el SLA
+            'incumple' => $diasEfectivos > ($slaVigente + 3), // Más de 3 días de exceso
+            'dias_excedidos' => max(0, $diasEfectivos - $slaVigente),
+        ];
+    }
+
+    /**
+     * Verifica si la reparación está en un estado que pausa el SLA
+     * 
+     * @return bool
+     */
+    public function estaPausada(): bool
+    {
+        $estadosPausaSLA = Configuracion::get('estados_pausa_sla', '');
+        $estadosArray = array_filter(array_map('trim', explode(',', $estadosPausaSLA)));
+
+        if (empty($estadosArray)) {
+            return false;
+        }
+
+        $estadoActual = $this->estado?->nombreEstado;
+        return in_array($estadoActual, $estadosArray);
+    }
+
+    /**
+     * Marca la reparación como demorada en BD
+     */
+    public function marcarComoDemorada(): void
+    {
+        if (!$this->sla_excedido) {
+            $this->update([
+                'sla_excedido' => true,
+                'fecha_marcada_demorada' => now(),
+            ]);
+        }
+    }
+
+    /**
+     * Scope: Reparaciones con SLA excedido
+     */
+    public function scopeConSLAExcedido($query)
+    {
+        return $query->where('sla_excedido', true);
+    }
+
+    /**
+     * Scope: Reparaciones sin entregar (en proceso)
+     */
+    public function scopeSinEntregar($query)
+    {
+        return $query->whereNull('fecha_entrega_real');
+    }
+
+    /**
+     * Scope: Reparaciones no anuladas
+     */
+    public function scopeActivas($query)
+    {
+        return $query->where('anulada', false);
+    }
 }

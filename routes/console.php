@@ -20,3 +20,16 @@ Schedule::command('cc:check-vencimientos')
     ->onFailure(function () {
         \Log::error('Error al ejecutar verificación de cuentas corrientes vencidas.');
     });
+
+// --- SCHEDULER PARA CU-14: Monitoreo de SLA de Reparaciones ---
+// Ejecuta el comando cada hora para verificar reparaciones con SLA excedido
+Schedule::command('reparaciones:monitorear-sla')
+    ->hourly()
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('Monitoreo de SLA de reparaciones ejecutado con éxito.');
+    })
+    ->onFailure(function () {
+        \Log::error('Error al ejecutar monitoreo de SLA de reparaciones.');
+    });
