@@ -56,6 +56,21 @@ class ConfiguracionReparacionesSeeder extends Seeder
             
             // ===== PLANTILLAS WHATSAPP =====
             [
+                'clave' => 'whatsapp_template_alerta_tecnico',
+                'valor' => "⚠️ *ALERTA SLA - Reparación #{codigo_reparacion}*\n\n" .
+                           "Técnico: {nombre_tecnico}\n" .
+                           "Cliente: {nombre_cliente}\n" .
+                           "Equipo: {equipo_marca} {equipo_modelo}\n\n" .
+                           "📊 Estado del SLA:\n" .
+                           "• SLA vigente: {sla_vigente} días\n" .
+                           "• Días efectivos: {dias_efectivos} días\n" .
+                           "• Días excedidos: {dias_excedidos} días\n" .
+                           "• Tipo: {tipo_alerta}\n\n" .
+                           "⏰ Fecha de ingreso: {fecha_ingreso}\n\n" .
+                           "Por favor, ingrese al sistema para registrar el motivo de la demora.",
+                'descripcion' => '[Reparaciones - Comunicación] Plantilla WhatsApp para alertar a técnicos sobre SLA excedido. Variables: {codigo_reparacion}, {nombre_tecnico}, {nombre_cliente}, {equipo_marca}, {equipo_modelo}, {sla_vigente}, {dias_efectivos}, {dias_excedidos}, {tipo_alerta}, {fecha_ingreso}',
+            ],
+            [
                 'clave' => 'whatsapp_template_reparacion_demorada',
                 'valor' => "Estimado/a {cliente}, su reparación #{codigo} presenta demora.\n\nDías excedidos: {dias}\nMotivo: {motivo}\n\n{bonificacion}¿Desea continuar con la reparación?\n\nPor favor responda Sí o No.",
                 'descripcion' => '[Reparaciones - Comunicación] Plantilla WhatsApp para notificar reparación demorada. Variables: {cliente}, {codigo}, {dias}, {motivo}, {bonificacion}',
@@ -76,6 +91,6 @@ class ConfiguracionReparacionesSeeder extends Seeder
             );
         }
 
-        $this->command->info('✓ 10 configuraciones de reparaciones creadas/actualizadas exitosamente');
+        $this->command->info('✓ 11 configuraciones de reparaciones creadas/actualizadas exitosamente');
     }
 }

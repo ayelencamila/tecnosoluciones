@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Reparacion;
 use App\Models\AlertaReparacion;
 use App\Models\Configuracion;
+use App\Jobs\NotificarAlertaSLATecnico;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -95,7 +96,7 @@ class MonitoreoSLAReparacionService
         }
 
         // Crear nueva alerta
-        AlertaReparacion::create([
+        $alerta = AlertaReparacion::create([
             'reparacionID' => $reparacion->reparacionID,
             'tecnicoID' => $reparacion->tecnico_id,
             'tipo_alerta' => $tipoAlerta,
@@ -107,7 +108,10 @@ class MonitoreoSLAReparacionService
 
         $resultado['alerta_generada'] = true;
 
-        Log::info("Alerta de {$tipoAlerta} generada", [
+        // Despachar notificación WhatsApp al técnico
+        NotificarAlertaSLATecnico::dispatch($alerta);
+
+        Log::info("Alerta de {$tipoAlerta} generada y notificación despachada", [
             'reparacion_id' => $reparacion->reparacionID,
             'codigo' => $reparacion->codigo_reparacion,
             'tecnico_id' => $reparacion->tecnico_id,
