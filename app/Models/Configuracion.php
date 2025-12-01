@@ -20,17 +20,22 @@ class Configuracion extends Model
     ];
 
     /**
-     * Obtiene un valor de configuración por su clave.
+     * Obtiene un valor de configuración por su clave con caché.
+     * TTL: 1 hora (3600 segundos)
      */
     public static function get(string $clave, mixed $default = null): mixed
     {
-        $config = self::where('clave', $clave)->first();
-
-        return $config ? $config->valor : $default;
+        $cacheKey = "config:{$clave}";
+        
+        return cache()->remember($cacheKey, 3600, function () use ($clave, $default) {
+            $config = self::where('clave', $clave)->first();
+            return $config ? $config->valor : $default;
+        });
     }
 
     /**
      * Establece o actualiza un valor de configuración por su clave.
+     * Invalida el caché automáticamente.
      */
     public static function set(string $clave, mixed $valor, ?string $descripcion = null): bool
     {
@@ -40,6 +45,9 @@ class Configuracion extends Model
             $config->descripcion = $descripcion;
         }
         $guardado = $config->save();
+
+        // Invalidar caché para esta clave
+        cache()->forget("config:{$clave}");
 
         // Opcional: Registrar auditoría si el valor cambió
         if ($guardado && $config->isDirty('valor')) {
@@ -70,5 +78,29 @@ class Configuracion extends Model
     public static function getBool(string $clave, bool $default = false): bool
     {
         return filter_var(self::get($clave, $default ? 'true' : 'false'), FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Limpia toda la caché de configuración
+     * Útil cuando se realizan múltiples cambios o importaciones
+     */
+    public static function clearCache(): void
+    {
+        $configs = self::all();
+        foreach ($configs as $config) {
+            cache()->forget("config:{$config->clave}");
+        }
+    }
+
+    /**
+     * Pre-carga todas las configuraciones en caché
+     * Útil para optimizar cuando se necesitan múltiples valores
+     */
+    public static function warmCache(): void
+    {
+        $configs = self::all();
+        foreach ($configs as $config) {
+            cache()->put("config:{$config->clave}", $config->valor, 3600);
+        }
     }
 }

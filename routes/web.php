@@ -88,6 +88,26 @@ Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::clas
 Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
     ->name('api.modelos.por-marca');
 
+// --- API DE NOTIFICACIONES ---
+Route::middleware(['auth'])->group(function () {
+    Route::get('/api/notifications', function () {
+        return auth()->user()->notifications()
+            ->take(20)
+            ->get();
+    });
+    
+    Route::post('/api/notifications/{id}/read', function ($id) {
+        auth()->user()->notifications()
+            ->where('id', $id)
+            ->update(['read_at' => now()]);
+        return response()->json(['success' => true]);
+    });
+    
+    Route::post('/api/notifications/mark-all-read', function () {
+        auth()->user()->unreadNotifications->markAsRead();
+        return response()->json(['success' => true]);
+    });
+});
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
 Route::middleware(['auth'])->group(function () {
@@ -163,9 +183,24 @@ Route::middleware(['auth'])->group(function () {
         ->name('stock.update');
     
     // --- MÓDULO DE AUDITORÍA ---
-    Route::get('/auditorias', function () {
+    Route::get('/auditorias', function (\Illuminate\Http\Request $request) {
+        $query = \App\Models\Auditoria::with('usuario');
+        
+        // Filtros dinámicos
+        if ($request->filled('accion')) {
+            $query->where('accion', $request->accion);
+        }
+        if ($request->filled('tabla')) {
+            $query->where('tablaAfectada', $request->tabla);
+        }
+        if ($request->filled('usuario')) {
+            $query->whereHas('usuario', function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->usuario . '%');
+            });
+        }
+        
         return Inertia::render('Auditorias/Index', [
-            'auditorias' => \App\Models\Auditoria::with('usuario')->latest()->paginate(15)
+            'auditorias' => $query->latest()->paginate(15)->withQueryString()
         ]);
     })->name('auditorias.index');
     
@@ -187,5 +222,17 @@ Route::middleware(['auth'])->group(function () {
     });
 
 });
+
+Artisan::command('inspire', function () {
+    $this->comment(Inspiring::quote());
+})->purpose('Display an inspiring quote');
+
+// --- PROGRAMADOR PARA CU-09 ---
+// Esto registra el comando para ejecutarse diariamente
+Schedule::command('cc:check-vencimientos')
+    ->dailyAt('08:00') // Se ejecuta a las 8:00 AM todos los días
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/scheduler.log'));
 
 

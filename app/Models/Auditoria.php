@@ -109,6 +109,16 @@ class Auditoria extends Model
 
     public const ACCION_RESTAURAR_ESTADO_CC = 'RESTAURAR_ESTADO_CC';
 
+    public const ACCION_BLOQUEAR_CC = 'BLOQUEAR_CC';
+
+    public const ACCION_DESBLOQUEAR_CC = 'DESBLOQUEAR_CC';
+
+    public const ACCION_PENDIENTE_APROBACION_CC = 'PENDIENTE_APROBACION_CC';
+
+    public const ACCION_ALERTA_CC = 'ALERTA_CC';
+
+    public const ACCION_MODIFICAR_PARAMETRO_GLOBAL = 'MODIFICAR_PARAMETRO_GLOBAL';
+
     // Módulo Reparaciones (preparado para futuro)
     public const ACCION_CREAR_REPARACION = 'CREAR_REPARACION';
 
