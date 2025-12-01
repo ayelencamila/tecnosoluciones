@@ -74,6 +74,7 @@ const maestrosItems = computed(() => {
         { name: 'Depósitos', route: 'admin.depositos.index' },
         { name: 'Medios de Pago', route: 'admin.medios-pago.index' },
         { name: 'Estados Reparación', route: 'admin.estados-reparacion.index' },
+        { name: 'Motivos de Demora', route: 'admin.motivos-demora.index' },
         { name: 'Provincias', route: 'admin.provincias.index' },
         { name: 'Localidades', route: 'admin.localidades.index' },
         { name: 'Tipos de Cliente', route: 'admin.tipos-cliente.index' },

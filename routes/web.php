@@ -73,6 +73,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('medios-pago', \App\Http\Controllers\Admin\MedioPagoController::class);
         Route::resource('marcas', \App\Http\Controllers\Admin\MarcaController::class);
         Route::resource('modelos', \App\Http\Controllers\Admin\ModeloController::class);
+        Route::resource('motivos-demora', \App\Http\Controllers\Admin\MotivoDemoraReparacionController::class);
+        Route::post('admin/motivos-demora/reorder', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'reorder'])->name('admin.motivos-demora.reorder');
+        Route::patch('admin/motivos-demora/{motivosDemora}/toggle', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'toggle'])->name('admin.motivos-demora.toggle');
     });
 });
 

@@ -35,6 +35,11 @@ class Reparacion extends Model
         'anulada',
         'marca_id',
         'modelo_id',
+        // Campos CU-14: Control de SLA
+        'sla_excedido',
+        'fecha_marcada_demorada',
+        'decision_cliente',
+        'fecha_decision_cliente',
     ];
 
     protected $casts = [
@@ -44,6 +49,10 @@ class Reparacion extends Model
         'anulada' => 'boolean',
         'costo_mano_obra' => 'decimal:2',
         'total_final' => 'decimal:2',
+        // Campos CU-14
+        'sla_excedido' => 'boolean',
+        'fecha_marcada_demorada' => 'datetime',
+        'fecha_decision_cliente' => 'datetime',
     ];
     /**
      * El cliente dueño del equipo.
@@ -102,5 +111,31 @@ class Reparacion extends Model
     public function modelo()
     {
         return $this->belongsTo(Modelo::class);
+    }
+
+    /**
+     * Alertas de demora asociadas (CU-14)
+     */
+    public function alertasReparacion(): HasMany
+    {
+        return $this->hasMany(AlertaReparacion::class, 'reparacionID', 'reparacionID');
+    }
+
+    /**
+     * Bonificaciones aplicadas por demora (CU-14)
+     */
+    public function bonificaciones(): HasMany
+    {
+        return $this->hasMany(BonificacionReparacion::class, 'reparacionID', 'reparacionID');
+    }
+
+    /**
+     * Bonificación pendiente de aprobación
+     */
+    public function bonificacionPendiente()
+    {
+        return $this->hasOne(BonificacionReparacion::class, 'reparacionID', 'reparacionID')
+                    ->where('estado', 'pendiente')
+                    ->latest();
     }
 }
