@@ -45,7 +45,7 @@ const formatLabel = (key, desc) => {
                     Configuración Global del Sistema
                 </h2>
                 <a 
-                    :href="route('configuracion.historial')" 
+                    :href="route('auditorias.index', { tabla: 'configuracion' })" 
                     class="inline-flex items-center px-4 py-2 bg-gray-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition"
                 >
                     <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,7 +75,11 @@ const formatLabel = (key, desc) => {
                                     
                                     <div v-if="typeof param.valor === 'boolean'" class="flex items-start mt-4">
                                         <div class="flex items-center h-5">
-                                            <Checkbox :id="param.clave" v-model:checked="form[param.clave]" />
+                                            <Checkbox 
+                                                :id="param.clave" 
+                                                :name="param.clave"
+                                                v-model:checked="form[param.clave]" 
+                                            />
                                         </div>
                                         <div class="ml-3 text-sm">
                                             <label :for="param.clave" class="font-medium text-gray-700 cursor-pointer">
@@ -85,28 +89,43 @@ const formatLabel = (key, desc) => {
                                         </div>
                                     </div>
 
-                                    <div v-else>
+                                    <div v-else :class="{ 'md:col-span-2': param.clave.includes('plantilla') }">
                                         <InputLabel :for="param.clave" :value="param.descripcion || param.clave" />
                                         
                                         <!-- Mostrar variables disponibles para plantillas WhatsApp -->
-                                        <div v-if="param.clave.includes('whatsapp_plantilla')" class="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                                            <strong class="text-blue-800">Variables disponibles:</strong>
-                                            <code class="ml-1 text-blue-600">[nombre_cliente]</code>
-                                            <code class="ml-1 text-blue-600">[motivo]</code>
+                                        <div v-if="param.clave.includes('whatsapp_plantilla')" class="mt-2 mb-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-indigo-400 rounded-r">
+                                            <div class="flex items-start">
+                                                <svg class="w-5 h-5 text-indigo-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                <div class="flex-1">
+                                                    <p class="text-sm font-semibold text-indigo-900 mb-1">Puedes usar las siguientes variables:</p>
+                                                    <div class="flex flex-wrap gap-2">
+                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono bg-white border border-indigo-200 text-indigo-700">
+                                                            [nombre_cliente]
+                                                        </span>
+                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono bg-white border border-indigo-200 text-indigo-700">
+                                                            [motivo]
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                         
-                                        <TextInput 
+                                        <!-- Campo de texto o textarea según el tipo -->
+                                        <textarea
                                             v-if="param.clave.includes('plantilla')"
                                             :id="param.clave" 
+                                            :name="param.clave"
                                             v-model="form[param.clave]" 
-                                            class="mt-1 block w-full" 
-                                            type="text"
-                                            as="textarea"
-                                            rows="3"
-                                        />
+                                            class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm font-mono text-sm" 
+                                            rows="5"
+                                            placeholder="Escribe el mensaje de la plantilla aquí..."
+                                        ></textarea>
                                         <TextInput 
                                             v-else
                                             :id="param.clave" 
+                                            :name="param.clave"
                                             v-model="form[param.clave]" 
                                             class="mt-1 block w-full" 
                                             :type="typeof param.valor === 'number' ? 'number' : 'text'"

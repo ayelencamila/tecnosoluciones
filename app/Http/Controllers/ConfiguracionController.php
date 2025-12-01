@@ -25,26 +25,34 @@ class ConfiguracionController extends Controller
             return $item;
         });
 
-        // Definimos los grupos
+        // Definimos los grupos (sin duplicados - filtros mutuamente excluyentes)
         $grupos = [
-            'Generales' => $todas->filter(fn($c) => in_array($c->clave, ['nombre_empresa', 'cuit_empresa', 'email_contacto', 'direccion_empresa']))->values(),
+            'Generales' => $todas->filter(fn($c) => in_array($c->clave, [
+                'nombre_empresa', 
+                'cuit_empresa', 
+                'email_contacto', 
+                'direccion_empresa'
+            ]))->values(),
             
             'Ventas y Stock' => $todas->filter(fn($c) => 
                 str_starts_with($c->clave, 'dias_maximos') || 
                 str_starts_with($c->clave, 'permitir_venta') ||
-                str_contains($c->clave, 'stock')
+                str_starts_with($c->clave, 'stock_') ||
+                str_starts_with($c->clave, 'alerta_stock')
             )->values(),
 
             'Cuentas Corrientes' => $todas->filter(fn($c) => 
-                str_contains($c->clave, 'global') || 
-                str_contains($c->clave, 'AutoBlock') ||
-                str_contains($c->clave, 'whatsapp_admin')
+                in_array($c->clave, [
+                    'dias_gracia_global',
+                    'limite_credito_global',
+                    'politicaAutoBlock'
+                ])
             )->values(),
             
             'Reparaciones (SLA)' => $todas->filter(fn($c) => str_starts_with($c->clave, 'reparacion_'))->values(),
             
             'Comunicación (WhatsApp)' => $todas->filter(fn($c) => 
-                str_starts_with($c->clave, 'whatsapp_') && !str_contains($c->clave, 'admin')
+                str_starts_with($c->clave, 'whatsapp_')
             )->values(),
         ];
 
@@ -52,30 +60,6 @@ class ConfiguracionController extends Controller
             'grupos' => $grupos,
         ]);
     }
-
-    /**
-     * CU-31: Muestra el historial de cambios de configuración
-     */
-    public function historial()
-    {
-        $historial = Configuracion::historialCompleto(100);
-
-        return Inertia::render('Configuracion/Historial', [
-            'historial' => $historial->map(function ($item) {
-                return [
-                    'id' => $item->auditoriaID,
-                    'fecha' => $item->created_at->format('d/m/Y H:i:s'),
-                    'usuario' => $item->usuario->name ?? 'Sistema',
-                    'accion' => $item->accion,
-                    'parametro' => $item->datos_nuevos['clave'] ?? $item->datos_anteriores['clave'] ?? 'N/A',
-                    'valor_anterior' => $item->datos_anteriores['valor'] ?? null,
-                    'valor_nuevo' => $item->datos_nuevos['valor'] ?? null,
-                    'motivo' => $item->motivo ?? 'Sin motivo especificado',
-                ];
-            }),
-        ]);
-    }
-
     public function update(Request $request)
     {
         $validated = $request->validate([

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 
 const props = defineProps({
     value: String,
+    for: String,
 });
 
 const classes = computed(() => {
@@ -11,7 +12,7 @@ const classes = computed(() => {
 </script>
 
 <template>
-    <label :class="classes">
+    <label :for="props.for" :class="classes">
         <span v-if="value">{{ value }}</span>
         <span v-else><slot /></span>
     </label>

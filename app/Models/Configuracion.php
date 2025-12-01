@@ -20,17 +20,22 @@ class Configuracion extends Model
     ];
 
     /**
-     * Obtiene un valor de configuración por su clave.
+     * Obtiene un valor de configuración por su clave con caché.
+     * TTL: 1 hora (3600 segundos)
      */
     public static function get(string $clave, mixed $default = null): mixed
     {
-        $config = self::where('clave', $clave)->first();
-
-        return $config ? $config->valor : $default;
+        $cacheKey = "config:{$clave}";
+        
+        return cache()->remember($cacheKey, 3600, function () use ($clave, $default) {
+            $config = self::where('clave', $clave)->first();
+            return $config ? $config->valor : $default;
+        });
     }
 
     /**
      * Establece o actualiza un valor de configuración por su clave.
+     * Invalida el caché automáticamente.
      */
     public static function set(string $clave, mixed $valor, ?string $descripcion = null): bool
     {
@@ -40,6 +45,9 @@ class Configuracion extends Model
             $config->descripcion = $descripcion;
         }
         $guardado = $config->save();
+
+        // Invalidar caché para esta clave
+        cache()->forget("config:{$clave}");
 
         // Opcional: Registrar auditoría si el valor cambió
         if ($guardado && $config->isDirty('valor')) {
@@ -73,40 +81,26 @@ class Configuracion extends Model
     }
 
     /**
-     * Obtiene el historial de cambios de una configuración específica
-     * CU-31: Versionado y trazabilidad
+     * Limpia toda la caché de configuración
+     * Útil cuando se realizan múltiples cambios o importaciones
      */
-    public static function historialClave(string $clave)
+    public static function clearCache(): void
     {
-        return Auditoria::where('tabla_afectada', 'configuracion')
-            ->where(function ($query) use ($clave) {
-                $query->whereRaw("JSON_EXTRACT(datos_nuevos, '$.clave') = ?", [$clave])
-                      ->orWhereRaw("JSON_EXTRACT(datos_anteriores, '$.clave') = ?", [$clave]);
-            })
-            ->with('usuario')
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map(function ($auditoria) {
-                return [
-                    'fecha' => $auditoria->created_at->format('d/m/Y H:i'),
-                    'usuario' => $auditoria->usuario->name ?? 'Sistema',
-                    'accion' => $auditoria->accion,
-                    'valor_anterior' => $auditoria->datos_anteriores['valor'] ?? null,
-                    'valor_nuevo' => $auditoria->datos_nuevos['valor'] ?? null,
-                    'motivo' => $auditoria->motivo,
-                ];
-            });
+        $configs = self::all();
+        foreach ($configs as $config) {
+            cache()->forget("config:{$config->clave}");
+        }
     }
 
     /**
-     * Obtiene todo el historial de cambios de configuración
+     * Pre-carga todas las configuraciones en caché
+     * Útil para optimizar cuando se necesitan múltiples valores
      */
-    public static function historialCompleto(int $limite = 50)
+    public static function warmCache(): void
     {
-        return Auditoria::where('tabla_afectada', 'configuracion')
-            ->with('usuario')
-            ->orderBy('created_at', 'desc')
-            ->limit($limite)
-            ->get();
+        $configs = self::all();
+        foreach ($configs as $config) {
+            cache()->put("config:{$config->clave}", $config->valor, 3600);
+        }
     }
 }

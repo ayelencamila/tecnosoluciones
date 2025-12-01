@@ -183,9 +183,24 @@ Route::middleware(['auth'])->group(function () {
         ->name('stock.update');
     
     // --- MÓDULO DE AUDITORÍA ---
-    Route::get('/auditorias', function () {
+    Route::get('/auditorias', function (\Illuminate\Http\Request $request) {
+        $query = \App\Models\Auditoria::with('usuario');
+        
+        // Filtros dinámicos
+        if ($request->filled('accion')) {
+            $query->where('accion', $request->accion);
+        }
+        if ($request->filled('tabla')) {
+            $query->where('tablaAfectada', $request->tabla);
+        }
+        if ($request->filled('usuario')) {
+            $query->whereHas('usuario', function($q) use ($request) {
+                $q->where('name', 'like', '%' . $request->usuario . '%');
+            });
+        }
+        
         return Inertia::render('Auditorias/Index', [
-            'auditorias' => \App\Models\Auditoria::with('usuario')->latest()->paginate(15)
+            'auditorias' => $query->latest()->paginate(15)->withQueryString()
         ]);
     })->name('auditorias.index');
     
@@ -193,7 +208,6 @@ Route::middleware(['auth'])->group(function () {
     Route::prefix('configuracion')->name('configuracion.')->group(function () {
         Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
         Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
-        Route::get('/historial', [ConfiguracionController::class, 'historial'])->name('historial'); // CU-31
     });
 
     // --- MÓDULO DE REPARACIONES (CU-11, CU-12, CU-13) ---
