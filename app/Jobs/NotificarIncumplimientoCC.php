@@ -91,12 +91,12 @@ class NotificarIncumplimientoCC implements ShouldQueue
 
         // 5. Envío Real (WhatsApp via Twilio)
         try {
-            $sid = env('TWILIO_SID');
-            $token = env('TWILIO_TOKEN');
-            $from = 'whatsapp:' . env('TWILIO_WHATSAPP_FROM');
+            $sid = config('services.twilio.sid');
+            $token = config('services.twilio.token');
+            $from = 'whatsapp:' . config('services.twilio.whatsapp_from');
 
             if (!$sid || !$token || !$from) {
-                throw new Exception("Credenciales de Twilio no configuradas en .env");
+                throw new Exception("Credenciales de Twilio no configuradas en config/services.php");
             }
 
             $twilio = new Client($sid, $token);
