@@ -174,7 +174,7 @@ class PlantillaWhatsapp extends Model
         if ($guardado) {
             // Registrar en auditoría
             Auditoria::registrar(
-                'MODIFICAR_PLANTILLA_WHATSAPP',
+                Auditoria::ACCION_MODIFICAR_PLANTILLA_WHATSAPP,
                 'plantillas_whatsapp',
                 $this->plantilla_id,
                 $datosAnteriores,

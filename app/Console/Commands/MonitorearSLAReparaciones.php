@@ -2,7 +2,7 @@
 
 namespace App\Console\Commands;
 
-use App\Services\MonitoreoSLAReparacionService;
+use App\Services\Reparaciones\MonitoreoSLAReparacionService;
 use Illuminate\Console\Command;
 
 /**

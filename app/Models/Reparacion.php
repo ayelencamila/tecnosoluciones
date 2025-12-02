@@ -94,6 +94,17 @@ class Reparacion extends Model
     {
         return $this->hasMany(ImagenReparacion::class, 'reparacion_id');
     }
+
+    /**
+     * Historial de cambios de estado
+     * Usado para cálculo preciso de días efectivos de SLA
+     */
+    public function historialEstados(): HasMany
+    {
+        return $this->hasMany(HistorialEstadoReparacion::class, 'reparacion_id', 'reparacionID')
+                    ->orderBy('fecha_cambio');
+    }
+
     /**
      * Movimientos de stock generados por esta reparación.
      * Útil para auditoría: saber qué se descontó exactamente.
@@ -152,6 +163,9 @@ class Reparacion extends Model
      * Calcula los días efectivos transcurridos desde el ingreso
      * Excluye períodos en estados que pausan el SLA
      * 
+     * IMPLEMENTACIÓN CORRECTA: Usa historial de estados para calcular
+     * con precisión los períodos activos vs pausados
+     * 
      * @return int Días efectivos
      */
     public function calcularDiasEfectivos(): int
@@ -161,28 +175,73 @@ class Reparacion extends Model
         }
 
         // Obtener estados que pausan SLA desde configuración
-        $estadosPausaSLA = Configuracion::get('estados_pausa_sla', '');
-        $estadosArray = array_filter(array_map('trim', explode(',', $estadosPausaSLA)));
-
-        // Si no hay estados que pauset SLA, calcular días corridos
-        if (empty($estadosArray)) {
+        $estadosPausaSLA = $this->obtenerEstadosPausaSLA();
+        
+        // Si no hay estados que pausan SLA, calcular días corridos
+        if (empty($estadosPausaSLA)) {
             $fechaFin = $this->fecha_entrega_real ?? now();
             return $this->fecha_ingreso->diffInDays($fechaFin);
         }
 
-        // TODO: Implementar lógica completa de pausas cuando exista tabla de historial de estados
-        // Por ahora, si el estado actual pausa SLA, no contar desde la última transición
-        $estadoActual = $this->estado?->nombreEstado;
+        // Obtener historial ordenado cronológicamente
+        $historial = $this->historialEstados()->with('estadoNuevo')->get();
         
-        if (in_array($estadoActual, $estadosArray)) {
-            // Si está pausado actualmente, retornar días hasta ahora
-            // (en producción se debería calcular con historial de estados)
-            return $this->fecha_ingreso->diffInDays(now());
+        // Si no hay historial, usar método simplificado
+        if ($historial->isEmpty()) {
+            return $this->calcularDiasEfectivosSinHistorial($estadosPausaSLA);
         }
 
-        // Calcular días corridos
         $fechaFin = $this->fecha_entrega_real ?? now();
+        $diasEfectivos = 0;
+        $ultimaFechaActiva = $this->fecha_ingreso;
+        $enPausa = false;
+        
+        foreach ($historial as $cambio) {
+            $nombreEstadoNuevo = $cambio->estadoNuevo?->nombreEstado;
+            
+            // Si estaba activo y no entró en pausa, sumar días
+            if (!$enPausa) {
+                $diasEfectivos += $ultimaFechaActiva->diffInDays($cambio->fecha_cambio);
+            }
+            
+            // Actualizar estado de pausa
+            $enPausa = in_array($nombreEstadoNuevo, $estadosPausaSLA);
+            $ultimaFechaActiva = $cambio->fecha_cambio;
+        }
+        
+        // Sumar días desde último cambio hasta ahora/entrega (si no está pausado)
+        if (!$enPausa) {
+            $diasEfectivos += $ultimaFechaActiva->diffInDays($fechaFin);
+        }
+        
+        return (int) $diasEfectivos;
+    }
+
+    /**
+     * Cálculo simplificado cuando no existe historial de estados
+     * (Retrocompatibilidad para reparaciones antiguas)
+     */
+    private function calcularDiasEfectivosSinHistorial(array $estadosPausaSLA): int
+    {
+        $estadoActual = $this->estado?->nombreEstado;
+        $fechaFin = $this->fecha_entrega_real ?? now();
+        
+        // Si el estado actual pausa SLA, asumir que siempre estuvo pausado
+        // (aproximación conservadora para datos históricos)
+        if ($estadoActual && in_array($estadoActual, $estadosPausaSLA)) {
+            return 0;
+        }
+        
         return $this->fecha_ingreso->diffInDays($fechaFin);
+    }
+
+    /**
+     * Obtiene la lista de estados que pausan el SLA desde configuración
+     */
+    private function obtenerEstadosPausaSLA(): array
+    {
+        $estadosPausaSLA = Configuracion::get('estados_pausa_sla', '');
+        return array_filter(array_map('trim', explode(',', $estadosPausaSLA)));
     }
 
     /**

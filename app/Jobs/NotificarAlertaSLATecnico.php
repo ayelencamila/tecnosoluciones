@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\AlertaReparacion;
-use App\Models\Configuracion;
+use App\Models\PlantillaWhatsapp;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +11,7 @@ use Twilio\Rest\Client;
 
 /**
  * Job para notificar a técnicos sobre alertas de SLA excedido (CU-14)
+ * Implementa CU-30: Uso de plantillas configurables con horarios
  */
 class NotificarAlertaSLATecnico implements ShouldQueue
 {
@@ -28,10 +29,31 @@ class NotificarAlertaSLATecnico implements ShouldQueue
 
     /**
      * Execute the job.
+     * CU-30: Usa plantillas configurables con validación de horarios
      */
     public function handle(): void
     {
         try {
+            // CU-30 Paso 3: Obtener plantilla activa para el tipo de evento
+            $plantilla = PlantillaWhatsapp::obtenerPorTipo('alerta_sla_tecnico');
+            
+            if (!$plantilla) {
+                Log::error('Plantilla alerta_sla_tecnico no encontrada o inactiva', [
+                    'alerta_id' => $this->alerta->alertaReparacionID,
+                ]);
+                return;
+            }
+
+            // CU-30 Paso 6: Verificar horario de envío
+            if (!$plantilla->estaEnHorarioPermitido()) {
+                $segundos = $plantilla->segundosHastaProximoEnvio();
+                Log::info("Envío de alerta SLA pospuesto por horario. Esperando {$segundos}s", [
+                    'alerta_id' => $this->alerta->alertaReparacionID,
+                ]);
+                $this->release($segundos);
+                return;
+            }
+
             // Cargar relaciones necesarias
             $this->alerta->load(['reparacion.cliente', 'tecnico']);
 
@@ -48,49 +70,22 @@ class NotificarAlertaSLATecnico implements ShouldQueue
                 return;
             }
 
-            // Obtener template desde configuración
-            $template = Configuracion::get('whatsapp_template_alerta_tecnico', 
-                "⚠️ *ALERTA SLA - Reparación #{codigo_reparacion}*\n\n" .
-                "Técnico: {nombre_tecnico}\n" .
-                "Cliente: {nombre_cliente}\n" .
-                "Equipo: {equipo_marca} {equipo_modelo}\n\n" .
-                "📊 Estado del SLA:\n" .
-                "• SLA vigente: {sla_vigente} días\n" .
-                "• Días efectivos: {dias_efectivos} días\n" .
-                "• Días excedidos: {dias_excedidos} días\n" .
-                "• Tipo: {tipo_alerta}\n\n" .
-                "⏰ Fecha de ingreso: {fecha_ingreso}\n\n" .
-                "Por favor, ingrese al sistema para registrar el motivo de la demora."
-            );
+            // CU-30 Paso 5: Preparar datos para compilar plantilla
+            $datosPlantilla = [
+                'codigo_reparacion' => $reparacion->codigo_reparacion,
+                'nombre_tecnico' => $tecnico->name,
+                'nombre_cliente' => $cliente->nombre . ' ' . $cliente->apellido,
+                'equipo_marca' => $reparacion->equipo_marca,
+                'equipo_modelo' => $reparacion->equipo_modelo,
+                'sla_vigente' => $this->alerta->sla_vigente,
+                'dias_efectivos' => $this->alerta->dias_efectivos,
+                'dias_excedidos' => $this->alerta->dias_excedidos,
+                'tipo_alerta' => $this->alerta->tipo_alerta === 'incumplimiento' ? 'INCUMPLIMIENTO' : 'EXCESO',
+                'fecha_ingreso' => $reparacion->fecha_ingreso->format('d/m/Y'),
+            ];
 
-            // Reemplazar variables en el template
-            $mensaje = str_replace(
-                [
-                    '{codigo_reparacion}',
-                    '{nombre_tecnico}',
-                    '{nombre_cliente}',
-                    '{equipo_marca}',
-                    '{equipo_modelo}',
-                    '{sla_vigente}',
-                    '{dias_efectivos}',
-                    '{dias_excedidos}',
-                    '{tipo_alerta}',
-                    '{fecha_ingreso}',
-                ],
-                [
-                    $reparacion->codigo_reparacion,
-                    $tecnico->name,
-                    $cliente->nombre . ' ' . $cliente->apellido,
-                    $reparacion->equipo_marca,
-                    $reparacion->equipo_modelo,
-                    $this->alerta->sla_vigente,
-                    $this->alerta->dias_efectivos,
-                    $this->alerta->dias_excedidos,
-                    $this->alerta->tipo_alerta === 'incumplimiento' ? 'INCUMPLIMIENTO' : 'EXCESO',
-                    $reparacion->fecha_ingreso->format('d/m/Y'),
-                ],
-                $template
-            );
+            // CU-30 Paso 5: Compilar mensaje con la plantilla
+            $mensaje = $plantilla->compilar($datosPlantilla);
 
             // Enviar mensaje por WhatsApp
             $this->enviarWhatsApp($tecnico->telefono, $mensaje);
