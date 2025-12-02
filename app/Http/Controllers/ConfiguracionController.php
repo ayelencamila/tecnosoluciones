@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\ConfiguracionService;
+use App\Services\Configuracion\ConfiguracionService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
