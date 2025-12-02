@@ -19,6 +19,8 @@ class BonificacionReparacion extends Model
         'porcentaje_aprobado',
         'monto_original',
         'monto_bonificado',
+        'dias_excedidos',
+        'justificacion_tecnico',
         'motivoDemoraID',
         'estado',
         'aprobada_por',
@@ -35,6 +37,14 @@ class BonificacionReparacion extends Model
     ];
 
     /**
+     * Get the route key name for Laravel's implicit model binding.
+     */
+    public function getRouteKeyName()
+    {
+        return 'bonificacionID';
+    }
+
+    /**
      * Reparación asociada
      */
     public function reparacion(): BelongsTo
@@ -48,6 +58,14 @@ class BonificacionReparacion extends Model
     public function aprobador(): BelongsTo
     {
         return $this->belongsTo(User::class, 'aprobada_por', 'id');
+    }
+
+    /**
+     * Alias para aprobador (para mantener compatibilidad)
+     */
+    public function aprobadaPor(): BelongsTo
+    {
+        return $this->aprobador();
     }
 
     /**
