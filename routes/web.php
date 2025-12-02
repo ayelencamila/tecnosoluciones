@@ -224,6 +224,23 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])->name('destroy');
     });
 
+    // --- ALERTAS DE SLA (CU-14) - Para Técnicos ---
+    Route::prefix('alertas')->name('alertas.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AlertaReparacionController::class, 'index'])->name('index');
+        Route::get('/{alerta}', [\App\Http\Controllers\AlertaReparacionController::class, 'show'])->name('show');
+        Route::post('/{alerta}/responder', [\App\Http\Controllers\AlertaReparacionController::class, 'responder'])->name('responder');
+        Route::patch('/{alerta}/marcar-leida', [\App\Http\Controllers\AlertaReparacionController::class, 'marcarLeida'])->name('marcar-leida');
+    });
+
+    // --- BONIFICACIONES (CU-15) - Para Admin/Manager ---
+    Route::prefix('bonificaciones')->name('bonificaciones.')->middleware('role:admin,manager')->group(function () {
+        Route::get('/', [\App\Http\Controllers\BonificacionReparacionController::class, 'index'])->name('index');
+        Route::get('/historial', [\App\Http\Controllers\BonificacionReparacionController::class, 'historial'])->name('historial');
+        Route::get('/{bonificacion}', [\App\Http\Controllers\BonificacionReparacionController::class, 'show'])->name('show');
+        Route::post('/{bonificacion}/aprobar', [\App\Http\Controllers\BonificacionReparacionController::class, 'aprobar'])->name('aprobar');
+        Route::post('/{bonificacion}/rechazar', [\App\Http\Controllers\BonificacionReparacionController::class, 'rechazar'])->name('rechazar');
+    });
+
 });
 
 Artisan::command('inspire', function () {
