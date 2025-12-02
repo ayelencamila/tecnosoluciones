@@ -35,6 +35,14 @@ class AlertaReparacion extends Model
     ];
 
     /**
+     * Get the route key name for Laravel's implicit model binding.
+     */
+    public function getRouteKeyName()
+    {
+        return 'alertaReparacionID';
+    }
+
+    /**
      * Reparación asociada a la alerta
      */
     public function reparacion(): BelongsTo
