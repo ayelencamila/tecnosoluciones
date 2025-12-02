@@ -14,6 +14,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ReparacionController;
 use App\Http\Controllers\Admin\CategoriaProductoController;
+use App\Http\Controllers\Api\ClienteBonificacionController;
 use Inertia\Inertia;
 
 /*
@@ -21,6 +22,12 @@ use Inertia\Inertia;
 | Web Routes
 |--------------------------------------------------------------------------
 */
+
+// Rutas públicas para respuesta de cliente a bonificaciones
+Route::prefix('bonificacion')->group(function () {
+    Route::get('/{token}', [ClienteBonificacionController::class, 'mostrar'])->name('bonificacion.mostrar');
+    Route::post('/{token}/responder', [ClienteBonificacionController::class, 'responder'])->name('bonificacion.responder');
+});
 
 // Ruta de inicio
 Route::get('/', function () {
@@ -213,6 +220,15 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
     });
 
+    // --- MÓDULO DE PLANTILLAS WHATSAPP (CU-30) ---
+    Route::prefix('plantillas-whatsapp')->name('plantillas-whatsapp.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PlantillaWhatsappController::class, 'index'])->name('index');
+        Route::get('/{plantilla}/edit', [\App\Http\Controllers\PlantillaWhatsappController::class, 'edit'])->name('edit');
+        Route::put('/{plantilla}', [\App\Http\Controllers\PlantillaWhatsappController::class, 'update'])->name('update');
+        Route::get('/{plantilla}/preview', [\App\Http\Controllers\PlantillaWhatsappController::class, 'preview'])->name('preview');
+        Route::get('/{plantilla}/historial', [\App\Http\Controllers\PlantillaWhatsappController::class, 'historial'])->name('historial');
+    });
+
     // --- MÓDULO DE REPARACIONES (CU-11, CU-12, CU-13) ---
     Route::prefix('reparaciones')->name('reparaciones.')->group(function () {
         Route::get('/', [ReparacionController::class, 'index'])->name('index');
@@ -232,8 +248,8 @@ Route::middleware(['auth'])->group(function () {
         Route::patch('/{alerta}/marcar-leida', [\App\Http\Controllers\AlertaReparacionController::class, 'marcarLeida'])->name('marcar-leida');
     });
 
-    // --- BONIFICACIONES (CU-15) - Para Admin/Manager ---
-    Route::prefix('bonificaciones')->name('bonificaciones.')->middleware('role:admin,manager')->group(function () {
+    // --- BONIFICACIONES (CU-15) - Solo Admin ---
+    Route::prefix('bonificaciones')->name('bonificaciones.')->middleware('role:admin')->group(function () {
         Route::get('/', [\App\Http\Controllers\BonificacionReparacionController::class, 'index'])->name('index');
         Route::get('/historial', [\App\Http\Controllers\BonificacionReparacionController::class, 'historial'])->name('historial');
         Route::get('/{bonificacion}', [\App\Http\Controllers\BonificacionReparacionController::class, 'show'])->name('show');

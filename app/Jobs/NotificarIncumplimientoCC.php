@@ -126,50 +126,40 @@ class NotificarIncumplimientoCC implements ShouldQueue
     }
 
     /**
-     * CU-30: Construir mensaje usando plantillas parametrizables
+     * CU-30: Construir mensaje usando plantillas configurables
      * 
      * Variables disponibles en plantillas:
-     * - [nombre_cliente]: Nombre del cliente
-     * - [motivo]: Motivo del incumplimiento/alerta
-     * 
-     * Tipos de plantillas configurables:
-     * - whatsapp_plantilla_bloqueo: Para cuentas bloqueadas
-     * - whatsapp_plantilla_revision: Para cuentas en revisión
-     * - whatsapp_plantilla_recordatorio: Para recordatorios de mora
+     * - nombre_cliente: Nombre del cliente
+     * - motivo: Motivo del incumplimiento/alerta
      */
     private function construirMensaje($nombreCliente, $motivo)
     {
-        // Mensaje especial para administradores
-        if ($this->tipoAccion === 'admin_alert') {
-            return "🚨 ALERTA ADMIN - TecnoSoluciones\n\n" .
-                   "Cliente: {$nombreCliente}\n" .
-                   "Motivo: {$motivo}\n\n" .
-                   "Requiere atención inmediata.";
-        }
-
-        // Mapeo de tipo de acción a clave de configuración para clientes
-        $clavePlantilla = match ($this->tipoAccion) {
-            'bloqueo' => 'whatsapp_plantilla_bloqueo',
-            'revision' => 'whatsapp_plantilla_revision',
-            'recordatorio' => 'whatsapp_plantilla_recordatorio',
+        // Mapeo de tipo de acción a tipo de evento de plantilla
+        $tipoEvento = match ($this->tipoAccion) {
+            'admin_alert' => 'admin_alert_cc',
+            'bloqueo' => 'bloqueo_cc',
+            'revision' => 'revision_cc',
+            'recordatorio' => 'recordatorio_cc',
             default => null,
         };
 
-        $plantilla = null;
-        if ($clavePlantilla) {
-            $plantilla = Configuracion::get($clavePlantilla);
-        }
-
-        // Si no hay plantilla configurada, usamos un fallback genérico seguro
-        if (!$plantilla) {
+        if (!$tipoEvento) {
+            // Fallback genérico si no se mapea el tipo
             return "Hola {$nombreCliente}, le informamos desde TecnoSoluciones sobre el estado de su cuenta: {$motivo}.";
         }
 
-        // Reemplazo de variables dinámicas
-        return str_replace(
-            ['[nombre_cliente]', '[motivo]'],
-            [$nombreCliente, $motivo],
-            $plantilla
-        );
+        // CU-30: Obtener plantilla activa
+        $plantilla = \App\Models\PlantillaWhatsapp::obtenerPorTipo($tipoEvento);
+
+        if (!$plantilla) {
+            Log::warning("Plantilla {$tipoEvento} no encontrada, usando fallback");
+            return "Hola {$nombreCliente}, le informamos desde TecnoSoluciones sobre el estado de su cuenta: {$motivo}.";
+        }
+
+        // CU-30: Compilar mensaje con datos
+        return $plantilla->compilar([
+            'nombre_cliente' => $nombreCliente,
+            'motivo' => $motivo,
+        ]);
     }
 }

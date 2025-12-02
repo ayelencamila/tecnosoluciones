@@ -26,6 +26,9 @@ class BonificacionReparacion extends Model
         'aprobada_por',
         'fecha_aprobacion',
         'observaciones_aprobacion',
+        'decision_cliente',
+        'fecha_decision_cliente',
+        'observaciones_decision',
     ];
 
     protected $casts = [
@@ -34,6 +37,7 @@ class BonificacionReparacion extends Model
         'monto_original' => 'decimal:2',
         'monto_bonificado' => 'decimal:2',
         'fecha_aprobacion' => 'datetime',
+        'fecha_decision_cliente' => 'datetime',
     ];
 
     /**
@@ -109,12 +113,13 @@ class BonificacionReparacion extends Model
      */
     public function aprobarConPorcentaje(int $usuarioID, float $porcentaje, ?string $observaciones = null): void
     {
-        $montoConDescuento = $this->monto_original * (1 - $porcentaje / 100);
+        // Calcular el descuento (no el total con descuento)
+        $montoDescuento = $this->monto_original * ($porcentaje / 100);
         
         $this->update([
             'estado' => 'aprobada',
             'porcentaje_aprobado' => $porcentaje,
-            'monto_bonificado' => $montoConDescuento,
+            'monto_bonificado' => $montoDescuento,  // Ahora guarda el descuento, no el total
             'aprobada_por' => $usuarioID,
             'fecha_aprobacion' => now(),
             'observaciones_aprobacion' => $observaciones,
@@ -127,6 +132,31 @@ class BonificacionReparacion extends Model
     public function scopePendientes($query)
     {
         return $query->where('estado', 'pendiente');
+    }
+
+    /**
+     * Registrar decisión del cliente
+     */
+    public function registrarDecisionCliente(string $decision, ?string $observaciones = null): void
+    {
+        $this->update([
+            'decision_cliente' => $decision,
+            'fecha_decision_cliente' => now(),
+            'observaciones_decision' => $observaciones,
+        ]);
+
+        // Actualizar estado de la reparación según decisión
+        if ($decision === 'aceptar') {
+            // Cliente acepta continuar con la reparación y la bonificación
+            $this->reparacion->update([
+                'estadoReparacionID' => 2, // "En Reparación" - ajustar según tu sistema
+            ]);
+        } elseif ($decision === 'cancelar') {
+            // Cliente cancela/retira la reparación
+            $this->reparacion->update([
+                'estadoReparacionID' => 5, // "Listo para retiro" - ajustar según tu sistema
+            ]);
+        }
     }
 
     /**

@@ -72,13 +72,13 @@ class AlertaReparacion extends Model
     /**
      * Registrar respuesta del técnico
      */
-    public function registrarRespuesta(int $motivoDemoraID, bool $factible, string $observaciones): void
+    public function registrarRespuesta(int $motivoDemoraID, bool $factible, ?string $observaciones): void
     {
         $this->update([
             'respuesta_tecnico' => [
                 'motivo_id' => $motivoDemoraID,
                 'factible' => $factible,
-                'observaciones' => $observaciones,
+                'observaciones' => $observaciones ?? '',
                 'fecha_respuesta' => now()->toDateTimeString(),
             ],
             'leida' => true,

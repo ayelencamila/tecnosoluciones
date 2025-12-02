@@ -52,7 +52,8 @@ class ConfiguracionController extends Controller
             'Reparaciones (SLA)' => $todas->filter(fn($c) => str_starts_with($c->clave, 'reparacion_'))->values(),
             
             'Comunicación (WhatsApp)' => $todas->filter(fn($c) => 
-                str_starts_with($c->clave, 'whatsapp_')
+                str_starts_with($c->clave, 'whatsapp_') && 
+                !str_contains($c->clave, 'plantilla') // Excluir plantillas viejas (ahora en tabla separada)
             )->values(),
         ];
 

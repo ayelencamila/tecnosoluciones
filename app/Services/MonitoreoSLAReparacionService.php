@@ -81,8 +81,8 @@ class MonitoreoSLAReparacionService
         // Marcar reparación como demorada en BD
         $reparacion->marcarComoDemorada();
 
-        // Determinar tipo de alerta
-        $tipoAlerta = $estadoSLA['incumple'] ? 'incumplimiento' : 'exceso';
+        // Determinar tipo de alerta (usar valores del ENUM de la migración)
+        $tipoAlerta = 'sla_excedido'; // Todos los excesos de SLA usan este tipo
 
         // Verificar si ya existe alerta del mismo tipo y no leída
         $alertaExistente = AlertaReparacion::where('reparacionID', $reparacion->reparacionID)

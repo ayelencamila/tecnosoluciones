@@ -3,7 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\BonificacionReparacion;
-use App\Models\Configuracion;
+use App\Models\PlantillaWhatsapp;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
@@ -11,6 +11,7 @@ use Twilio\Rest\Client;
 
 /**
  * Job para notificar a clientes sobre bonificaciones por demora (CU-14/15)
+ * Implementa CU-30: Uso de plantillas configurables con horarios
  */
 class NotificarBonificacionCliente implements ShouldQueue
 {
@@ -28,10 +29,27 @@ class NotificarBonificacionCliente implements ShouldQueue
 
     /**
      * Execute the job.
+     * CU-30: Usa plantillas configurables con validación de horarios
      */
     public function handle(): void
     {
         try {
+            // CU-30 Paso 3: Obtener plantilla activa para el tipo de evento
+            $plantilla = PlantillaWhatsapp::obtenerPorTipo('bonificacion_cliente');
+            
+            if (!$plantilla) {
+                Log::error('Plantilla bonificacion_cliente no encontrada o inactiva');
+                return;
+            }
+
+            // CU-30 Paso 6: Verificar horario de envío
+            if (!$plantilla->estaEnHorarioPermitido()) {
+                $segundos = $plantilla->segundosHastaProximoEnvio();
+                Log::info("Envío de bonificación pospuesto por horario. Esperando {$segundos}s");
+                $this->release($segundos);
+                return;
+            }
+
             // Cargar relaciones necesarias
             $this->bonificacion->load(['reparacion.cliente', 'motivoDemora']);
 
@@ -47,54 +65,31 @@ class NotificarBonificacionCliente implements ShouldQueue
                 return;
             }
 
-            // Obtener template desde configuración
-            $template = Configuracion::get('whatsapp_template_bonificacion', 
-                "🎁 *BONIFICACIÓN POR DEMORA - Reparación #{codigo_reparacion}*\n\n" .
-                "Estimado/a {nombre_cliente},\n\n" .
-                "Lamentamos informarle que su reparación ha excedido el tiempo estimado.\n\n" .
-                "📱 Equipo: {equipo_marca} {equipo_modelo}\n" .
-                "⏰ Ingresado: {fecha_ingreso}\n" .
-                "📊 Días de demora: {dias_excedidos}\n\n" .
-                "Como compensación, aplicaremos una *bonificación del {porcentaje}%* sobre el costo final.\n\n" .
-                "💰 Monto original: \${monto_original}\n" .
-                "🎉 Bonificación: \${monto_bonificado}\n" .
-                "💳 Total a pagar: \${monto_final}\n\n" .
-                "Motivo: {motivo_demora}\n\n" .
-                "Gracias por su comprensión."
-            );
+            // Generar token para respuesta del cliente
+            $token = \App\Http\Controllers\Api\ClienteBonificacionController::generarToken($this->bonificacion->bonificacionID);
+            $urlRespuesta = url("/bonificacion/{$token}");
 
+            // CU-30 Paso 5: Preparar datos para compilar plantilla
             $montoFinal = $this->bonificacion->monto_original - $this->bonificacion->monto_bonificado;
+            $porcentaje = $this->bonificacion->porcentaje_aprobado ?? $this->bonificacion->porcentaje_sugerido;
+            
+            $datosPlantilla = [ 
+                'codigo_reparacion' => $reparacion->codigo_reparacion,
+                'nombre_cliente' => $cliente->nombre . ' ' . $cliente->apellido,
+                'equipo_marca' => $reparacion->equipo_marca,
+                'equipo_modelo' => $reparacion->equipo_modelo,
+                'fecha_ingreso' => $reparacion->fecha_ingreso->format('d/m/Y'),
+                'dias_excedidos' => $this->bonificacion->dias_excedidos ?? 'N/A',
+                'porcentaje' => $porcentaje,
+                'monto_original' => number_format($this->bonificacion->monto_original, 2, ',', '.'),
+                'monto_bonificado' => number_format($this->bonificacion->monto_bonificado, 2, ',', '.'),
+                'monto_final' => number_format($montoFinal, 2, ',', '.'),
+                'motivo_demora' => $this->bonificacion->motivoDemora?->nombre ?? 'Sin especificar',
+                'url_respuesta' => $urlRespuesta,
+            ];
 
-            // Reemplazar variables en el template
-            $mensaje = str_replace(
-                [
-                    '{codigo_reparacion}',
-                    '{nombre_cliente}',
-                    '{equipo_marca}',
-                    '{equipo_modelo}',
-                    '{fecha_ingreso}',
-                    '{dias_excedidos}',
-                    '{porcentaje}',
-                    '{monto_original}',
-                    '{monto_bonificado}',
-                    '{monto_final}',
-                    '{motivo_demora}',
-                ],
-                [
-                    $reparacion->codigo_reparacion,
-                    $cliente->nombre . ' ' . $cliente->apellido,
-                    $reparacion->equipo_marca,
-                    $reparacion->equipo_modelo,
-                    $reparacion->fecha_ingreso->format('d/m/Y'),
-                    $this->bonificacion->dias_excedidos ?? 'N/A',
-                    $this->bonificacion->porcentaje_aprobado ?? $this->bonificacion->porcentaje_sugerido,
-                    number_format($this->bonificacion->monto_original, 2, ',', '.'),
-                    number_format($this->bonificacion->monto_bonificado, 2, ',', '.'),
-                    number_format($montoFinal, 2, ',', '.'),
-                    $this->bonificacion->motivoDemora?->nombre ?? 'Sin especificar',
-                ],
-                $template
-            );
+            // CU-30 Paso 5: Compilar mensaje con la plantilla
+            $mensaje = $plantilla->compilar($datosPlantilla);
 
             // Enviar mensaje por WhatsApp
             $this->enviarWhatsApp($cliente->telefono, $mensaje);

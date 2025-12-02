@@ -11,20 +11,10 @@ use Inertia\Inertia;
 /**
  * Controlador para gestión de bonificaciones (CU-15)
  * Solo accesible para administradores/gerentes
+ * El middleware role:admin,manager está configurado en routes/web.php
  */
 class BonificacionReparacionController extends Controller
 {
-    public function __construct()
-    {
-        // Solo admin y manager pueden gestionar bonificaciones
-        $this->middleware(function ($request, $next) {
-            if (!in_array(Auth::user()->role, ['admin', 'manager'])) {
-                abort(403, 'No autorizado para gestionar bonificaciones');
-            }
-            return $next($request);
-        });
-    }
-
     /**
      * Display a listing of the resource.
      */
