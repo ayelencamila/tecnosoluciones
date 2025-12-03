@@ -12,6 +12,12 @@ class EstadoReparacion extends Model
 
     protected $fillable = ['nombreEstado', 'descripcion'];
 
+    // Accessor para compatibilidad con código que usa 'nombre'
+    public function getNombreAttribute()
+    {
+        return $this->nombreEstado;
+    }
+
     // --- CONSTANTES DE ESTADO (Single Source of Truth) ---
     // Usamos estas constantes en todo el código en lugar de escribir el texto a mano.
     public const RECIBIDO = 'Recibido';

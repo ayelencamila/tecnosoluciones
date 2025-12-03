@@ -5,7 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\AlertaReparacion;
 use App\Models\MotivoDemoraReparacion;
 use App\Models\BonificacionReparacion;
-use App\Services\MonitoreoSLAReparacionService;
+use App\Services\Reparaciones\MonitoreoSLAReparacionService;
+use App\Services\Reparaciones\BonificacionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -115,28 +116,9 @@ class AlertaReparacionController extends Controller
      */
     protected function crearBonificacion(AlertaReparacion $alerta, MotivoDemoraReparacion $motivo): void
     {
-        $service = app(MonitoreoSLAReparacionService::class);
-        $reparacion = $alerta->reparacion;
-
-        // Calcular porcentaje de bonificación
-        $porcentajeSugerido = $service->calcularPorcentajeBonificacion($alerta->dias_excedidos);
-        $porcentajeAjustado = $service->aplicarTopeBonificacion($porcentajeSugerido);
-
-        // Calcular montos (sobre mano de obra)
-        $montoOriginal = $reparacion->costo_mano_obra ?? 0;
-        $montoBonificacion = ($montoOriginal * $porcentajeAjustado) / 100;
-
-        BonificacionReparacion::create([
-            'reparacionID' => $reparacion->reparacionID,
-            'motivoDemoraID' => $motivo->motivoDemoraID,
-            'porcentaje_sugerido' => $porcentajeSugerido,
-            'porcentaje_aprobado' => null, // Pendiente de aprobación
-            'monto_original' => $montoOriginal,
-            'monto_bonificado' => $montoBonificacion,
-            'dias_excedidos' => $alerta->dias_excedidos,
-            'estado' => 'pendiente',
-            'justificacion_tecnico' => $alerta->respuesta_tecnico['observaciones'] ?? null,
-        ]);
+        // Usar el servicio de bonificaciones para generar automáticamente
+        $service = app(BonificacionService::class);
+        $service->generarBonificacionAutomatica($alerta->alertaReparacionID);
     }
 }
 

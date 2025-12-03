@@ -35,15 +35,17 @@ class NotificarBonificacionCliente implements ShouldQueue
     {
         try {
             // CU-30 Paso 3: Obtener plantilla activa para el tipo de evento
-            $plantilla = PlantillaWhatsapp::obtenerPorTipo('bonificacion_cliente');
+            $plantilla = PlantillaWhatsapp::where('tipo_evento', 'bonificacion_cliente')
+                ->where('activo', true)
+                ->first();
             
             if (!$plantilla) {
                 Log::error('Plantilla bonificacion_cliente no encontrada o inactiva');
                 return;
             }
 
-            // CU-30 Paso 6: Verificar horario de envío
-            if (!$plantilla->estaEnHorarioPermitido()) {
+            // CU-30 Paso 6: Verificar horario de envío (si el método existe)
+            if (method_exists($plantilla, 'estaEnHorarioPermitido') && !$plantilla->estaEnHorarioPermitido()) {
                 $segundos = $plantilla->segundosHastaProximoEnvio();
                 Log::info("Envío de bonificación pospuesto por horario. Esperando {$segundos}s");
                 $this->release($segundos);
@@ -67,7 +69,8 @@ class NotificarBonificacionCliente implements ShouldQueue
 
             // Generar token para respuesta del cliente
             $token = \App\Http\Controllers\Api\ClienteBonificacionController::generarToken($this->bonificacion->bonificacionID);
-            $urlRespuesta = url("/bonificacion/{$token}");
+            $baseUrl = env('NGROK_URL', config('app.url'));
+            $urlRespuesta = rtrim($baseUrl, '/') . "/bonificacion/{$token}";
 
             // CU-30 Paso 5: Preparar datos para compilar plantilla
             $montoFinal = $this->bonificacion->monto_original - $this->bonificacion->monto_bonificado;
@@ -126,13 +129,25 @@ class NotificarBonificacionCliente implements ShouldQueue
         // Formatear número de teléfono
         $telefonoFormateado = $this->formatearTelefono($telefono);
 
-        $client->messages->create(
+        Log::info('Enviando WhatsApp', [
+            'to' => "whatsapp:{$telefonoFormateado}",
+            'from' => "whatsapp:{$whatsappFrom}",
+            'mensaje_length' => strlen($mensaje),
+        ]);
+
+        $response = $client->messages->create(
             "whatsapp:{$telefonoFormateado}",
             [
                 'from' => "whatsapp:{$whatsappFrom}",
                 'body' => $mensaje,
             ]
         );
+
+        Log::info('WhatsApp enviado por Twilio', [
+            'message_sid' => $response->sid,
+            'status' => $response->status,
+            'to' => $response->to,
+        ]);
     }
 
     /**

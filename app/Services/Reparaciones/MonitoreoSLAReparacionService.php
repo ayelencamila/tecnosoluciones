@@ -21,7 +21,10 @@ class MonitoreoSLAReparacionService
      */
     public function verificarYGenerarAlertas(): array
     {
+        // SOLO monitorear reparaciones en estados "Recibido" o "Diagnóstico"
+        // según especificación CU-14
         $reparaciones = Reparacion::activas()
+            ->enEstadosMonitoreables()
             ->sinEntregar()
             ->with(['tecnico', 'estado'])
             ->get();
@@ -130,6 +133,7 @@ class MonitoreoSLAReparacionService
     {
         $reparaciones = Reparacion::conSLAExcedido()
             ->activas()
+            ->enEstadosMonitoreables()
             ->sinEntregar()
             ->with(['tecnico', 'cliente', 'estado'])
             ->get();

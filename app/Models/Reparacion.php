@@ -156,7 +156,8 @@ class Reparacion extends Model
      */
     public function getSLAVigente(): int
     {
-        return (int) Configuracion::get('sla_reparaciones_default', 7);
+        // Usar sla_dias_reparacion que es la clave configurada por el admin
+        return (int) Configuracion::get('sla_dias_reparacion', 3);
     }
 
     /**
@@ -311,10 +312,19 @@ class Reparacion extends Model
     }
 
     /**
-     * Scope: Reparaciones no anuladas
+     * Scope: Reparaciones activas (no anuladas)
      */
     public function scopeActivas($query)
     {
         return $query->where('anulada', false);
+    }
+
+    /**
+     * Scope: Reparaciones en estados que deben monitorearse para SLA
+     * Solo "Recibido" (1) y "Diagnóstico" (2) según CU-14
+     */
+    public function scopeEnEstadosMonitoreables($query)
+    {
+        return $query->whereIn('estado_reparacion_id', [1, 2]);
     }
 }

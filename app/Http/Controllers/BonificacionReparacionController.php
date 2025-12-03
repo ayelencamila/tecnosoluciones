@@ -70,7 +70,7 @@ class BonificacionReparacionController extends Controller
     public function aprobar(Request $request, BonificacionReparacion $bonificacion)
     {
         $validated = $request->validate([
-            'porcentaje_ajustado' => 'nullable|integer|min:0|max:100',
+            'porcentaje_ajustado' => 'nullable|numeric|min:0|max:100',
             'observaciones' => 'nullable|string|max:500',
         ]);
 
