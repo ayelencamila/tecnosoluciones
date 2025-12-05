@@ -91,8 +91,6 @@ require __DIR__.'/auth.php';
 // --- RUTAS API ---
 Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
     ->name('api.localidades.por-provincia');
-Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
-    ->name('api.localidades.por-provincia');
 
 // API de Modelos por Marca
 Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
@@ -258,17 +256,4 @@ Route::middleware(['auth'])->group(function () {
     });
 
 });
-
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
-
-// --- PROGRAMADOR PARA CU-09 ---
-// Esto registra el comando para ejecutarse diariamente
-Schedule::command('cc:check-vencimientos')
-    ->dailyAt('08:00') // Se ejecuta a las 8:00 AM todos los días
-    ->timezone('America/Argentina/Buenos_Aires')
-    ->withoutOverlapping()
-    ->appendOutputTo(storage_path('logs/scheduler.log'));
-
 
