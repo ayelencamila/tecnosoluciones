@@ -2,129 +2,100 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Configuracion;
-use App\Models\Auditoria;
+use App\Services\Configuracion\ConfiguracionService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
-use Illuminate\Support\Facades\DB;
 
+/**
+ * Controlador para gestión de parámetros globales del sistema (CU-31)
+ * Delega lógica de negocio a ConfiguracionService
+ */
 class ConfiguracionController extends Controller
 {
+    public function __construct(
+        private ConfiguracionService $configuracionService
+    ) {}
+
+    /**
+     * CU-31 Paso 1-2: Mostrar parámetros globales agrupados por categoría
+     */
     public function index()
     {
-        $todas = Configuracion::all()->map(function ($item) {
-            // Casteo inteligente para el Frontend
-            if ($item->valor === 'true') {
-                $item->valor = true;
-            } elseif ($item->valor === 'false') {
-                $item->valor = false;
-            } elseif (is_numeric($item->valor) && !in_array($item->clave, ['cuit_empresa', 'whatsapp_admin_notificaciones', 'telefono_empresa'])) {
-                // CORRECCIÓN: Solo convertimos a número si NO es un campo de texto como CUIT o Teléfono
-                $item->valor = +$item->valor; 
-            }
-            return $item;
-        });
-
-        // Definimos los grupos (sin duplicados - filtros mutuamente excluyentes)
-        $grupos = [
-            'Generales' => $todas->filter(fn($c) => in_array($c->clave, [
-                'nombre_empresa', 
-                'cuit_empresa', 
-                'email_contacto', 
-                'direccion_empresa'
-            ]))->values(),
-            
-            'Ventas y Stock' => $todas->filter(fn($c) => 
-                str_starts_with($c->clave, 'dias_maximos') || 
-                str_starts_with($c->clave, 'permitir_venta') ||
-                str_starts_with($c->clave, 'stock_') ||
-                str_starts_with($c->clave, 'alerta_stock')
-            )->values(),
-
-            'Cuentas Corrientes' => $todas->filter(fn($c) => 
-                in_array($c->clave, [
-                    'dias_gracia_global',
-                    'limite_credito_global',
-                    'politicaAutoBlock'
-                ])
-            )->values(),
-            
-            'Reparaciones (SLA)' => $todas->filter(fn($c) => str_starts_with($c->clave, 'reparacion_'))->values(),
-            
-            'Comunicación (WhatsApp)' => $todas->filter(fn($c) => 
-                str_starts_with($c->clave, 'whatsapp_')
-            )->values(),
-        ];
+        $grupos = $this->configuracionService->obtenerConfiguracionesAgrupadas();
+        
+        // Aplicar casting inteligente para el frontend
+        foreach ($grupos as $categoria => $configs) {
+            $grupos[$categoria] = $configs->map(function ($item) {
+                $item->valor = $this->configuracionService->obtener($item->clave, $item->valor);
+                return $item;
+            });
+        }
 
         return Inertia::render('Configuracion/Index', [
             'grupos' => $grupos,
         ]);
     }
+    /**
+     * CU-31 Paso 3-10: Actualizar parámetros con validación y auditoría
+     */
     public function update(Request $request)
     {
+        // Validación básica de Laravel para campos requeridos
         $validated = $request->validate([
             'nombre_empresa' => 'required|string',
             'cuit_empresa' => 'required|string',
             'email_contacto' => 'required|email',
             'direccion_empresa' => 'nullable|string',
             
-            'limite_credito_global' => 'required|numeric|min:0',
-            'dias_gracia_global' => 'required|integer|min:0',
-            'politicaAutoBlock' => 'boolean',
-            'whatsapp_admin_notificaciones' => 'nullable|string', // Ahora pasará como string
-
-            'dias_maximos_anulacion_venta' => 'required|integer|min:0',
-            'permitir_venta_sin_stock' => 'boolean',
-            'stock_minimo_global' => 'required|integer|min:0',
-            'alerta_stock_bajo' => 'boolean',
-
-            'reparacion_sla_dias_estandar' => 'required|integer|min:1',
-            'reparacion_habilitar_bonificacion' => 'boolean',
-            'reparacion_bonificacion_diaria_porc' => 'required|numeric|min:0',
-            'reparacion_tope_bonificacion_porc' => 'required|numeric|min:0',
-
-            'whatsapp_activo' => 'boolean',
-            'whatsapp_horario_inicio' => 'required',
-            'whatsapp_horario_fin' => 'required',
-            'whatsapp_reintentos_maximos' => 'required|integer',
-            
-            'whatsapp_plantilla_bloqueo' => 'required|string',
-            'whatsapp_plantilla_revision' => 'required|string',
-            'whatsapp_plantilla_recordatorio' => 'required|string',
+            // Los demás campos se validan en ConfiguracionValidationService
+            // con reglas de negocio específicas
         ]);
 
-        try {
-            DB::transaction(function () use ($validated) {
-                foreach ($validated as $clave => $valor) {
-                    if (is_bool($valor)) {
-                        $valor = $valor ? 'true' : 'false';
-                    }
+        // Obtener todos los parámetros enviados
+        $configuraciones = $request->except(['_token', '_method']);
 
-                    $config = Configuracion::where('clave', $clave)->first();
-                    
-                    if ($config && $config->valor != $valor) {
-                        // Auditoría
-                        Auditoria::create([
-                            'tabla_afectada' => 'configuracion',
-                            'registro_id' => $config->configuracionID,
-                            'accion' => 'MODIFICAR_PARAMETRO',
-                            'datos_anteriores' => json_encode(['valor' => $config->valor]),
-                            'datos_nuevos' => json_encode(['valor' => $valor]),
-                            'motivo' => 'Panel de Configuración',
-                            'usuarioID' => auth()->id(),
-                            'detalles' => "Cambio en {$clave}"
-                        ]);
+        // CU-31 Paso 6-7: Actualizar configuraciones con validación de negocio
+        $resultado = $this->configuracionService->actualizarConfiguraciones(
+            $configuraciones,
+            auth()->id(),
+            'Actualización desde panel de configuración global'
+        );
 
-                        $config->valor = (string) $valor;
-                        $config->save();
-                    }
-                }
-            });
-
-            return back()->with('success', 'Configuración guardada correctamente.');
-
-        } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Error al guardar: ' . $e->getMessage()]);
+        if (!$resultado['exito']) {
+            // CU-31 Excepción 6a: Valores inválidos
+            return back()
+                ->withErrors($resultado['errores'])
+                ->withInput();
         }
+
+        // CU-31 Paso 10: Confirmación
+        $mensaje = count($resultado['cambios']) > 0
+            ? 'Configuración actualizada exitosamente. ' . count($resultado['cambios']) . ' parámetro(s) modificado(s).'
+            : 'No se realizaron cambios en la configuración.';
+
+        return back()->with('success', $mensaje);
+    }
+
+    /**
+     * Obtener historial de cambios de una configuración específica
+     */
+    public function historial(string $clave)
+    {
+        $historial = $this->configuracionService->obtenerHistorial($clave, 100);
+
+        return Inertia::render('Configuracion/Historial', [
+            'clave' => $clave,
+            'historial' => $historial,
+        ]);
+    }
+
+    /**
+     * Limpiar caché de configuraciones (útil para desarrollo)
+     */
+    public function limpiarCache()
+    {
+        $this->configuracionService->limpiarCache();
+
+        return back()->with('success', 'Caché de configuraciones limpiado exitosamente.');
     }
 }

@@ -34,5 +34,15 @@ class UserSeeder extends Seeder
                 'role' => 'vendedor',
             ]
         );
+
+        // Técnico
+        User::updateOrCreate(
+            ['email' => 'tecnico@tecnosoluciones.com'],
+            [
+                'name' => 'Técnico',
+                'password' => Hash::make('1234'),
+                'role' => 'tecnico',
+            ]
+        );
     }
 }

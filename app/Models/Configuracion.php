@@ -67,6 +67,14 @@ class Configuracion extends Model
     }
 
     /**
+     * Alias para mantener compatibilidad con código legacy
+     */
+    public static function valor(string $clave, mixed $default = null): mixed
+    {
+        return self::get($clave, $default);
+    }
+
+    /**
      * Casts para tipos de datos comunes si es necesario.
      * Ejemplo: para obtener un integer
      */

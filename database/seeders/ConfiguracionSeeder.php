@@ -35,30 +35,13 @@ class ConfiguracionSeeder extends Seeder
         Configuracion::set('reparacion_bonificacion_diaria_porc', 0.5, '% Descuento diario por demora.');
         Configuracion::set('reparacion_tope_bonificacion_porc', 20, 'Tope máximo de bonificación (%).');
 
-        // 6. COMUNICACIÓN
+        // 6. COMUNICACIÓN (Parámetros básicos - Las plantillas están en módulo separado CU-30)
         Configuracion::set('whatsapp_activo', 'true', 'Activar envío de WhatsApp.');
-        Configuracion::set('whatsapp_horario_inicio', '09:00', 'Hora inicio notificaciones.');
-        Configuracion::set('whatsapp_horario_fin', '20:00', 'Hora fin notificaciones.');
+        Configuracion::set('whatsapp_horario_inicio', '09:00', 'Hora inicio notificaciones (global, puede ser sobrescrito por plantilla).');
+        Configuracion::set('whatsapp_horario_fin', '20:00', 'Hora fin notificaciones (global, puede ser sobrescrito por plantilla).');
         Configuracion::set('whatsapp_reintentos_maximos', 3, 'Intentos de reenvío.');
 
-        // 7. PLANTILLAS WHATSAPP (CU-30)
-        // Variables disponibles: [nombre_cliente], [motivo]
-        Configuracion::set(
-            'whatsapp_plantilla_bloqueo', 
-            'Hola [nombre_cliente], su cuenta ha sido BLOQUEADA por: [motivo]. Por favor regularice su situación.',
-            'Plantilla para bloqueo. Variables: [nombre_cliente], [motivo]'
-        );
-        Configuracion::set(
-            'whatsapp_plantilla_revision', 
-            'Hola [nombre_cliente], su cuenta está en REVISIÓN por: [motivo].',
-            'Plantilla para revisión. Variables: [nombre_cliente], [motivo]'
-        );
-        Configuracion::set(
-            'whatsapp_plantilla_recordatorio', 
-            'Hola [nombre_cliente], recordatorio de saldo pendiente: [motivo].',
-            'Plantilla para recordatorio. Variables: [nombre_cliente], [motivo]'
-        );
-
         $this->command->info('✅ Configuraciones globales cargadas correctamente.');
+        $this->command->info('ℹ️  Las plantillas de WhatsApp se gestionan desde el módulo "Plantillas WhatsApp" (CU-30)');
     }
 }

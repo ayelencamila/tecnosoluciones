@@ -119,6 +119,13 @@ class Auditoria extends Model
 
     public const ACCION_MODIFICAR_PARAMETRO_GLOBAL = 'MODIFICAR_PARAMETRO_GLOBAL';
 
+    // Módulo Plantillas WhatsApp (CU-30)
+    public const ACCION_MODIFICAR_PLANTILLA_WHATSAPP = 'MODIFICAR_PLANTILLA_WHATSAPP';
+
+    public const ACCION_CREAR_PLANTILLA_WHATSAPP = 'CREAR_PLANTILLA_WHATSAPP';
+
+    public const ACCION_DESHABILITAR_PLANTILLA_WHATSAPP = 'DESHABILITAR_PLANTILLA_WHATSAPP';
+
     // Módulo Reparaciones (preparado para futuro)
     public const ACCION_CREAR_REPARACION = 'CREAR_REPARACION';
 

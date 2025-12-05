@@ -14,6 +14,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ReparacionController;
 use App\Http\Controllers\Admin\CategoriaProductoController;
+use App\Http\Controllers\Api\ClienteBonificacionController;
 use Inertia\Inertia;
 
 /*
@@ -21,6 +22,12 @@ use Inertia\Inertia;
 | Web Routes
 |--------------------------------------------------------------------------
 */
+
+// Rutas públicas para respuesta de cliente a bonificaciones
+Route::prefix('bonificacion')->group(function () {
+    Route::get('/{token}', [ClienteBonificacionController::class, 'mostrar'])->name('bonificacion.mostrar');
+    Route::post('/{token}/responder', [ClienteBonificacionController::class, 'responder'])->name('bonificacion.responder');
+});
 
 // Ruta de inicio
 Route::get('/', function () {
@@ -73,14 +80,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('medios-pago', \App\Http\Controllers\Admin\MedioPagoController::class);
         Route::resource('marcas', \App\Http\Controllers\Admin\MarcaController::class);
         Route::resource('modelos', \App\Http\Controllers\Admin\ModeloController::class);
+        Route::resource('motivos-demora', \App\Http\Controllers\Admin\MotivoDemoraReparacionController::class);
+        Route::post('admin/motivos-demora/reorder', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'reorder'])->name('admin.motivos-demora.reorder');
+        Route::patch('admin/motivos-demora/{motivosDemora}/toggle', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'toggle'])->name('admin.motivos-demora.toggle');
     });
 });
 
 require __DIR__.'/auth.php';
 
 // --- RUTAS API ---
-Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
-    ->name('api.localidades.por-provincia');
 Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
     ->name('api.localidades.por-provincia');
 
@@ -210,6 +218,15 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
     });
 
+    // --- MÓDULO DE PLANTILLAS WHATSAPP (CU-30) ---
+    Route::prefix('plantillas-whatsapp')->name('plantillas-whatsapp.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\PlantillaWhatsappController::class, 'index'])->name('index');
+        Route::get('/{plantilla}/edit', [\App\Http\Controllers\PlantillaWhatsappController::class, 'edit'])->name('edit');
+        Route::put('/{plantilla}', [\App\Http\Controllers\PlantillaWhatsappController::class, 'update'])->name('update');
+        Route::get('/{plantilla}/preview', [\App\Http\Controllers\PlantillaWhatsappController::class, 'preview'])->name('preview');
+        Route::get('/{plantilla}/historial', [\App\Http\Controllers\PlantillaWhatsappController::class, 'historial'])->name('historial');
+    });
+
     // --- MÓDULO DE REPARACIONES (CU-11, CU-12, CU-13) ---
     Route::prefix('reparaciones')->name('reparaciones.')->group(function () {
         Route::get('/', [ReparacionController::class, 'index'])->name('index');
@@ -221,18 +238,22 @@ Route::middleware(['auth'])->group(function () {
         Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])->name('destroy');
     });
 
+    // --- ALERTAS DE SLA (CU-14) - Para Técnicos ---
+    Route::prefix('alertas')->name('alertas.')->group(function () {
+        Route::get('/', [\App\Http\Controllers\AlertaReparacionController::class, 'index'])->name('index');
+        Route::get('/{alerta}', [\App\Http\Controllers\AlertaReparacionController::class, 'show'])->name('show');
+        Route::post('/{alerta}/responder', [\App\Http\Controllers\AlertaReparacionController::class, 'responder'])->name('responder');
+        Route::patch('/{alerta}/marcar-leida', [\App\Http\Controllers\AlertaReparacionController::class, 'marcarLeida'])->name('marcar-leida');
+    });
+
+    // --- BONIFICACIONES (CU-15) - Solo Admin ---
+    Route::prefix('bonificaciones')->name('bonificaciones.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\BonificacionReparacionController::class, 'index'])->name('index');
+        Route::get('/historial', [\App\Http\Controllers\BonificacionReparacionController::class, 'historial'])->name('historial');
+        Route::get('/{bonificacion}', [\App\Http\Controllers\BonificacionReparacionController::class, 'show'])->name('show');
+        Route::post('/{bonificacion}/aprobar', [\App\Http\Controllers\BonificacionReparacionController::class, 'aprobar'])->name('aprobar');
+        Route::post('/{bonificacion}/rechazar', [\App\Http\Controllers\BonificacionReparacionController::class, 'rechazar'])->name('rechazar');
+    });
+
 });
-
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
-
-// --- PROGRAMADOR PARA CU-09 ---
-// Esto registra el comando para ejecutarse diariamente
-Schedule::command('cc:check-vencimientos')
-    ->dailyAt('08:00') // Se ejecuta a las 8:00 AM todos los días
-    ->timezone('America/Argentina/Buenos_Aires')
-    ->withoutOverlapping()
-    ->appendOutputTo(storage_path('logs/scheduler.log'));
-
 
