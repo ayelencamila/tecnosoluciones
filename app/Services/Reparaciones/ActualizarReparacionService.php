@@ -62,12 +62,15 @@ class ActualizarReparacionService
             throw new \Exception("La reparación está en estado '{$reparacion->estado->nombreEstado}' y no admite más modificaciones.");
         }
 
-        // 2. Validar Transición de Estado
+        // 2. Validar Transición de Estado (solo si cambia el estado)
         $nuevoEstadoId = $datos['estado_reparacion_id'];
         $nuevoEstado = EstadoReparacion::findOrFail($nuevoEstadoId);
         
-        if (!$this->esTransicionValida($reparacion->estado->nombreEstado, $nuevoEstado->nombreEstado)) {
-            throw new \Exception("Transición de estado inválida: No se puede pasar de '{$reparacion->estado->nombreEstado}' a '{$nuevoEstado->nombreEstado}'.");
+        // Solo validar transición si el estado realmente cambió
+        if ($reparacion->estado_reparacion_id != $nuevoEstadoId) {
+            if (!$this->esTransicionValida($reparacion->estado->nombreEstado, $nuevoEstado->nombreEstado)) {
+                throw new \Exception("Transición de estado inválida: No se puede pasar de '{$reparacion->estado->nombreEstado}' a '{$nuevoEstado->nombreEstado}'.");
+            }
         }
 
         return DB::transaction(function () use ($reparacion, $datos, $nuevoEstado, $userId) {

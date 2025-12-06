@@ -81,6 +81,15 @@ class MonitoreoSLAReparacionService
             return $resultado;
         }
 
+        // Validar que la reparación tenga un técnico asignado
+        if (!$reparacion->tecnico_id) {
+            Log::warning('Reparación excede SLA pero no tiene técnico asignado', [
+                'reparacion_id' => $reparacion->reparacionID,
+                'codigo' => $reparacion->codigo_reparacion,
+            ]);
+            return $resultado;
+        }
+
         // Marcar reparación como demorada en BD
         $reparacion->marcarComoDemorada();
 

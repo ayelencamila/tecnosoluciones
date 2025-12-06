@@ -80,6 +80,8 @@ const getPaginationLabel = (label, index, totalLinks) => {
                         <div class="flex-1 w-full flex flex-col md:flex-row gap-4">
                             <div class="w-full md:w-1/2">
                                 <TextInput 
+                                    id="search_reparaciones"
+                                    name="search"
                                     v-model="form.search" 
                                     placeholder="Buscar por Código, Cliente, Equipo o IMEI..." 
                                     class="w-full" 
@@ -87,6 +89,8 @@ const getPaginationLabel = (label, index, totalLinks) => {
                             </div>
                             <div class="w-full md:w-1/4">
                                 <SelectInput 
+                                    id="filtro_estado"
+                                    name="estado_id"
                                     v-model="form.estado_id" 
                                     class="w-full" 
                                     :options="estadosOptions" 

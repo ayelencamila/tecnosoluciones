@@ -26,11 +26,24 @@ class DashboardController extends Controller
         // Cuentas por Cobrar (Suma de saldos positivos de clientes)
         // Asumimos que saldo > 0 es deuda del cliente hacia nosotros
         $deudaTotal = CuentaCorriente::where('saldo', '>', 0)->sum('saldo');
+        $clientesConDeuda = CuentaCorriente::where('saldo', '>', 0)->count();
+        
+        // Calcular saldo vencido
+        $saldoVencido = CuentaCorriente::where('saldo', '>', 0)
+            ->get()
+            ->sum(function($cc) {
+                return $cc->calcularSaldoVencido();
+            });
 
         // Cantidad de Productos Activos
         $totalProductos = Producto::whereHas('estado', function($q) {
             $q->where('nombre', 'Activo');
         })->count();
+        
+        // Ventas del mes actual
+        $ventasMes = Venta::whereYear('created_at', Carbon::now()->year)
+            ->whereMonth('created_at', Carbon::now()->month)
+            ->sum('total');
 
         // 2. Tablas de Resumen (Filas Centrales)
 
@@ -67,8 +80,11 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'kpis' => [
                 'ventasHoy' => $ventasHoy,
+                'ventasMes' => $ventasMes,
                 'stockCritico' => $stockCriticoCount,
                 'deudaTotal' => $deudaTotal,
+                'clientesConDeuda' => $clientesConDeuda,
+                'saldoVencido' => $saldoVencido,
                 'totalProductos' => $totalProductos,
             ],
             'tablas' => [

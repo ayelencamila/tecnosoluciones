@@ -26,9 +26,10 @@ class EstadoCuentaCorriente extends Model
     use HasFactory, SoftDeletes;
 
     const ACTIVA = 1;
-    const INACTIVA = 2;
-    const BLOQUEADA = 3;
-    const PENDIENTE_APROBACION = 4;
+    const BLOQUEADA = 2;
+    const VENCIDA = 3;
+    const CERRADA = 4;
+    const PENDIENTE_APROBACION = 5;
 
     /**
      * Métodos estáticos helper para obtener estados
@@ -38,14 +39,19 @@ class EstadoCuentaCorriente extends Model
         return static::find(static::ACTIVA);
     }
 
-    public static function inactiva()
-    {
-        return static::find(static::INACTIVA);
-    }
-
     public static function bloqueada()
     {
         return static::find(static::BLOQUEADA);
+    }
+    
+    public static function vencida()
+    {
+        return static::find(static::VENCIDA);
+    }
+    
+    public static function cerrada()
+    {
+        return static::find(static::CERRADA);
     }
 
     public static function pendienteAprobacion()

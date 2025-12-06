@@ -166,7 +166,11 @@ const submit = () => {
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div>
                                     <InputLabel for="marca_id" value="Marca *" />
-                                    <select id="marca_id" v-model="form.marca_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                    <select 
+                                        id="marca_id" 
+                                        name="marca_id"
+                                        v-model="form.marca_id" 
+                                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                         <option value="" disabled>Selecciona una marca</option>
                                         <option v-for="marca in marcas" :key="marca.id" :value="marca.id">{{ marca.nombre }}</option>
                                     </select>
@@ -174,7 +178,12 @@ const submit = () => {
                                 </div>
                                 <div>
                                     <InputLabel for="modelo_id" value="Modelo *" />
-                                    <select id="modelo_id" v-model="form.modelo_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" :disabled="!form.marca_id || cargandoModelos">
+                                    <select 
+                                        id="modelo_id" 
+                                        name="modelo_id"
+                                        v-model="form.modelo_id" 
+                                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" 
+                                        :disabled="!form.marca_id || cargandoModelos">
                                         <option value="" disabled>{{ cargandoModelos ? 'Cargando...' : 'Selecciona un modelo' }}</option>
                                         <option v-for="modelo in modelosDisponibles" :key="modelo.id" :value="modelo.id">{{ modelo.nombre }}</option>
                                     </select>
@@ -189,8 +198,8 @@ const submit = () => {
                         <div class="mb-8 border-b pb-6">
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Detalle del Problema</h3>
                             <div class="grid grid-cols-1 gap-6">
-                                <div><InputLabel for="falla_declarada" value="Falla Declarada *" /><textarea id="falla_declarada" v-model="form.falla_declarada" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea><InputError :message="form.errors.falla_declarada" class="mt-2" /></div>
-                                <div><InputLabel for="observaciones" value="Observaciones Internas" /><textarea id="observaciones" v-model="form.observaciones" rows="2" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea></div>
+                                <div><InputLabel for="falla_declarada" value="Falla Declarada *" /><textarea id="falla_declarada" name="falla_declarada" v-model="form.falla_declarada" rows="3" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea><InputError :message="form.errors.falla_declarada" class="mt-2" /></div>
+                                <div><InputLabel for="observaciones" value="Observaciones Internas" /><textarea id="observaciones" name="observaciones" v-model="form.observaciones" rows="2" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm"></textarea></div>
                                 
                                 <div class="w-full md:w-1/3">
                                     <div class="flex items-center mb-1">

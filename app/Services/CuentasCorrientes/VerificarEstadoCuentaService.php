@@ -190,10 +190,14 @@ class VerificarEstadoCuentaService
      */
     private function calcularDatosCuenta(CuentaCorriente $cc): array
     {
+        $recargosMora = $cc->calcularRecargosMora();
+        
         return [
             'saldoTotal' => $cc->saldo,
             'saldoVencido' => $cc->calcularSaldoVencido(),
             'limiteCredito' => $cc->getLimiteCreditoAplicable(),
+            'recargosMora' => $recargosMora['total'],
+            'detalleRecargos' => $recargosMora['detalle'],
         ];
     }
 
@@ -218,6 +222,11 @@ class VerificarEstadoCuentaService
         if ($tieneVencidos) {
             $motivos[] = sprintf("Saldo vencido ($%.2f)", $datos['saldoVencido']);
         }
+        
+        // Agregar información de recargos por mora si existen
+        if (isset($datos['recargosMora']) && $datos['recargosMora'] > 0) {
+            $motivos[] = sprintf("Recargos por mora: $%.2f", $datos['recargosMora']);
+        }
 
         return [
             'incumplimiento' => $incumplimiento,
@@ -237,21 +246,38 @@ class VerificarEstadoCuentaService
         if ($bloqueoAutomatico) {
             // Excepción 5a: Bloqueo Automático
             if ($estadoActual !== 'Bloqueada') {
+                $cliente = $cc->cliente;
+                
+                // 1. Notificar al administrador ANTES del bloqueo (Excepción 4a)
+                $mensajeAdmin = "El cliente {$cliente->nombre_completo} (ID: {$cliente->clienteID}) será bloqueado automáticamente. Motivo: {$motivo}";
+                NotificarIncumplimientoCC::dispatch($cc, $mensajeAdmin, 'admin_alert');
+                Log::warning("[CU-09] Notificación enviada al admin: Cliente {$cliente->clienteID} será bloqueado.");
+                
+                // 2. Aplicar el bloqueo
                 $cc->bloquear("Automático: $motivo", null); // null = Sistema automático
                 Log::warning("[CU-09] CC {$cc->cuentaCorrienteID} BLOQUEADA. Motivo: $motivo");
                 
-                // Notificar cambio crítico al cliente
+                // 3. Notificar al cliente DESPUÉS del bloqueo
                 NotificarIncumplimientoCC::dispatch($cc, $motivo, 'bloqueo');
+                
                 return 'bloqueada';
             }
         } else {
             // Excepción 5b: Pendiente de Aprobación
             if ($estadoActual === 'Activa') {
+                $cliente = $cc->cliente;
+                
+                // 1. Notificar al administrador (Excepción 4a)
+                $mensajeAdmin = "El cliente {$cliente->nombre_completo} (ID: {$cliente->clienteID}) requiere aprobación manual. Motivo: {$motivo}";
+                NotificarIncumplimientoCC::dispatch($cc, $mensajeAdmin, 'admin_alert');
+                
+                // 2. Poner en revisión
                 $cc->ponerEnRevision("Automático: $motivo", null);
                 Log::info("[CU-09] CC {$cc->cuentaCorrienteID} en REVISIÓN. Motivo: $motivo");
                 
-                // Notificar al cliente
+                // 3. Notificar al cliente
                 NotificarIncumplimientoCC::dispatch($cc, $motivo, 'revision');
+                
                 return 'revision';
             }
         }

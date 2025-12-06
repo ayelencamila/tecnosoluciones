@@ -72,7 +72,11 @@ const submit = () => {
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div>
                                     <InputLabel for="estado" value="Estado Actual *" />
-                                    <select id="estado" v-model="form.estado_reparacion_id" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                    <select 
+                                        id="estado" 
+                                        name="estado_reparacion_id"
+                                        v-model="form.estado_reparacion_id" 
+                                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                         <option v-for="estado in estados" :key="estado.estadoReparacionID" :value="estado.estadoReparacionID">
                                             {{ estado.nombreEstado }}
                                         </option>
@@ -88,12 +92,25 @@ const submit = () => {
                             <div class="grid grid-cols-1 gap-6">
                                 <div>
                                     <InputLabel for="diagnostico" value="Diagnóstico Técnico" />
-                                    <textarea id="diagnostico" v-model="form.diagnostico_tecnico" rows="4" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" placeholder="Detalle del trabajo..."></textarea>
+                                    <textarea 
+                                        id="diagnostico" 
+                                        name="diagnostico_tecnico"
+                                        v-model="form.diagnostico_tecnico" 
+                                        rows="4" 
+                                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm" 
+                                        placeholder="Detalle del trabajo...">
+                                    </textarea>
                                     <InputError :message="form.errors.diagnostico_tecnico" class="mt-2" />
                                 </div>
                                 <div>
                                     <InputLabel for="obs" value="Observaciones Internas" />
-                                    <textarea id="obs" v-model="form.observaciones" rows="2" class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"></textarea>
+                                    <textarea 
+                                        id="obs" 
+                                        name="observaciones"
+                                        v-model="form.observaciones" 
+                                        rows="2" 
+                                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
+                                    </textarea>
                                 </div>
                             </div>
                         </div>
@@ -102,15 +119,29 @@ const submit = () => {
                             <h3 class="text-lg font-medium text-gray-900 mb-4">Cargar Repuestos Utilizados</h3>
                             <div class="flex flex-col md:flex-row gap-4 items-end bg-gray-50 p-4 rounded-lg mb-4">
                                 <div class="flex-1 w-full">
-                                    <InputLabel value="Repuesto (Filtrado por categoría 'Repuestos')" />
-                                    <select v-model="repuestoSeleccionado" class="w-full border-gray-300 rounded-md shadow-sm">
+                                    <InputLabel for="repuesto_select" value="Repuesto (Filtrado por categoría 'Repuestos')" />
+                                    <select 
+                                        id="repuesto_select" 
+                                        name="repuesto_select"
+                                        v-model="repuestoSeleccionado" 
+                                        class="w-full border-gray-300 rounded-md shadow-sm">
                                         <option value="" disabled>Seleccionar repuesto...</option>
                                         <option v-for="prod in productos" :key="prod.id" :value="prod.id">
                                             {{ prod.nombre }} (Stock: {{ prod.stock_total ?? 'N/A' }})
                                         </option>
                                     </select>
                                 </div>
-                                <div class="w-24"><InputLabel value="Cant." /><TextInput type="number" v-model="cantidadRepuesto" min="1" class="w-full" /></div>
+                                <div class="w-24">
+                                    <InputLabel for="cantidad_repuesto" value="Cant." />
+                                    <TextInput 
+                                        id="cantidad_repuesto"
+                                        name="cantidad_repuesto"
+                                        type="number" 
+                                        v-model="cantidadRepuesto" 
+                                        min="1" 
+                                        class="w-full" 
+                                    />
+                                </div>
                                 <SecondaryButton @click="agregarRepuesto" type="button">+ Agregar</SecondaryButton>
                             </div>
 

@@ -27,50 +27,69 @@ const formatCurrency = (value) => {
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                     
-                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-green-500 p-6 transition hover:shadow-lg">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-green-500 p-6 transition hover:shadow-lg min-h-[140px]">
+                        <div class="flex flex-col h-full">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="p-3 rounded-full bg-green-100 text-green-600">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Ventas de Hoy</p>
-                                <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(kpis.ventasHoy) }}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-indigo-500 p-6 transition hover:shadow-lg">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-indigo-100 text-indigo-600 mr-4">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Por Cobrar</p>
-                                <p class="text-2xl font-bold text-gray-900">{{ formatCurrency(kpis.deudaTotal) }}</p>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-500 mb-2">Ventas de Hoy</p>
+                                <p class="text-2xl font-bold text-gray-900 mb-2">{{ formatCurrency(kpis.ventasHoy) }}</p>
+                                <p class="text-xs text-gray-500">
+                                    Mes: {{ formatCurrency(kpis.ventasMes) }}
+                                </p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-red-500 p-6 transition hover:shadow-lg">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-red-100 text-red-600 mr-4">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-indigo-500 p-6 transition hover:shadow-lg min-h-[140px]">
+                        <div class="flex flex-col h-full">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="p-3 rounded-full bg-indigo-100 text-indigo-600">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z"></path></svg>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Stock Crítico</p>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-500 mb-2">Por Cobrar</p>
+                                <p class="text-2xl font-bold text-gray-900 mb-2">{{ formatCurrency(kpis.deudaTotal) }}</p>
+                                <div class="flex flex-col gap-1 text-xs">
+                                    <span class="text-gray-500">{{ kpis.clientesConDeuda }} clientes</span>
+                                    <span v-if="kpis.saldoVencido > 0" class="text-red-600 font-medium">
+                                        {{ formatCurrency(kpis.saldoVencido) }} vencido
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-red-500 p-6 transition hover:shadow-lg min-h-[140px]">
+                        <div class="flex flex-col h-full">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="p-3 rounded-full bg-red-100 text-red-600">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                                </div>
+                            </div>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-500 mb-2">Stock Crítico</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ kpis.stockCritico }}</p>
+                                <p class="text-xs text-gray-500 mt-2">productos bajo mínimo</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-blue-500 p-6 transition hover:shadow-lg">
-                        <div class="flex items-center">
-                            <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                    <div class="bg-white overflow-hidden shadow-md sm:rounded-xl border-l-4 border-blue-500 p-6 transition hover:shadow-lg min-h-[140px]">
+                        <div class="flex flex-col h-full">
+                            <div class="flex items-start justify-between mb-3">
+                                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                                </div>
                             </div>
-                            <div>
-                                <p class="text-sm font-medium text-gray-500">Prod. Activos</p>
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-gray-500 mb-2">Productos Activos</p>
                                 <p class="text-2xl font-bold text-gray-900">{{ kpis.totalProductos }}</p>
+                                <p class="text-xs text-gray-500 mt-2">en catálogo</p>
                             </div>
                         </div>
                     </div>
