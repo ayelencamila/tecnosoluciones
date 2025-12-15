@@ -81,6 +81,8 @@ class ActualizarReparacionService
                 'diagnostico_tecnico' => $datos['diagnostico_tecnico'] ?? $reparacion->diagnostico_tecnico,
                 'observaciones' => $datos['observaciones'] ?? $reparacion->observaciones,
                 'tecnico_id' => $datos['tecnico_id'] ?? $reparacion->tecnico_id ?? $userId,
+                'costo_mano_obra' => $datos['costo_mano_obra'] ?? $reparacion->costo_mano_obra,
+                'total_final' => $datos['total_final'] ?? $reparacion->total_final,
             ]);
 
             // 4. Procesar Nuevos Repuestos

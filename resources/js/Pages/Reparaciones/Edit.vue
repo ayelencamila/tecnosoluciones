@@ -18,6 +18,8 @@ const form = useForm({
     estado_reparacion_id: props.reparacion.estado_reparacion_id,
     diagnostico_tecnico: props.reparacion.diagnostico_tecnico || '',
     observaciones: props.reparacion.observaciones || '',
+    costo_mano_obra: props.reparacion.costo_mano_obra || 0,
+    total_final: props.reparacion.total_final || 0,
     repuestos: [], 
 });
 
@@ -111,6 +113,41 @@ const submit = () => {
                                         rows="2" 
                                         class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                     </textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-b pb-6">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">Costos de la Reparación</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <InputLabel for="costo_mano_obra" value="Costo Mano de Obra" />
+                                    <TextInput 
+                                        id="costo_mano_obra" 
+                                        name="costo_mano_obra"
+                                        type="number" 
+                                        step="0.01"
+                                        min="0"
+                                        v-model="form.costo_mano_obra" 
+                                        class="mt-1 block w-full"
+                                        placeholder="0.00"
+                                    />
+                                    <InputError :message="form.errors.costo_mano_obra" class="mt-2" />
+                                </div>
+                                <div>
+                                    <InputLabel for="total_final" value="Total Final" />
+                                    <TextInput 
+                                        id="total_final" 
+                                        name="total_final"
+                                        type="number" 
+                                        step="0.01"
+                                        min="0"
+                                        v-model="form.total_final" 
+                                        class="mt-1 block w-full"
+                                        placeholder="0.00"
+                                    />
+                                    <InputError :message="form.errors.total_final" class="mt-2" />
+                                    <p class="text-xs text-gray-500 mt-2">Incluye mano de obra + repuestos</p>
                                 </div>
                             </div>
                         </div>
