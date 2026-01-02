@@ -53,7 +53,7 @@ class NotificarBonificacionCliente implements ShouldQueue
             }
 
             // Cargar relaciones necesarias
-            $this->bonificacion->load(['reparacion.cliente', 'reparacion.marca', 'reparacion.modelo', 'motivoDemora']);
+            $this->bonificacion->load(['reparacion.cliente', 'motivoDemora']);
 
             $reparacion = $this->bonificacion->reparacion;
             $cliente = $reparacion->cliente;
@@ -79,8 +79,8 @@ class NotificarBonificacionCliente implements ShouldQueue
             $datosPlantilla = [ 
                 'codigo_reparacion' => $reparacion->codigo_reparacion,
                 'nombre_cliente' => $cliente->nombre . ' ' . $cliente->apellido,
-                'equipo_marca' => $reparacion->marca->nombre ?? '[NO_DEFINIDO]',
-                'equipo_modelo' => $reparacion->modelo->nombre ?? '[NO_DEFINIDO]',
+                'equipo_marca' => $reparacion->equipo_marca,
+                'equipo_modelo' => $reparacion->equipo_modelo,
                 'fecha_ingreso' => $reparacion->fecha_ingreso->format('d/m/Y'),
                 'dias_excedidos' => $this->bonificacion->dias_excedidos ?? 'N/A',
                 'porcentaje' => $porcentaje,

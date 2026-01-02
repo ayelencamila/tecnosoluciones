@@ -6,11 +6,8 @@ use App\Models\AlertaReparacion;
 use App\Models\BonificacionReparacion;
 use App\Models\Reparacion;
 use App\Models\Configuracion;
-use App\Models\User;
 use App\Jobs\NotificarBonificacionCliente;
-use App\Notifications\BonificacionPendienteAprobacion;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Notification;
 
 /**
  * Servicio para gestión de bonificaciones por demora en reparaciones (CU-14)
@@ -67,13 +64,6 @@ class BonificacionService
             'monto_original' => $montoOriginal,
             'monto_descuento' => $montoDescuento,
         ]);
-        
-        // Notificar a los administradores
-        $administradores = User::where('role', 'admin')->get();
-        
-        if ($administradores->isNotEmpty()) {
-            Notification::send($administradores, new BonificacionPendienteAprobacion($bonificacion));
-        }
         
         return $bonificacion;
     }
