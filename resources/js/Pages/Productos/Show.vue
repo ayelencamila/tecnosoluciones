@@ -86,7 +86,7 @@ const getBadgeClass = (estado) => {
                             <div class="divide-y divide-gray-100">
                                 <div v-for="precio in producto.precios" :key="precio.id" class="px-6 py-3 flex justify-between items-center" v-show="!precio.fechaHasta">
                                     <span class="text-sm text-gray-600">{{ precio.tipo_cliente?.nombreTipo }}</span>
-                                    <span class="text-lg font-bold text-gray-900">$ {{ new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio.precio) }}</span>
+                                    <span class="text-lg font-bold text-gray-900">{{ new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio.precio) }}</span>
                                 </div>
                             </div>
                         </div>

@@ -189,15 +189,45 @@ class ClienteController extends Controller
     }
 
     /**
-     * Muestra la confirmación para dar de baja (CU-04)
+     * Muestra la confirmación para dar de baja (CU-04 Paso 2-5)
      */
     public function confirmDelete(Cliente $cliente)
     {
-        $cliente->load(['tipoCliente', 'estadoCliente']);
+        $cliente->load(['tipoCliente', 'estadoCliente', 'cuentaCorriente']);
+        
+        // CU-04 Paso 4: Verificar operaciones activas pendientes
+        $operacionesPendientes = [];
+        
+        // Ventas pendientes
+        $ventasPendientes = $cliente->ventas()
+            ->whereHas('estado', function($q) {
+                $q->where('nombre', 'Pendiente');
+            })
+            ->count();
+        if ($ventasPendientes > 0) {
+            $operacionesPendientes[] = "Ventas pendientes de pago: {$ventasPendientes}";
+        }
+        
+        // Reparaciones en curso
+        $reparacionesPendientes = $cliente->reparaciones()
+            ->whereHas('estadoReparacion', function($q) {
+                $q->whereNotIn('nombre', ['Cancelada', 'Entregada']);
+            })
+            ->count();
+        if ($reparacionesPendientes > 0) {
+            $operacionesPendientes[] = "Reparaciones en curso: {$reparacionesPendientes}";
+        }
+        
+        // Deuda pendiente
+        if ($cliente->tieneDeudas()) {
+            $saldo = $cliente->cuentaCorriente->saldo ?? 0;
+            $operacionesPendientes[] = "Deuda pendiente: $" . number_format($saldo, 2);
+        }
         
         return Inertia::render('Clientes/ConfirmDelete', [
             'cliente' => $cliente,
-            'operacionesPendientes' => [], 
+            'operacionesPendientes' => $operacionesPendientes,
+            'puedeSerDadoDeBaja' => $cliente->puedeSerDadoDeBaja(),
         ]);
     }
 
@@ -271,11 +301,12 @@ class ClienteController extends Controller
             return response()->json([]);
         }
 
-        $clientes = Cliente::where('nombre', 'like', "%{$query}%")
+        $clientes = Cliente::with(['tipoCliente', 'cuentaCorriente.estadoCuentaCorriente'])
+            ->where('nombre', 'like', "%{$query}%")
             ->orWhere('apellido', 'like', "%{$query}%")
             ->orWhere('dni', 'like', "%{$query}%")
-            ->limit(20) // Traemos un poco más, 20 está bien
-            ->get(['clienteID', 'nombre', 'apellido', 'dni']); // Optimización: Solo columnas necesarias
+            ->limit(20)
+            ->get(['clienteID', 'nombre', 'apellido', 'dni', 'tipoClienteID', 'cuentaCorrienteID']);
 
         return response()->json($clientes);
     }

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use App\Models\EstadoCuentaCorriente;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +65,14 @@ class Cliente extends Model
         return $this->hasMany(Reparacion::class, 'clienteID', 'clienteID');
     }
 
+    /**
+     * Ventas del cliente.
+     */
+    public function ventas(): HasMany
+    {
+        return $this->hasMany(Venta::class, 'clienteID', 'clienteID');
+    }
+
     // --- ACCESORS (get...Attribute) ---
 
     public function getNombreCompletoAttribute(): string
@@ -117,19 +126,32 @@ class Cliente extends Model
 
     public function puedeSerDadoDeBaja(): bool
     {
-        // CU-04 Excepción 4a: No puede darse de baja si tiene deudas
+        // CU-04 Excepción 4a: No puede darse de baja si tiene operaciones activas pendientes
+        
+        // 1. Verificar deudas
         if ($this->tieneDeudas()) {
             return false;
         }
 
-        // Verificar si tiene ventas pendientes de entrega o pago
-        // (Descomentar cuando tengas el modelo Venta)
-        // $tieneVentasPendientes = $this->ventas()
-        //     ->whereIn('estadoVenta', ['Pendiente', 'En Proceso'])
-        //     ->exists();
-        // if ($tieneVentasPendientes) {
-        //     return false;
-        // }
+        // 2. Verificar ventas pendientes de pago
+        $tieneVentasPendientes = $this->ventas()
+            ->whereHas('estado', function($q) {
+                $q->where('nombre', 'Pendiente');
+            })
+            ->exists();
+        if ($tieneVentasPendientes) {
+            return false;
+        }
+
+        // 3. Verificar reparaciones en curso (CU-04 Paso 4)
+        $tieneReparacionesPendientes = $this->reparaciones()
+            ->whereHas('estadoReparacion', function($q) {
+                $q->whereNotIn('nombre', ['Cancelada', 'Entregada']);
+            })
+            ->exists();
+        if ($tieneReparacionesPendientes) {
+            return false;
+        }
 
         return true;
     }

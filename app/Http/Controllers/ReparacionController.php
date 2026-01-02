@@ -206,6 +206,8 @@ class ReparacionController extends Controller
             'diagnostico_tecnico' => 'nullable|string|max:2000',
             'observaciones' => 'nullable|string|max:1000',
             'tecnico_id' => 'nullable|exists:users,id',
+            'costo_mano_obra' => 'nullable|numeric|min:0',
+            'total_final' => 'nullable|numeric|min:0',
             // Validación de repuestos nuevos
             'repuestos' => 'nullable|array',
             'repuestos.*.producto_id' => 'required|exists:productos,id',

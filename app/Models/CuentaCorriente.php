@@ -124,6 +124,63 @@ class CuentaCorriente extends Model
     }
 
     /**
+     * Calcula los recargos por mora sobre saldos vencidos.
+     * 
+     * @return array ['total' => float, 'detalle' => array]
+     */
+    public function calcularRecargosMora(): array
+    {
+        $habilitado = Configuracion::getBool('recargo_mora_habilitado', false);
+        
+        if (!$habilitado) {
+            return ['total' => 0, 'detalle' => []];
+        }
+
+        $porcentajeMensual = (float) Configuracion::get('recargo_mora_porcentaje', 2.0);
+        $diasMinimos = (int) Configuracion::get('recargo_mora_minimo_dias', 30);
+        $diasGracia = $this->getDiasGraciaAplicables();
+        
+        $fechaLimite = Carbon::today()->subDays($diasGracia + $diasMinimos);
+        
+        // Obtener débitos vencidos que califican para recargo
+        $debitosVencidos = $this->movimientosCC()
+            ->where('tipoMovimiento', 'Debito')
+            ->whereNotNull('fechaVencimiento')
+            ->where('fechaVencimiento', '<=', $fechaLimite)
+            ->get();
+
+        $totalRecargo = 0;
+        $detalle = [];
+
+        foreach ($debitosVencidos as $movimiento) {
+            $diasAtraso = Carbon::parse($movimiento->fechaVencimiento)
+                ->addDays($diasGracia)
+                ->diffInDays(Carbon::today());
+            
+            if ($diasAtraso >= $diasMinimos) {
+                // Calcular recargo proporcional: (monto * porcentaje * meses)
+                $mesesAtraso = $diasAtraso / 30;
+                $recargo = $movimiento->monto * ($porcentajeMensual / 100) * $mesesAtraso;
+                
+                $totalRecargo += $recargo;
+                $detalle[] = [
+                    'movimientoID' => $movimiento->movimientoCCID,
+                    'monto_original' => $movimiento->monto,
+                    'dias_atraso' => $diasAtraso,
+                    'meses_atraso' => round($mesesAtraso, 2),
+                    'recargo' => $recargo,
+                    'descripcion' => $movimiento->descripcion,
+                ];
+            }
+        }
+
+        return [
+            'total' => round($totalRecargo, 2),
+            'detalle' => $detalle,
+        ];
+    }
+
+    /**
      * Obtiene el límite de crédito aplicable.
      * Busca en BD correctamente.
      */
@@ -164,6 +221,15 @@ class CuentaCorriente extends Model
             $this->estadoCuentaCorrienteID = $estadoBloqueada->estadoCuentaCorrienteID;
             $guardado = $this->save();
             
+            // IMPORTANTE: También bloquear al cliente asociado (Estado "Moroso")
+            if ($guardado && $this->cliente) {
+                $estadoClienteMoroso = \App\Models\EstadoCliente::where('nombreEstado', 'Moroso')->first();
+                if ($estadoClienteMoroso && $this->cliente->estadoClienteID !== $estadoClienteMoroso->estadoClienteID) {
+                    $this->cliente->estadoClienteID = $estadoClienteMoroso->estadoClienteID;
+                    $this->cliente->save();
+                }
+            }
+            
             // Paso 8 CU-09: Registrar bloqueo en auditoría
             if ($guardado) {
                 Auditoria::registrar(
@@ -190,6 +256,15 @@ class CuentaCorriente extends Model
             $estadoAnterior = $this->estadoCuentaCorrienteID;
             $this->estadoCuentaCorrienteID = $estadoActiva->estadoCuentaCorrienteID;
             $guardado = $this->save();
+            
+            // IMPORTANTE: También desbloquear al cliente asociado
+            if ($guardado && $this->cliente) {
+                $estadoClienteActivo = \App\Models\EstadoCliente::where('nombreEstado', 'Activo')->first();
+                if ($estadoClienteActivo && $this->cliente->estadoClienteID !== $estadoClienteActivo->estadoClienteID) {
+                    $this->cliente->estadoClienteID = $estadoClienteActivo->estadoClienteID;
+                    $this->cliente->save();
+                }
+            }
             
             // Paso 8 CU-09: Registrar desbloqueo en auditoría
             if ($guardado) {
