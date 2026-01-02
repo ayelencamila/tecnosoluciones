@@ -12,15 +12,19 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('clientes', function (Blueprint $table) {
-            $table->id('clienteID'); // Clave primaria personalizada
-            $table->string('nombre', 100)->nullable();
-            $table->string('apellido', 100)->nullable();
-            $table->string('DNI', 20)->unique();
+            $table->id('clienteID'); // Clave primaria subrogada 
+            
+            // Atributos obligatorios (Integridad de Dominio - RF1)
+            $table->string('nombre', 100); 
+            $table->string('apellido', 100);
+            $table->string('DNI', 20)->unique(); 
+            
+            // Atributos opcionales (Regla de negocio específica definida basada en requisitos del cliente)
             $table->string('mail', 255)->nullable();
-            $table->string('whatsapp', 20);
-            $table->string('telefono', 20);
+            $table->string('whatsapp', 20)->nullable(); 
+            $table->string('telefono', 20)->nullable(); 
 
-            // Claves foráneas (TODAS unsignedBigInteger)
+            // Claves foráneas
             $table->unsignedBigInteger('tipoClienteID');
             $table->foreign('tipoClienteID')->references('tipoClienteID')->on('tipos_cliente');
 
@@ -30,11 +34,11 @@ return new class extends Migration
             $table->unsignedBigInteger('direccionID')->nullable();
             $table->foreign('direccionID')->references('direccionID')->on('direcciones');
 
-            $table->unsignedBigInteger('cuentaCorrienteID')->nullable(); // Puede ser nulo
+            $table->unsignedBigInteger('cuentaCorrienteID')->nullable();
             $table->foreign('cuentaCorrienteID')->references('cuentaCorrienteID')->on('cuentas_corriente');
 
-            $table->timestamps(); // Columnas created_at y updated_at
-            $table->softDeletes(); // Columna deleted_at para soft deletes
+            $table->timestamps();
+            $table->softDeletes();
         });
     }
 
