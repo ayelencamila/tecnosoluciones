@@ -15,40 +15,43 @@ return new class extends Migration
             // PK personalizada
             $table->id('reparacionID'); 
 
-            // Relación con Cliente (según convención clienteID)
+            // Relación con Cliente
             $table->foreignId('clienteID')
                   ->constrained('clientes', 'clienteID')
-                  ->onDelete('restrict'); // No borrar cliente si tiene reparaciones
+                  ->onDelete('restrict'); 
 
             // Relación con Técnico (Usuario del sistema)
             $table->foreignId('tecnico_id')
-                  ->nullable() // Al inicio puede no tener técnico asignado
-                  ->constrained('users')
+                  ->nullable() 
+                  ->constrained('users') 
                   ->onDelete('restrict');
 
             // Relación con Estado de Reparación
             $table->foreignId('estado_reparacion_id')
-                  ->constrained('estados_reparacion', 'estadoReparacionID');
+                  ->constrained('estados_reparacion', 'estadoReparacionID')
+                  ->onDelete('restrict');
 
-            // Datos del Equipo (Requisitos IRQ-06)
-            $table->string('codigo_reparacion')->unique(); 
-            $table->string('numero_serie_imei')->nullable(); // Vital para seguridad
-            $table->string('clave_bloqueo')->nullable();     // Patrón/PIN
-            $table->text('accesorios_dejados')->nullable();  // Ej: "Funda, sin cargador"
-            $table->foreignId('marca_id')->constrained('marcas');
-            $table->foreignId('modelo_id')->constrained('modelos');
+            // Datos del Equipo
+            $table->string('codigo_reparacion', 50)->unique(); 
+            $table->string('numero_serie_imei', 100)->nullable(); 
+            $table->string('clave_bloqueo', 100)->nullable();
+            $table->text('accesorios_dejados')->nullable();
+
+            $table->foreignId('modelo_id')
+                  ->constrained('modelos') 
+                  ->onDelete('restrict');
             
             // Diagnóstico y Detalles
-            $table->text('falla_declarada');           // Lo que dice el cliente
-            $table->text('diagnostico_tecnico')->nullable(); // Lo que dice el técnico
-            $table->text('observaciones')->nullable();       // Notas internas
+            $table->text('falla_declarada');           
+            $table->text('diagnostico_tecnico')->nullable();
+            $table->text('observaciones')->nullable();
 
-            // Fechas para SLA y Control
+            // Fechas y SLA
             $table->dateTime('fecha_ingreso');
-            $table->dateTime('fecha_promesa')->nullable();      // SLA
-            $table->dateTime('fecha_entrega_real')->nullable(); // Cierre
+            $table->dateTime('fecha_promesa')->nullable();
+            $table->dateTime('fecha_entrega_real')->nullable();
 
-            // Totales (Opcional: para congelar el precio histórico)
+            // Totales (Desnormalización controlada para historial de precios)
             $table->decimal('costo_mano_obra', 10, 2)->default(0);
             $table->decimal('total_final', 10, 2)->default(0);
 
@@ -56,6 +59,7 @@ return new class extends Migration
             $table->boolean('anulada')->default(false);
 
             $table->timestamps();
+            $table->softDeletes(); // Importante para no perder historial
         });
     }
 
