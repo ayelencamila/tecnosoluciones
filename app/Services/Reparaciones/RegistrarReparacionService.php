@@ -37,8 +37,7 @@ class RegistrarReparacionService
                 'clienteID' => $datosValidados['clienteID'],
                 'tecnico_id' => null, 
                 'estado_reparacion_id' => $estadoInicial->estadoReparacionID,
-                'codigo_reparacion' => $codigoReparacion,
-                'marca_id' => $datosValidados['marca_id'],
+                'codigo_reparacion' => $codigoReparacion,               
                 'modelo_id' => $datosValidados['modelo_id'],
                 'numero_serie_imei' => $datosValidados['numero_serie_imei'] ?? null,
                 'clave_bloqueo' => $datosValidados['clave_bloqueo'] ?? null,
@@ -116,11 +115,9 @@ class RegistrarReparacionService
     private function descontarStock(Producto $producto, int $cantidad, Reparacion $reparacion, int $usuarioID): void
     {
         // 1. Obtener Tipo de Movimiento Dinámicamente (SIN HARDCODEO)
-        // Buscamos 'Salida (Venta)' que es el estándar definido en el Seeder para salidas.
         $tipoMovimiento = TipoMovimientoStock::where('nombre', 'Salida (Venta)')->first();
 
         if (!$tipoMovimiento) {
-            // Protección contra datos maestros faltantes
             throw new \Exception("Error de Configuración Crítico: No se encontró el tipo de movimiento 'Salida (Venta)' en la base de datos.");
         }
 
