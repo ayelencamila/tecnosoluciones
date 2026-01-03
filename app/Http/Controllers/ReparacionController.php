@@ -36,6 +36,8 @@ class ReparacionController extends Controller
     public function index(Request $request): Response
     {
         $filters = $request->only(['search', 'estado_id']);
+        
+        // 1. Cargamos 'modelo.marca' para acceder al nombre de la marca (3FN)
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'modelo.marca'])
             ->latest();
 
@@ -45,6 +47,7 @@ class ReparacionController extends Controller
             $query->where(function($q) use ($search) {
                 $q->where('codigo_reparacion', 'like', "%{$search}%")
                   ->orWhere('numero_serie_imei', 'like', "%{$search}%")
+                  // Búsqueda inteligente a través de relaciones
                   ->orWhereHas('modelo.marca', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
                   ->orWhereHas('modelo', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
                   ->orWhereHas('cliente', function($c) use ($search) {
@@ -71,6 +74,7 @@ class ReparacionController extends Controller
                     'nombre_completo' => "{$r->cliente->apellido}, {$r->cliente->nombre}",
                     'telefono' => $r->cliente->whatsapp ?? $r->cliente->telefono ?? '-',
                 ],
+                // Mapeo correcto: Marca a través del Modelo
                 'equipo' => ($r->modelo->marca->nombre ?? 'N/A') . ' ' . ($r->modelo->nombre ?? ''),
                 
                 'falla' => \Illuminate\Support\Str::limit($r->falla_declarada, 30),
@@ -122,6 +126,7 @@ class ReparacionController extends Controller
         } catch (\Exception $e) {
             // Error técnico inesperado
             Log::error("Error al registrar reparación: " . $e->getMessage());
+            
             return back()
                 ->withErrors(['error' => 'Ocurrió un error al procesar la solicitud. Por favor intente nuevamente.'])
                 ->withInput();
@@ -153,6 +158,7 @@ class ReparacionController extends Controller
      */
     public function edit($id): Response
     {
+        // 1. Cargamos modelo.marca para pre-llenar los selects
         $reparacion = Reparacion::with(['cliente', 'repuestos.producto', 'modelo.marca'])->findOrFail($id);
 
         // Lógica de filtrado de productos (Repuestos/Insumos)
@@ -182,6 +188,7 @@ class ReparacionController extends Controller
                 'nombre' => $p->nombre,
                 'stock_total' => $p->stock_total 
             ]),
+            'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
         ]);
     }
 
@@ -190,6 +197,7 @@ class ReparacionController extends Controller
      */
     public function update(Request $request, $id, ActualizarReparacionService $service): RedirectResponse
     {
+        // Validamos también los campos del equipo por si se corrigieron
         $validated = $request->validate([
             'estado_reparacion_id' => 'required|exists:estados_reparacion,estadoReparacionID',
             'diagnostico_tecnico' => 'nullable|string|max:2000',
@@ -197,6 +205,16 @@ class ReparacionController extends Controller
             'tecnico_id' => 'nullable|exists:users,id',
             'costo_mano_obra' => 'nullable|numeric|min:0',
             'total_final' => 'nullable|numeric|min:0',
+            
+            // Campos de equipo (Opcionales en edición, pero si vienen se validan)
+            'modelo_id' => 'nullable|exists:modelos,id',
+            'numero_serie_imei' => 'nullable|string|max:100',
+            'clave_bloqueo' => 'nullable|string|max:50',
+            'accesorios_dejados' => 'nullable|string|max:500',
+            'falla_declarada' => 'nullable|string|max:1000',
+            'fecha_promesa' => 'nullable|date',
+
+            // Repuestos
             'repuestos' => 'nullable|array',
             'repuestos.*.producto_id' => 'required|exists:productos,id',
             'repuestos.*.cantidad' => 'required|integer|min:1',

@@ -7,7 +7,8 @@ use App\Models\DetalleReparacion;
 use App\Models\Producto;
 use App\Models\Stock;
 use App\Models\MovimientoStock;
-use App\Models\EstadoReparacion; // Importante importar el modelo
+use App\Models\EstadoReparacion;
+use App\Models\TipoMovimientoStock; 
 use App\Exceptions\Ventas\SinStockException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,7 +17,6 @@ class ActualizarReparacionService
 {
     /**
      * Mapa de Transiciones Válidas (Máquina de Estados)
-     * Define el flujo de negocio permitido usando constantes referenciales.
      */
     private const TRANSICIONES_VALIDAS = [
         EstadoReparacion::RECIBIDO => [
@@ -34,7 +34,7 @@ class ActualizarReparacionService
             EstadoReparacion::LISTO, 
             EstadoReparacion::ESPERANDO_REPUESTO, 
             EstadoReparacion::DEMORADO, 
-            EstadoReparacion::DIAGNOSTICO // Retroceso permitido si el diagnóstico inicial falló
+            EstadoReparacion::DIAGNOSTICO
         ],
         EstadoReparacion::ESPERANDO_REPUESTO => [
             EstadoReparacion::EN_REPARACION, 
@@ -47,9 +47,9 @@ class ActualizarReparacionService
         ],
         EstadoReparacion::LISTO => [
             EstadoReparacion::ENTREGADO, 
-            EstadoReparacion::EN_REPARACION // Retroceso por garantía interna o falla en control de calidad
+            EstadoReparacion::EN_REPARACION
         ],
-        // Estados Finales (No tienen salida)
+        // Estados Finales
         EstadoReparacion::ENTREGADO => [],
         EstadoReparacion::CANCELADO => [],
         EstadoReparacion::ANULADO   => [],
@@ -57,16 +57,15 @@ class ActualizarReparacionService
 
     public function handle(Reparacion $reparacion, array $datos, int $userId): Reparacion
     {
-        // 1. Validar si la reparación permite modificaciones (Estado Final)
+        // 1. Validar Estado Final
         if ($this->esEstadoFinal($reparacion->estado->nombreEstado)) {
             throw new \Exception("La reparación está en estado '{$reparacion->estado->nombreEstado}' y no admite más modificaciones.");
         }
 
-        // 2. Validar Transición de Estado (solo si cambia el estado)
+        // 2. Validar Transición de Estado
         $nuevoEstadoId = $datos['estado_reparacion_id'];
         $nuevoEstado = EstadoReparacion::findOrFail($nuevoEstadoId);
         
-        // Solo validar transición si el estado realmente cambió
         if ($reparacion->estado_reparacion_id != $nuevoEstadoId) {
             if (!$this->esTransicionValida($reparacion->estado->nombreEstado, $nuevoEstado->nombreEstado)) {
                 throw new \Exception("Transición de estado inválida: No se puede pasar de '{$reparacion->estado->nombreEstado}' a '{$nuevoEstado->nombreEstado}'.");
@@ -75,29 +74,37 @@ class ActualizarReparacionService
 
         return DB::transaction(function () use ($reparacion, $datos, $nuevoEstado, $userId) {
             
-            // 3. Actualizar Cabecera
+            // 3. Actualizar Cabecera 
             $reparacion->update([
+                // Gestión
                 'estado_reparacion_id' => $nuevoEstado->estadoReparacionID,
-                'diagnostico_tecnico' => $datos['diagnostico_tecnico'] ?? $reparacion->diagnostico_tecnico,
-                'observaciones' => $datos['observaciones'] ?? $reparacion->observaciones,
-                'tecnico_id' => $datos['tecnico_id'] ?? $reparacion->tecnico_id ?? $userId,
-                'costo_mano_obra' => $datos['costo_mano_obra'] ?? $reparacion->costo_mano_obra,
-                'total_final' => $datos['total_final'] ?? $reparacion->total_final,
+                'diagnostico_tecnico'  => $datos['diagnostico_tecnico'] ?? $reparacion->diagnostico_tecnico,
+                'observaciones'        => $datos['observaciones'] ?? $reparacion->observaciones,
+                'tecnico_id'           => $datos['tecnico_id'] ?? $reparacion->tecnico_id ?? $userId,
+                'costo_mano_obra'      => $datos['costo_mano_obra'] ?? $reparacion->costo_mano_obra,
+                'total_final'          => $datos['total_final'] ?? $reparacion->total_final,
+                
+                // Datos del Equipo (Corrección de Ingreso)
+                'modelo_id'            => $datos['modelo_id'] ?? $reparacion->modelo_id,
+                'numero_serie_imei'    => $datos['numero_serie_imei'] ?? $reparacion->numero_serie_imei,
+                'clave_bloqueo'        => $datos['clave_bloqueo'] ?? $reparacion->clave_bloqueo,
+                'accesorios_dejados'   => $datos['accesorios_dejados'] ?? $reparacion->accesorios_dejados,
+                'falla_declarada'      => $datos['falla_declarada'] ?? $reparacion->falla_declarada,
+                'fecha_promesa'        => $datos['fecha_promesa'] ?? $reparacion->fecha_promesa,
             ]);
 
             // 4. Procesar Nuevos Repuestos
             if (!empty($datos['repuestos'])) {
                 foreach ($datos['repuestos'] as $item) {
-                    $this->agregarRepuesto($reparacion, $item);
+                    $this->agregarRepuesto($reparacion, $item, $userId);
                 }
             }
 
-            // 5. Lógica de Cierre (Si pasa a Entregado)
+            // 5. Lógica de Cierre
             if ($nuevoEstado->nombreEstado === EstadoReparacion::ENTREGADO && !$reparacion->fecha_entrega_real) {
                 $reparacion->update(['fecha_entrega_real' => now()]);
             }
 
-            // 6. Log de Auditoría
             Log::info("Reparación #{$reparacion->codigo_reparacion} actualizada a '{$nuevoEstado->nombreEstado}' por User ID: {$userId}");
 
             return $reparacion;
@@ -115,41 +122,51 @@ class ActualizarReparacionService
 
     private function esTransicionValida(string $estadoActual, string $estadoNuevo): bool
     {
-        if ($estadoActual === $estadoNuevo) {
-            return true;
-        }
-
+        if ($estadoActual === $estadoNuevo) return true;
         $posibles = self::TRANSICIONES_VALIDAS[$estadoActual] ?? [];
-        
-        if (empty($posibles)) return false; 
-
         return in_array($estadoNuevo, $posibles);
     }
 
-    private function agregarRepuesto(Reparacion $reparacion, array $itemData): void
+    private function agregarRepuesto(Reparacion $reparacion, array $itemData, int $userId): void
     {
         $producto = Producto::findOrFail($itemData['producto_id']);
         $cantidad = $itemData['cantidad'];
 
         // Validar Stock y Descontar (Si es físico)
         if ($producto->unidadMedida !== 'Servicio') {
-            if (!$producto->tieneStock($cantidad)) {
-                throw new SinStockException($producto->nombre, $cantidad, $producto->stock_total);
+            
+            // 1. Obtener Tipo de Movimiento Dinámicamente
+            $tipoMovimiento = TipoMovimientoStock::where('nombre', 'Salida (Venta)')->first();
+            if (!$tipoMovimiento) {
+                throw new \Exception("Error de Configuración: No se encontró el tipo de movimiento 'Salida (Venta)'.");
             }
 
-            $stockRegistro = Stock::where('productoID', $producto->id)->firstOrFail();
+            // 2. Bloqueo Pesimista (ACID)
+            $stockRegistro = Stock::where('productoID', $producto->id)
+                                  ->lockForUpdate()
+                                  ->firstOrFail();
+
+            if ($stockRegistro->cantidad_disponible < $cantidad) {
+                throw new SinStockException($producto->nombre, $cantidad, $stockRegistro->cantidad_disponible);
+            }
+
             $stockAnterior = $stockRegistro->cantidad_disponible;
             $stockRegistro->decrement('cantidad_disponible', $cantidad);
 
             MovimientoStock::create([
                 'productoID' => $producto->id,
+                'deposito_id' => $stockRegistro->deposito_id,
                 'tipoMovimiento' => 'SALIDA',
+                'tipo_movimiento_id' => $tipoMovimiento->id,
                 'cantidad' => $cantidad,
+                'signo' => $tipoMovimiento->signo,
                 'stockAnterior' => $stockAnterior,
                 'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
                 'motivo' => 'Repuesto en Reparación ' . $reparacion->codigo_reparacion,
                 'referenciaID' => $reparacion->reparacionID,
                 'referenciaTabla' => 'reparaciones',
+                'user_id' => $userId,
+                'fecha_movimiento' => now()
             ]);
         }
 
