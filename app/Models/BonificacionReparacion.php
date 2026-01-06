@@ -145,18 +145,8 @@ class BonificacionReparacion extends Model
             'observaciones_decision' => $observaciones,
         ]);
 
-        // Actualizar estado de la reparación según decisión
-        if ($decision === 'aceptar') {
-            // Cliente acepta continuar con la reparación y la bonificación
-            $this->reparacion->update([
-                'estadoReparacionID' => 2, // "En Reparación" - ajustar según tu sistema
-            ]);
-        } elseif ($decision === 'cancelar') {
-            // Cliente cancela/retira la reparación
-            $this->reparacion->update([
-                'estadoReparacionID' => 5, // "Listo para retiro" - ajustar según tu sistema
-            ]);
-        }
+        // Disparar evento para que el listener procese la decisión
+        event(new \App\Events\ClienteRespondioBonificacion($this, $decision));
     }
 
     /**
