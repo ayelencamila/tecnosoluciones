@@ -8,7 +8,8 @@ use App\Models\Producto;
 use App\Models\Stock;
 use App\Models\MovimientoStock;
 use App\Models\EstadoReparacion;
-use App\Models\TipoMovimientoStock; 
+use App\Models\TipoMovimientoStock;
+use App\Models\Auditoria; 
 use App\Exceptions\Ventas\SinStockException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -16,58 +17,43 @@ use Illuminate\Support\Facades\Log;
 class ActualizarReparacionService
 {
     /**
-     * Mapa de Transiciones Válidas (Máquina de Estados)
+     * Mapa de Transiciones Válidas por ID de Estado (dinámico según BD)
+     * 
+     * Basado en los estados del seeder:
+     * 1 = Recibido → puede ir a cualquier estado excepto Entregado (necesita pasar por Reparado)
+     * 2 = Diagnóstico → puede avanzar en el flujo
+     * 3 = Presupuestado → puede avanzar o anularse
+     * 4 = En Reparación → puede completarse o pausarse
+     * 5 = Espera de Repuesto → puede reanudarse o anularse
+     * 6 = Reparado → solo puede entregarse
+     * 7 = Entregado (estado final)
+     * 8 = Anulado (estado final)
      */
     private const TRANSICIONES_VALIDAS = [
-        EstadoReparacion::RECIBIDO => [
-            EstadoReparacion::DIAGNOSTICO, 
-            EstadoReparacion::CANCELADO, 
-            EstadoReparacion::ANULADO
-        ],
-        EstadoReparacion::DIAGNOSTICO => [
-            EstadoReparacion::EN_REPARACION, 
-            EstadoReparacion::ESPERANDO_REPUESTO, 
-            EstadoReparacion::CANCELADO, 
-            EstadoReparacion::ANULADO
-        ],
-        EstadoReparacion::EN_REPARACION => [
-            EstadoReparacion::LISTO, 
-            EstadoReparacion::ESPERANDO_REPUESTO, 
-            EstadoReparacion::DEMORADO, 
-            EstadoReparacion::DIAGNOSTICO
-        ],
-        EstadoReparacion::ESPERANDO_REPUESTO => [
-            EstadoReparacion::EN_REPARACION, 
-            EstadoReparacion::CANCELADO
-        ],
-        EstadoReparacion::DEMORADO => [
-            EstadoReparacion::EN_REPARACION, 
-            EstadoReparacion::LISTO, 
-            EstadoReparacion::CANCELADO
-        ],
-        EstadoReparacion::LISTO => [
-            EstadoReparacion::ENTREGADO, 
-            EstadoReparacion::EN_REPARACION
-        ],
-        // Estados Finales
-        EstadoReparacion::ENTREGADO => [],
-        EstadoReparacion::CANCELADO => [],
-        EstadoReparacion::ANULADO   => [],
+        1 => [2, 3, 4, 5, 6, 8], // Recibido → todos excepto Entregado y él mismo
+        2 => [3, 4, 5, 6, 8],    // Diagnóstico → puede avanzar o anular
+        3 => [4, 5, 6, 8],       // Presupuestado → puede avanzar o anular
+        4 => [2, 5, 6, 8],       // En Reparación → puede volver a Diagnóstico, pausarse, completarse o anular
+        5 => [4, 6, 8],          // Espera de Repuesto → puede reanudarse, completarse o anular
+        6 => [7],                // Reparado → solo Entregado
+        7 => [],                 // Entregado (estado final)
+        8 => [],                 // Anulado (estado final)
     ];
 
     public function handle(Reparacion $reparacion, array $datos, int $userId): Reparacion
     {
-        // 1. Validar Estado Final
-        if ($this->esEstadoFinal($reparacion->estado->nombreEstado)) {
+        // 1. Validar Estado Final usando el método del modelo
+        if ($reparacion->estado->esFinal()) {
             throw new \Exception("La reparación está en estado '{$reparacion->estado->nombreEstado}' y no admite más modificaciones.");
         }
 
-        // 2. Validar Transición de Estado
+        // 2. Validar Transición de Estado usando IDs (respeta la BD)
+        $estadoActualId = $reparacion->estado_reparacion_id;
         $nuevoEstadoId = $datos['estado_reparacion_id'];
         $nuevoEstado = EstadoReparacion::findOrFail($nuevoEstadoId);
         
-        if ($reparacion->estado_reparacion_id != $nuevoEstadoId) {
-            if (!$this->esTransicionValida($reparacion->estado->nombreEstado, $nuevoEstado->nombreEstado)) {
+        if ($estadoActualId != $nuevoEstadoId) {
+            if (!$this->esTransicionValidaPorId($estadoActualId, $nuevoEstadoId)) {
                 throw new \Exception("Transición de estado inválida: No se puede pasar de '{$reparacion->estado->nombreEstado}' a '{$nuevoEstado->nombreEstado}'.");
             }
         }
@@ -100,10 +86,32 @@ class ActualizarReparacionService
                 }
             }
 
-            // 5. Lógica de Cierre
-            if ($nuevoEstado->nombreEstado === EstadoReparacion::ENTREGADO && !$reparacion->fecha_entrega_real) {
+            // 5. Lógica de Cierre (ID 7 = Entregado según BD)
+            if ($nuevoEstado->estadoReparacionID == 7 && !$reparacion->fecha_entrega_real) {
                 $reparacion->update(['fecha_entrega_real' => now()]);
             }
+
+            // 6. CU-12 Paso 10: Registrar operación en el historial de operaciones
+            Auditoria::registrar(
+                accion: Auditoria::ACCION_ACTUALIZAR_REPARACION,
+                tabla: 'reparaciones',
+                registroId: $reparacion->reparacionID,
+                datosAnteriores: [
+                    'estado_anterior' => $reparacion->getOriginal('estado_reparacion_id'),
+                    'diagnostico_anterior' => $reparacion->getOriginal('diagnostico_tecnico'),
+                ],
+                datosNuevos: [
+                    'estado_nuevo' => $nuevoEstado->estadoReparacionID,
+                    'estado_nombre' => $nuevoEstado->nombreEstado,
+                    'diagnostico_nuevo' => $datos['diagnostico_tecnico'] ?? null,
+                    'repuestos_agregados' => count($datos['repuestos'] ?? []),
+                ],
+                motivo: "Actualización de reparación {$reparacion->codigo_reparacion}",
+                detalles: "Estado cambiado a: {$nuevoEstado->nombreEstado}" . 
+                          (isset($datos['diagnostico_tecnico']) ? " | Diagnóstico actualizado" : "") .
+                          (!empty($datos['repuestos']) ? " | " . count($datos['repuestos']) . " repuestos agregados" : ""),
+                usuarioId: $userId
+            );
 
             Log::info("Reparación #{$reparacion->codigo_reparacion} actualizada a '{$nuevoEstado->nombreEstado}' por User ID: {$userId}");
 
@@ -111,20 +119,14 @@ class ActualizarReparacionService
         });
     }
 
-    private function esEstadoFinal(string $estadoActual): bool
+    /**
+     * Valida si la transición entre estados es válida usando IDs (respeta BD)
+     */
+    private function esTransicionValidaPorId(int $estadoActualId, int $nuevoEstadoId): bool
     {
-        return in_array($estadoActual, [
-            EstadoReparacion::ENTREGADO, 
-            EstadoReparacion::CANCELADO, 
-            EstadoReparacion::ANULADO
-        ]);
-    }
-
-    private function esTransicionValida(string $estadoActual, string $estadoNuevo): bool
-    {
-        if ($estadoActual === $estadoNuevo) return true;
-        $posibles = self::TRANSICIONES_VALIDAS[$estadoActual] ?? [];
-        return in_array($estadoNuevo, $posibles);
+        if ($estadoActualId === $nuevoEstadoId) return true;
+        $posibles = self::TRANSICIONES_VALIDAS[$estadoActualId] ?? [];
+        return in_array($nuevoEstadoId, $posibles);
     }
 
     private function agregarRepuesto(Reparacion $reparacion, array $itemData, int $userId): void

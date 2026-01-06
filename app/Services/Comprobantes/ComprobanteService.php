@@ -347,4 +347,103 @@ class ComprobanteService
             'fecha_emision' => now()->format('d/m/Y H:i:s'),
         ];
     }
+
+    /**
+     * Prepara los datos del comprobante de entrega de reparación
+     * 
+     * CU-12 Paso 9: "Si el nuevo estado es 'Entregado', emite un comprobante interno de entrega"
+     * 
+     * Objetivos de Kendall aplicados:
+     * 1. Servir al propósito: Constancia de entrega del dispositivo reparado
+     * 2. Ajustar al usuario: Cliente necesita ver qué se le entregó, qué se hizo y cuánto debe pagar
+     * 3. Cantidad adecuada: Diagnóstico, repuestos utilizados, costos y totales
+     * 4. Proveer a tiempo: Se genera inmediatamente al marcar como "Entregado"
+     * 
+     * @param \App\Models\Reparacion $reparacion Entidad con la información de la reparación completada
+     * @return array Datos estructurados para la vista
+     */
+    public function prepararDatosComprobanteEntrega($reparacion): array
+    {
+        // Información CONSTANTE (datos de la empresa)
+        $datosEmpresa = [
+            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
+            'direccion' => Configuracion::get('direccion_empresa', ''),
+            'telefono' => Configuracion::get('telefono_empresa', ''),
+            'email' => Configuracion::get('email_empresa', ''),
+            'cuit' => Configuracion::get('cuit_empresa', ''),
+        ];
+
+        // Información VARIABLE (datos de la reparación)
+        $reparacion->load(['cliente', 'tecnico', 'estado', 'modelo.marca', 'repuestos.producto']);
+        
+        // Preparar detalles de repuestos (Kendall: evitar códigos confusos, usar descripciones)
+        $repuestos = $reparacion->repuestos->map(function($detalle) {
+            return [
+                'descripcion' => $detalle->producto->nombre ?? 'Repuesto',
+                'cantidad' => $detalle->cantidad,
+                'precio_unitario' => $detalle->precio_unitario,
+                'subtotal' => $detalle->subtotal,
+            ];
+        })->toArray();
+
+        // Calcular totales (Kendall: subtotales útiles)
+        $totalRepuestos = $reparacion->repuestos->sum('subtotal');
+        $manoObra = $reparacion->costo_mano_obra ?? 0;
+        $totalFinal = $reparacion->total_final ?? ($totalRepuestos + $manoObra);
+
+        return [
+            // Información CONSTANTE
+            'empresa' => $datosEmpresa,
+            
+            // Información VARIABLE - Encabezado del Comprobante
+            'comprobante' => [
+                'codigo' => $reparacion->codigo_reparacion,
+                'fecha_ingreso' => $reparacion->fecha_ingreso->format('d/m/Y'),
+                'fecha_entrega' => $reparacion->fecha_entrega_real 
+                    ? $reparacion->fecha_entrega_real->format('d/m/Y H:i') 
+                    : now()->format('d/m/Y H:i'),
+            ],
+            
+            // Cliente (Kendall: información comprensible)
+            'cliente' => [
+                'nombre_completo' => $reparacion->cliente 
+                    ? "{$reparacion->cliente->apellido}, {$reparacion->cliente->nombre}"
+                    : 'Sin especificar',
+                'dni' => $reparacion->cliente->DNI ?? '',
+                'telefono' => $reparacion->cliente->whatsapp ?? $reparacion->cliente->telefono ?? 'No especificado',
+            ],
+            
+            // Técnico responsable
+            'tecnico' => $reparacion->tecnico->name ?? 'Sin asignar',
+            
+            // Equipo (Kendall: evitar códigos confusos)
+            'equipo' => [
+                'marca' => $reparacion->modelo->marca->nombre ?? 'N/A',
+                'modelo' => $reparacion->modelo->nombre ?? 'N/A',
+                'imei_serie' => $reparacion->numero_serie_imei ?? 'No especificado',
+            ],
+            
+            // Diagnóstico y trabajo realizado (Kendall: contenido del informe)
+            'falla_original' => $reparacion->falla_declarada,
+            'diagnostico' => $reparacion->diagnostico_tecnico ?? 'Sin diagnóstico registrado',
+            'observaciones' => $reparacion->observaciones,
+            
+            // Repuestos utilizados (Kendall: alineación de campos + subtotales)
+            'repuestos' => $repuestos,
+            
+            // Totales (Kendall: alineación a la derecha para montos)
+            'totales' => [
+                'total_repuestos' => $totalRepuestos,
+                'mano_obra' => $manoObra,
+                'total_final' => $totalFinal,
+            ],
+            
+            // Estado
+            'estado' => $reparacion->estado->nombreEstado ?? 'Entregado',
+            
+            // Metadata
+            'fecha_emision' => now()->format('d/m/Y H:i:s'),
+        ];
+    }
 }
+

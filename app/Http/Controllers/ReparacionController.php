@@ -182,6 +182,31 @@ class ReparacionController extends Controller
     }
 
     /**
+     * Imprimir Comprobante de Entrega de Reparación
+     * CU-12 Paso 9: "Si el nuevo estado es 'Entregado', emite un comprobante interno de entrega"
+     * 
+     * @param int $id ID de la reparación
+     * @param ComprobanteService $service Servicio para preparar datos
+     * @return \Illuminate\View\View Vista del comprobante lista para imprimir
+     */
+    public function imprimirComprobanteEntrega($id, ComprobanteService $service)
+    {
+        $reparacion = Reparacion::with([
+            'cliente', 
+            'tecnico', 
+            'estado', 
+            'modelo.marca',
+            'repuestos.producto'
+        ])->findOrFail($id);
+
+        // Preparar datos siguiendo lineamientos de Kendall (Información constante vs variable)
+        $datos = $service->prepararDatosComprobanteEntrega($reparacion);
+
+        // Retornar vista Blade optimizada para impresión con window.print()
+        return view('comprobantes.comprobante-entrega-reparacion', $datos);
+    }
+
+    /**
      * CU-12 (Parte 1): Formulario de Edición
      */
     public function edit($id): Response
