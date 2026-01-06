@@ -16,7 +16,9 @@ class StoreReparacionRequest extends FormRequest
         return [
             // Cliente (Validamos que exista)
             'clienteID' => ['required', 'exists:clientes,clienteID'],
-           
+            
+            // Técnico (CU-11 Paso 5: Asignación obligatoria)
+            'tecnico_id' => ['required', 'exists:users,id'],
 
             'marca_id' => ['required', 'exists:marcas,id'],
             'modelo_id' => ['required', 'exists:modelos,id'],
@@ -47,6 +49,7 @@ class StoreReparacionRequest extends FormRequest
             'marca_id.required' => 'Debes seleccionar una marca de la lista.',
             'modelo_id.required' => 'Debes seleccionar un modelo válido.',
             'clienteID.required' => 'Es obligatorio asignar un cliente.',
+            'tecnico_id.required' => 'Debes asignar un técnico responsable de la reparación.',
         ];
     }
 }

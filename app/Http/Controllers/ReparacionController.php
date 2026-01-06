@@ -24,6 +24,7 @@ use App\Http\Requests\Reparaciones\AnularReparacionRequest;
 use App\Services\Reparaciones\RegistrarReparacionService;
 use App\Services\Reparaciones\ActualizarReparacionService;
 use App\Services\Reparaciones\AnularReparacionService;
+use App\Services\Comprobantes\ComprobanteService;
 
 // Excepciones
 use App\Exceptions\Ventas\SinStockException;
@@ -101,6 +102,7 @@ class ReparacionController extends Controller
             'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->orderBy('apellido')->get(),
             'productos' => Producto::where('estadoProductoID', 1)->get(),
             'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
+            'tecnicos' => \App\Models\User::orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -116,8 +118,10 @@ class ReparacionController extends Controller
                 $request->user()->id
             );
 
-            return redirect()->route('reparaciones.index')
-                ->with('success', "Reparación registrada con éxito. Código: {$reparacion->codigo_reparacion}");
+            // CU-11 Paso 11: Redirigir al detalle para presentar el comprobante generado
+            return redirect()->route('reparaciones.show', $reparacion->reparacionID)
+                ->with('success', "Reparación registrada con éxito. Código: {$reparacion->codigo_reparacion}")
+                ->with('mostrar_comprobante', true); // Flag para mostrar modal/alerta de impresión
 
         } catch (SinStockException $e) {
             // Error de negocio: Falta stock de repuestos
@@ -151,6 +155,30 @@ class ReparacionController extends Controller
         return Inertia::render('Reparaciones/Show', [
             'reparacion' => $reparacion
         ]);
+    }
+
+    /**
+     * Imprimir Comprobante de Ingreso de Reparación
+     * CU-11 Paso 11: "Confirma el registro exitoso de la reparación y presenta el comprobante generado"
+     * 
+     * @param int $id ID de la reparación
+     * @param ComprobanteService $service Servicio para preparar datos
+     * @return \Illuminate\View\View Vista del comprobante lista para imprimir
+     */
+    public function imprimirComprobanteIngreso($id, ComprobanteService $service)
+    {
+        $reparacion = Reparacion::with([
+            'cliente', 
+            'tecnico', 
+            'estado', 
+            'modelo.marca'
+        ])->findOrFail($id);
+
+        // Preparar datos siguiendo lineamientos de Kendall
+        $datos = $service->prepararDatosComprobanteIngresoReparacion($reparacion);
+
+        // Retornar vista Blade optimizada para impresión con window.print()
+        return view('comprobantes.comprobante-ingreso-reparacion', $datos);
     }
 
     /**

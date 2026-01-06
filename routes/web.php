@@ -244,6 +244,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/crear', [ReparacionController::class, 'create'])->name('create');
         Route::post('/', [ReparacionController::class, 'store'])->name('store');
         Route::get('/{reparacion}', [ReparacionController::class, 'show'])->name('show');
+        Route::get('/{reparacion}/imprimir-ingreso', [ReparacionController::class, 'imprimirComprobanteIngreso'])->name('imprimir-ingreso');
         Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])->name('edit');
         Route::put('/{reparacion}', [ReparacionController::class, 'update'])->name('update');
         Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])->name('destroy');

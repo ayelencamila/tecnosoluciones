@@ -14,11 +14,13 @@ import { debounce } from 'lodash';
 const props = defineProps({
     productos: Array, 
     marcas: Array,
+    tecnicos: Array, // CU-11 Paso 5: Lista de técnicos disponibles
     errors: Object 
 });
 
 const form = useForm({
     clienteID: '',
+    tecnico_id: '', // CU-11 Paso 5: Técnico asignado (obligatorio)
     marca_id: '',
     modelo_id: '',
     numero_serie_imei: '',
@@ -270,6 +272,22 @@ const submit = () => {
                                         </div>
                                     </div>
                                     <InputError :message="form.errors.modelo_id" class="mt-2" />
+                                </div>
+
+                                <!-- CU-11 Paso 5: Asignación de Técnico (Kendall: Variedad de controles - Select) -->
+                                <div>
+                                    <InputLabel for="tecnico_id" value="Técnico Asignado *" />
+                                    <select 
+                                        id="tecnico_id" 
+                                        name="tecnico_id"
+                                        v-model="form.tecnico_id" 
+                                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                                    >
+                                        <option value="" disabled>Selecciona un técnico</option>
+                                        <option v-for="tecnico in tecnicos" :key="tecnico.id" :value="tecnico.id">{{ tecnico.name }}</option>
+                                    </select>
+                                    <InputError :message="form.errors.tecnico_id" class="mt-2" />
+                                    <p class="mt-1 text-xs text-gray-500">Técnico responsable del diagnóstico y reparación</p>
                                 </div>
 
                                 <div><InputLabel for="numero_serie_imei" value="Nro. Serie / IMEI" /><TextInput id="numero_serie_imei" name="imei" v-model="form.numero_serie_imei" type="text" class="mt-1 block w-full" /></div>

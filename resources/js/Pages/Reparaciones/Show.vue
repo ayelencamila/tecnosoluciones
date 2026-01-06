@@ -35,6 +35,10 @@ const getEstadoColor = (nombre) => {
     if (n.includes('diagn')) return 'text-purple-800 bg-purple-100 border border-purple-200';
     return 'text-blue-800 bg-blue-100 border border-blue-200';
 };
+
+const imprimirComprobanteIngreso = () => {
+    window.open(route('reparaciones.imprimir-ingreso', props.reparacion.reparacionID), '_blank');
+};
 </script>
 
 <template>
@@ -58,6 +62,9 @@ const getEstadoColor = (nombre) => {
                 <div class="flex justify-between items-center">
                     <Link :href="route('reparaciones.index')"><SecondaryButton> &larr; Volver al Listado </SecondaryButton></Link>
                     <div class="space-x-3">
+                        <SecondaryButton @click="imprimirComprobanteIngreso" class="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100">
+                            🖨️ Comprobante de Ingreso
+                        </SecondaryButton>
                         <DangerButton v-if="!['Cancelado', 'Anulado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" @click="showDeleteModal = true">Anular Reparación</DangerButton>
                         <Link v-if="!['Cancelado', 'Anulado'].includes(reparacion.estado?.nombreEstado)" :href="route('reparaciones.edit', reparacion.reparacionID)"><PrimaryButton> Actualizar / Diagnosticar </PrimaryButton></Link>
                     </div>

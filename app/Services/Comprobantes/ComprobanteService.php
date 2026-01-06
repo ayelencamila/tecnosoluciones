@@ -273,4 +273,78 @@ class ComprobanteService
             'fecha_emision' => now()->format('d/m/Y H:i:s'),
         ];
     }
+
+    /**
+     * Prepara los datos del comprobante de ingreso de reparación
+     * 
+     * CU-11 Paso 9: "Emite un comprobante interno de ingreso de la reparación"
+     * 
+     * Objetivos de Kendall aplicados:
+     * 1. Servir al propósito: Constancia de recepción del dispositivo
+     * 2. Ajustar al usuario: Cliente necesita saber qué dejó y cuándo
+     * 3. Cantidad adecuada: Datos del dispositivo, falla, fecha promesa
+     * 4. Proveer a tiempo: Se genera inmediatamente después del registro
+     * 
+     * @param \App\Models\Reparacion $reparacion Entidad con la información de la reparación
+     * @return array Datos estructurados para la vista
+     */
+    public function prepararDatosComprobanteIngresoReparacion($reparacion): array
+    {
+        // Información CONSTANTE (datos de la empresa)
+        $datosEmpresa = [
+            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
+            'direccion' => Configuracion::get('direccion_empresa', ''),
+            'telefono' => Configuracion::get('telefono_empresa', ''),
+            'email' => Configuracion::get('email_empresa', ''),
+            'cuit' => Configuracion::get('cuit_empresa', ''),
+        ];
+
+        // Información VARIABLE (datos de la reparación)
+        $reparacion->load(['cliente', 'tecnico', 'estado', 'modelo.marca']);
+        
+        return [
+            // Información CONSTANTE
+            'empresa' => $datosEmpresa,
+            
+            // Información VARIABLE - Encabezado del Comprobante
+            'comprobante' => [
+                'codigo' => $reparacion->codigo_reparacion,
+                'fecha_ingreso' => $reparacion->fecha_ingreso->format('d/m/Y H:i'),
+                'fecha_promesa' => $reparacion->fecha_promesa 
+                    ? $reparacion->fecha_promesa->format('d/m/Y') 
+                    : 'A confirmar',
+            ],
+            
+            // Cliente (Kendall: información comprensible)
+            'cliente' => [
+                'nombre_completo' => $reparacion->cliente 
+                    ? "{$reparacion->cliente->apellido}, {$reparacion->cliente->nombre}"
+                    : 'Sin especificar',
+                'dni' => $reparacion->cliente->DNI ?? '',
+                'telefono' => $reparacion->cliente->whatsapp ?? $reparacion->cliente->telefono ?? 'No especificado',
+            ],
+            
+            // Técnico asignado
+            'tecnico' => $reparacion->tecnico->name ?? 'Sin asignar',
+            
+            // Equipo (Kendall: evitar códigos confusos)
+            'equipo' => [
+                'marca' => $reparacion->modelo->marca->nombre ?? 'N/A',
+                'modelo' => $reparacion->modelo->nombre ?? 'N/A',
+                'imei_serie' => $reparacion->numero_serie_imei ?? 'No especificado',
+                'clave_bloqueo' => $reparacion->clave_bloqueo ?? 'No especificada',
+                'accesorios' => $reparacion->accesorios_dejados ?? 'Ninguno',
+            ],
+            
+            // Diagnóstico (Kendall: contenido del informe con detalles necesarios)
+            'falla_declarada' => $reparacion->falla_declarada,
+            'observaciones' => $reparacion->observaciones,
+            
+            // Estado
+            'estado' => $reparacion->estado->nombreEstado ?? 'Recibido',
+            
+            // Metadata
+            'fecha_emision' => now()->format('d/m/Y H:i:s'),
+        ];
+    }
 }

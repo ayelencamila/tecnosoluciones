@@ -11,7 +11,8 @@ use App\Models\Producto;
 use App\Models\Stock;
 use App\Models\MovimientoStock;
 use App\Models\EstadoReparacion;
-use App\Models\TipoMovimientoStock; 
+use App\Models\TipoMovimientoStock;
+use App\Models\Auditoria;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
@@ -35,7 +36,7 @@ class RegistrarReparacionService
             // 3. CREAR LA REPARACIÓN (Cabecera)
             $reparacion = Reparacion::create([
                 'clienteID' => $datosValidados['clienteID'],
-                'tecnico_id' => null, 
+                'tecnico_id' => $datosValidados['tecnico_id'], // CU-11 Paso 5: Técnico asignado
                 'estado_reparacion_id' => $estadoInicial->estadoReparacionID,
                 'codigo_reparacion' => $codigoReparacion,               
                 'modelo_id' => $datosValidados['modelo_id'],
@@ -49,6 +50,18 @@ class RegistrarReparacionService
                 'costo_mano_obra' => 0, 
                 'total_final' => 0,
             ]);
+
+            // 3.1 REGISTRAR EN AUDITORÍA (CU-11 Paso 10)
+            Auditoria::registrar(
+                accion: Auditoria::ACCION_CREAR_REPARACION,
+                tabla: 'reparaciones',
+                registroId: $reparacion->reparacionID,
+                datosAnteriores: null,
+                datosNuevos: $reparacion->toArray(),
+                motivo: "Ingreso de reparación {$codigoReparacion} - Cliente: {$reparacion->clienteID}",
+                detalles: "Falla: {$datosValidados['falla_declarada']}",
+                usuarioId: $usuarioID
+            );
 
             // 4. GUARDAR IMÁGENES
             if (isset($datosValidados['imagenes'])) {
