@@ -191,4 +191,86 @@ class ComprobanteService
             'fecha_emision' => now()->format('d/m/Y H:i:s'),
         ];
     }
+
+    /**
+     * Prepara los datos del comprobante de anulación/nota de crédito
+     * 
+     * CU-06 Paso 10: Comprobante interno de anulación/crédito
+     * 
+     * Objetivos de Kendall aplicados:
+     * 1. Servir al propósito: Constancia de la operación de anulación
+     * 2. Ajustar al usuario: Cliente/vendedor necesita ver qué se anuló y por qué
+     * 3. Cantidad adecuada: Datos de venta original + motivo de anulación
+     * 4. Proveer a tiempo: Se genera inmediatamente después de la anulación
+     * 
+     * @param \App\Models\Venta $venta Entidad con la información de la venta anulada
+     * @return array Datos estructurados para la vista
+     */
+    public function prepararDatosComprobanteAnulacion($venta): array
+    {
+        // Información CONSTANTE (datos de la empresa)
+        $datosEmpresa = [
+            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
+            'direccion' => Configuracion::get('direccion_empresa', ''),
+            'telefono' => Configuracion::get('telefono_empresa', ''),
+            'email' => Configuracion::get('email_empresa', ''),
+            'cuit' => Configuracion::get('cuit_empresa', ''),
+        ];
+
+        // Información VARIABLE (datos de la venta anulada)
+        $venta->load(['cliente', 'vendedor', 'medioPago', 'estado', 'detalles.producto', 'descuentos']);
+        
+        // Preparar detalles de productos (Kendall: evitar códigos confusos)
+        $detalles = $venta->detalles->map(function($detalle) {
+            return [
+                'descripcion' => $detalle->producto->nombre ?? 'Producto',
+                'cantidad' => $detalle->cantidad,
+                'precio_unitario' => $detalle->precio_unitario,
+                'subtotal_neto' => $detalle->subtotal_neto,
+            ];
+        })->toArray();
+
+        return [
+            // Información CONSTANTE
+            'empresa' => $datosEmpresa,
+            
+            // Información VARIABLE - Encabezado del Comprobante
+            'comprobante' => [
+                'numero' => $venta->numero_comprobante,
+                'fecha_venta_original' => $venta->fecha_venta->format('d/m/Y H:i'),
+                'fecha_anulacion' => $venta->updated_at->format('d/m/Y H:i'),
+            ],
+            
+            // Cliente
+            'cliente' => [
+                'nombre_completo' => $venta->cliente 
+                    ? "{$venta->cliente->apellido}, {$venta->cliente->nombre}"
+                    : 'Consumidor Final',
+                'dni' => $venta->cliente->DNI ?? '',
+                'tipo' => $venta->cliente->tipoCliente->nombreTipo ?? '',
+            ],
+            
+            // Vendedor
+            'vendedor' => $venta->vendedor->name ?? 'Sistema',
+            
+            // Detalles de productos anulados
+            'detalles' => $detalles,
+            
+            // Totales
+            'totales' => [
+                'subtotal' => $venta->subtotal,
+                'total_descuentos' => $venta->total_descuentos,
+                'total_final' => $venta->total,
+            ],
+            
+            // Método de pago original
+            'medio_pago' => $venta->medioPago->nombre ?? 'Desconocido',
+            
+            // Motivo de anulación
+            'motivo_anulacion' => $venta->motivo_anulacion ?? 'Sin especificar',
+            
+            // Metadata
+            'fecha_emision' => now()->format('d/m/Y H:i:s'),
+        ];
+    }
 }

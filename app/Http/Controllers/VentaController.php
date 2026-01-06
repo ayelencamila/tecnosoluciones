@@ -198,4 +198,35 @@ class VentaController extends Controller
         // Retornar vista Blade optimizada para impresión con window.print()
         return view('comprobantes.comprobante-venta', $datos);
     }
+
+    /**
+     * Imprimir Comprobante de Anulación / Nota de Crédito
+     * CU-06 Paso 10: "Confirma la anulación exitosa de la venta y presenta un comprobante interno de anulación/crédito"
+     * 
+     * @param int $id ID de la venta anulada
+     * @param ComprobanteService $service Servicio para preparar datos
+     * @return \Illuminate\View\View Vista del comprobante de anulación lista para imprimir
+     */
+    public function imprimirComprobanteAnulacion($id, ComprobanteService $service)
+    {
+        $venta = Venta::with([
+            'cliente', 
+            'vendedor', 
+            'estado', 
+            'medioPago', 
+            'detalles.producto', 
+            'descuentos'
+        ])->findOrFail($id);
+
+        // Verificar que la venta esté anulada
+        if ($venta->estado->nombreEstado !== 'Anulada') {
+            return back()->withErrors(['error' => 'Solo se puede imprimir comprobante de anulación para ventas anuladas.']);
+        }
+
+        // Preparar datos siguiendo lineamientos de Kendall
+        $datos = $service->prepararDatosComprobanteAnulacion($venta);
+
+        // Retornar vista Blade optimizada para impresión con window.print()
+        return view('comprobantes.comprobante-anulacion', $datos);
+    }
 }

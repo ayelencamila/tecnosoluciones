@@ -32,6 +32,10 @@ const imprimirComprobante = () => {
     window.open(route('ventas.imprimir', props.venta.venta_id), '_blank');
 };
 
+const imprimirComprobanteAnulacion = () => {
+    window.open(route('ventas.imprimir-anulacion', props.venta.venta_id), '_blank');
+};
+
 const confirmAnulacion = () => {
     confirmingAnulacion.value = true;
 };
@@ -187,8 +191,19 @@ const anularVenta = () => {
                     </Link>
 
                     <div class="flex space-x-3">
-                        <SecondaryButton @click="imprimirComprobante">
-                            🖨️ Imprimir
+                        <SecondaryButton 
+                            v-if="!venta.anulada" 
+                            @click="imprimirComprobante"
+                        >
+                            🖨️ Imprimir Venta
+                        </SecondaryButton>
+
+                        <SecondaryButton 
+                            v-if="venta.anulada" 
+                            @click="imprimirComprobanteAnulacion"
+                            class="bg-red-600 hover:bg-red-700 text-white"
+                        >
+                            🖨️ Comprobante de Anulación
                         </SecondaryButton>
 
                         <DangerButton 

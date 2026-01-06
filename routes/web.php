@@ -127,6 +127,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/ventas/{venta}/imprimir', [VentaController::class, 'imprimirComprobante'])
         ->name('ventas.imprimir');
     
+    Route::get('/ventas/{venta}/imprimir-anulacion', [VentaController::class, 'imprimirComprobanteAnulacion'])
+        ->name('ventas.imprimir-anulacion');
+    
     Route::resource('ventas', VentaController::class);
 
     // --- MÓDULO DE DESCUENTOS (CU-08) ---
