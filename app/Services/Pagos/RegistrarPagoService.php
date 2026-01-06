@@ -23,11 +23,12 @@ class RegistrarPagoService
                 'clienteID'   => $cliente->clienteID,
                 'user_id'     => $userId,
                 'monto'       => $data['monto'],
-                'medioPagoID' => $data['medioPagoID'], // <--- Cambio clave
+                'medioPagoID' => $data['medioPagoID'],
                 'fecha_pago'  => now(),
                 'observaciones' => $data['observaciones'] ?? null,
             ]);
 
+            // Registrar crédito en cuenta corriente SOLO si el cliente la tiene (mayoristas)
             if ($cliente->cuentaCorriente) {
                 $descripcion = "Pago Recibido - Recibo: {$pago->numero_recibo}";
                 
@@ -39,6 +40,7 @@ class RegistrarPagoService
                     $userId
                 );
             }
+            // Para clientes minoristas sin CC, el pago solo se registra y se imputa a ventas
 
             // CU-10 Paso 7: Imputación manual o automática
             if (isset($data['imputaciones']) && is_array($data['imputaciones'])) {

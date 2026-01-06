@@ -63,8 +63,11 @@ class PagoController extends Controller
      */
     public function create()
     {
-        $clientes = Cliente::whereHas('cuentaCorriente')
-            ->select('clienteID', 'nombre', 'apellido', 'DNI')
+        // Todos los clientes activos pueden registrar pagos (minoristas y mayoristas)
+        $clientes = Cliente::whereHas('estadoCliente', function($q) {
+                $q->where('nombreEstado', 'Activo');
+            })
+            ->select('clienteID', 'nombre', 'apellido', 'DNI', 'cuentaCorrienteID')
             ->with('cuentaCorriente:cuentaCorrienteID,saldo,estadoCuentaCorrienteID') 
             ->orderBy('apellido')
             ->get();
