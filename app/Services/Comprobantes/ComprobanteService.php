@@ -92,4 +92,103 @@ class ComprobanteService
             'fecha_emision' => now()->format('d/m/Y H:i:s'),
         ];
     }
+
+    /**
+     * Prepara los datos del comprobante de venta siguiendo lineamientos de Kendall
+     * 
+     * Objetivos de Kendall aplicados:
+     * 1. Servir al propósito: Constancia de compra realizada
+     * 2. Ajustar al usuario: Cliente necesita ver qué compró y cuánto pagó
+     * 3. Cantidad adecuada: Detalle de productos, precios y totales
+     * 4. Proveer a tiempo: Se genera inmediatamente después de la venta
+     * 
+     * @param \App\Models\Venta $venta Entidad con la información de la venta
+     * @return array Datos estructurados para la vista
+     */
+    public function prepararDatosComprobanteVenta($venta): array
+    {
+        // Información CONSTANTE (datos de la empresa)
+        $datosEmpresa = [
+            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
+            'direccion' => Configuracion::get('direccion_empresa', ''),
+            'telefono' => Configuracion::get('telefono_empresa', ''),
+            'email' => Configuracion::get('email_empresa', ''),
+            'cuit' => Configuracion::get('cuit_empresa', ''),
+        ];
+
+        // Información VARIABLE (datos de la venta)
+        $venta->load(['cliente', 'vendedor', 'medioPago', 'estado', 'detalles.producto', 'descuentos']);
+        
+        // Preparar detalles de productos (Kendall: evitar códigos confusos)
+        $detalles = $venta->detalles->map(function($detalle) {
+            return [
+                'descripcion' => $detalle->producto->nombre ?? 'Producto',
+                'cantidad' => $detalle->cantidad,
+                'precio_unitario' => $detalle->precio_unitario,
+                'subtotal_bruto' => $detalle->subtotal,
+                'descuento' => $detalle->descuento_item,
+                'subtotal_neto' => $detalle->subtotal_neto,
+            ];
+        })->toArray();
+
+        // Preparar descuentos aplicados
+        $descuentosAplicados = $venta->descuentos->map(function($descuento) {
+            return [
+                'nombre' => $descuento->nombre,
+                'monto' => $descuento->pivot->monto_aplicado ?? 0,
+            ];
+        })->toArray();
+
+        // Estado de la venta
+        $estadoVenta = $venta->estado->nombreEstado ?? 'Desconocido';
+        $esAnulada = $estadoVenta === 'Anulada';
+
+        return [
+            // Información CONSTANTE
+            'empresa' => $datosEmpresa,
+            
+            // Información VARIABLE - Encabezado del Comprobante
+            'comprobante' => [
+                'numero' => $venta->numero_comprobante,
+                'fecha' => $venta->fecha_venta->format('d/m/Y H:i'),
+                'estado' => $estadoVenta,
+            ],
+            
+            // Cliente (Kendall: información comprensible)
+            'cliente' => [
+                'nombre_completo' => $venta->cliente 
+                    ? "{$venta->cliente->apellido}, {$venta->cliente->nombre}"
+                    : 'Consumidor Final',
+                'dni' => $venta->cliente->DNI ?? '',
+                'tipo' => $venta->cliente->tipoCliente->nombreTipo ?? '',
+            ],
+            
+            // Vendedor
+            'vendedor' => $venta->vendedor->name ?? 'Sistema',
+            
+            // Detalles (Kendall: contenido del informe con detalles necesarios)
+            'detalles' => $detalles,
+            
+            // Descuentos globales
+            'descuentos_globales' => $descuentosAplicados,
+            
+            // Totales (Kendall: subtotales útiles con alineación correcta)
+            'totales' => [
+                'subtotal' => $venta->subtotal,
+                'total_descuentos' => $venta->total_descuentos,
+                'total_final' => $venta->total,
+            ],
+            
+            // Método de pago
+            'medio_pago' => $venta->medioPago->nombre ?? 'Desconocido',
+            
+            // Observaciones
+            'observaciones' => $venta->observaciones,
+            'motivo_anulacion' => $venta->motivo_anulacion,
+            
+            // Metadata
+            'es_anulada' => $esAnulada,
+            'fecha_emision' => now()->format('d/m/Y H:i:s'),
+        ];
+    }
 }

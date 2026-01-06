@@ -24,6 +24,7 @@ use App\Http\Requests\Ventas\AnularVentaRequest; // <--- Asegúrate de tener est
 // Servicios
 use App\Services\Ventas\RegistrarVentaService;
 use App\Services\Ventas\AnularVentaService;      // <--- Asegúrate de tener este archivo
+use App\Services\Comprobantes\ComprobanteService;
 
 // Excepciones
 use App\Exceptions\Ventas\SinStockException;
@@ -170,5 +171,31 @@ class VentaController extends Controller
             Log::error("Error anulando venta {$id}: " . $e->getMessage());
             return back()->withErrors(['error' => 'Error al anular: ' . $e->getMessage()]);
         }
+    }
+
+    /**
+     * Imprimir Comprobante de Venta
+     * CU-05 Paso 12: "El sistema genera un comprobante o voucher de venta"
+     * 
+     * @param int $id ID de la venta
+     * @param ComprobanteService $service Servicio para preparar datos
+     * @return \Illuminate\View\View Vista del comprobante lista para imprimir
+     */
+    public function imprimirComprobante($id, ComprobanteService $service)
+    {
+        $venta = Venta::with([
+            'cliente', 
+            'vendedor', 
+            'estado', 
+            'medioPago', 
+            'detalles.producto', 
+            'descuentos'
+        ])->findOrFail($id);
+
+        // Preparar datos siguiendo lineamientos de Kendall
+        $datos = $service->prepararDatosComprobanteVenta($venta);
+
+        // Retornar vista Blade optimizada para impresión con window.print()
+        return view('comprobantes.comprobante-venta', $datos);
     }
 }

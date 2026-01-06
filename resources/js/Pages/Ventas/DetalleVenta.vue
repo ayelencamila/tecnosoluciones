@@ -27,9 +27,9 @@ const formatDate = (dateString) => {
     });
 };
 
-// --- FUNCIÓN DE IMPRESIÓN (SOLUCIÓN AL ERROR) ---
+// --- FUNCIÓN DE IMPRESIÓN ---
 const imprimirComprobante = () => {
-    window.print();
+    window.open(route('ventas.imprimir', props.venta.venta_id), '_blank');
 };
 
 const confirmAnulacion = () => {

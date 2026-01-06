@@ -14,6 +14,7 @@ use App\Models\Stock;
 use App\Models\Venta;
 use App\Models\EstadoVenta; 
 use App\Models\MedioPago;
+use App\Models\Auditoria;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -90,6 +91,18 @@ class RegistrarVentaService
                 'total' => $calculos['totalFinalVenta'],
                 'observaciones' => $datosValidados['observaciones'] ?? null,
             ]);
+
+            // B.1 REGISTRAR EN AUDITORÍA (CU-05 Paso 11)
+            Auditoria::registrar(
+                accion: Auditoria::ACCION_CREAR_VENTA,
+                tabla: 'ventas',
+                registroId: $venta->venta_id,
+                datosAnteriores: null,
+                datosNuevos: $venta->toArray(),
+                motivo: "Venta N° {$venta->numero_comprobante} registrada para cliente {$cliente->apellido}, {$cliente->nombre}. Total: \${$venta->total}",
+                detalles: null,
+                usuarioId: $vendedorUserID
+            );
 
             // C. GUARDAR DETALLES
             $venta->detalles()->saveMany($calculos['detallesParaGuardar']);
