@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue';
 import { Head, useForm } from '@inertiajs/vue3';
+import axios from 'axios';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -28,12 +29,17 @@ const searchTermCliente = ref('');
 const filteredClientes = ref([]);
 const showClienteDropdown = ref(false);
 const clienteSeleccionado = ref(null);
+const documentosPendientes = ref([]);
+const cargandoDocumentos = ref(false);
+const imputacionesSeleccionadas = ref([]);
+const modoImputacion = ref('automatico'); // 'automatico' o 'manual'
 
 const form = useForm({
     clienteID: '',
     monto: '',
     medioPagoID: '', 
     observaciones: '',
+    imputaciones: [], // Nuevo campo para imputaciones manuales
 });
 
 // --- FORMATEADORES ---
@@ -63,14 +69,102 @@ const selectCliente = (cliente) => {
     form.clienteID = cliente.clienteID;
     searchTermCliente.value = `${cliente.apellido}, ${cliente.nombre}`;
     showClienteDropdown.value = false;
+    
+    // CU-10 Paso 6: Cargar documentos pendientes del cliente
+    cargarDocumentosPendientes(cliente.clienteID);
+};
+
+const cargarDocumentosPendientes = async (clienteID) => {
+    cargandoDocumentos.value = true;
+    documentosPendientes.value = [];
+    imputacionesSeleccionadas.value = [];
+    
+    try {
+        const response = await axios.get(route('pagos.cliente.documentos', clienteID));
+        documentosPendientes.value = response.data.documentos;
+        
+        // Si no hay documentos pendientes, mostrar alerta (CU-10 Excepción 3a)
+        if (documentosPendientes.value.length === 0) {
+            // El usuario puede continuar para registrar un anticipo
+            console.info('Cliente sin documentos pendientes. El pago se registrará como anticipo.');
+        }
+    } catch (error) {
+        console.error('Error al cargar documentos pendientes:', error);
+    } finally {
+        cargandoDocumentos.value = false;
+    }
 };
 
 const clearCliente = () => {
     clienteSeleccionado.value = null;
     form.clienteID = '';
     searchTermCliente.value = '';
+    documentosPendientes.value = [];
+    imputacionesSeleccionadas.value = [];
+    modoImputacion.value = 'automatico';
     form.clearErrors();
 };
+
+// --- LÓGICA DE IMPUTACIÓN (CU-10 Paso 7) ---
+const calcularImputacionAutomatica = () => {
+    if (!form.monto || documentosPendientes.value.length === 0) {
+        return [];
+    }
+    
+    let montoDisponible = parseFloat(form.monto);
+    const imputaciones = [];
+    
+    for (const doc of documentosPendientes.value) {
+        if (montoDisponible <= 0) break;
+        
+        const montoAImputar = Math.min(montoDisponible, parseFloat(doc.saldo_pendiente));
+        
+        if (montoAImputar > 0) {
+            imputaciones.push({
+                venta_id: doc.venta_id,
+                numero_comprobante: doc.numero_comprobante,
+                saldo_pendiente: doc.saldo_pendiente,
+                monto_imputado: montoAImputar.toFixed(2),
+            });
+            montoDisponible -= montoAImputar;
+        }
+    }
+    
+    return imputaciones;
+};
+
+const aplicarImputacionAutomatica = () => {
+    imputacionesSeleccionadas.value = calcularImputacionAutomatica();
+};
+
+const agregarDocumentoAImputacion = (documento) => {
+    const existe = imputacionesSeleccionadas.value.find(i => i.venta_id === documento.venta_id);
+    if (!existe) {
+        imputacionesSeleccionadas.value.push({
+            venta_id: documento.venta_id,
+            numero_comprobante: documento.numero_comprobante,
+            saldo_pendiente: documento.saldo_pendiente,
+            monto_imputado: parseFloat(documento.saldo_pendiente).toFixed(2),
+        });
+    }
+};
+
+const removerDocumentoDeImputacion = (venta_id) => {
+    imputacionesSeleccionadas.value = imputacionesSeleccionadas.value.filter(i => i.venta_id !== venta_id);
+};
+
+const totalImputado = computed(() => {
+    return imputacionesSeleccionadas.value.reduce((sum, imp) => sum + parseFloat(imp.monto_imputado || 0), 0);
+});
+
+const montoRemanente = computed(() => {
+    const monto = parseFloat(form.monto) || 0;
+    return monto - totalImputado.value;
+});
+
+const hayAnticipo = computed(() => {
+    return montoRemanente.value > 0 && documentosPendientes.value.length > 0;
+});
 
 // --- PROPIEDADES UI ---
 const infoCuentaCorriente = computed(() => {
@@ -82,6 +176,24 @@ const submit = () => {
         alert('Debe seleccionar un cliente.');
         return;
     }
+    
+    // CU-10 Excepción 5a: Advertir si hay anticipo
+    if (hayAnticipo.value && modoImputacion.value === 'manual') {
+        if (!confirm(`El importe excede la deuda imputada. El remanente de $${montoRemanente.value.toFixed(2)} será registrado como anticipo a favor del cliente. ¿Desea continuar?`)) {
+            return;
+        }
+    }
+    
+    // Si está en modo manual, incluir las imputaciones
+    if (modoImputacion.value === 'manual' && imputacionesSeleccionadas.value.length > 0) {
+        form.imputaciones = imputacionesSeleccionadas.value.map(imp => ({
+            venta_id: imp.venta_id,
+            monto_imputado: parseFloat(imp.monto_imputado)
+        }));
+    } else {
+        form.imputaciones = [];
+    }
+    
     form.post(route('pagos.store'), {
         preserveScroll: true,
         onSuccess: () => form.reset(),
@@ -151,6 +263,133 @@ onMounted(() => {
                                     :options="mediosOptions"
                                 />
                                 <InputError :message="form.errors.medioPagoID" class="mt-2" />
+                            </div>
+
+                            <!-- CU-10 Paso 6 y 7: Documentos Pendientes e Imputación -->
+                            <div v-if="clienteSeleccionado && documentosPendientes.length > 0" class="md:col-span-2 border-t pt-6 mt-4">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="text-lg font-semibold text-gray-700">📋 Documentos Pendientes de Pago</h4>
+                                    <div class="flex gap-2">
+                                        <button 
+                                            type="button"
+                                            @click="modoImputacion = 'automatico'; imputacionesSeleccionadas = []"
+                                            :class="modoImputacion === 'automatico' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                            class="px-3 py-1 rounded text-sm font-medium"
+                                        >
+                                            Automático
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            @click="modoImputacion = 'manual'"
+                                            :class="modoImputacion === 'manual' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-700'"
+                                            class="px-3 py-1 rounded text-sm font-medium"
+                                        >
+                                            Manual
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Modo Automático -->
+                                <div v-if="modoImputacion === 'automatico'" class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                    <p class="text-sm text-blue-800 mb-2">
+                                        ✓ El sistema imputará automáticamente el pago a los documentos más antiguos.
+                                    </p>
+                                    <button 
+                                        type="button" 
+                                        @click="aplicarImputacionAutomatica"
+                                        class="text-sm text-blue-600 hover:text-blue-800 underline"
+                                    >
+                                        👁️ Ver sugerencia de imputación
+                                    </button>
+                                    
+                                    <div v-if="imputacionesSeleccionadas.length > 0" class="mt-3 space-y-1">
+                                        <p class="text-xs font-bold text-gray-600 uppercase">Vista Previa:</p>
+                                        <div v-for="imp in imputacionesSeleccionadas" :key="imp.venta_id" class="text-xs text-gray-700 flex justify-between">
+                                            <span>{{ imp.numero_comprobante }}</span>
+                                            <span class="font-mono">${{ imp.monto_imputado }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Modo Manual -->
+                                <div v-else class="space-y-3">
+                                    <!-- Lista de documentos disponibles -->
+                                    <div class="bg-gray-50 p-3 rounded border border-gray-200 max-h-60 overflow-y-auto">
+                                        <p class="text-xs font-bold text-gray-600 uppercase mb-2">Documentos Disponibles:</p>
+                                        <div 
+                                            v-for="doc in documentosPendientes" 
+                                            :key="doc.venta_id"
+                                            class="flex justify-between items-center py-2 border-b last:border-b-0 hover:bg-white px-2 rounded"
+                                        >
+                                            <div class="flex-1">
+                                                <div class="text-sm font-medium text-gray-800">{{ doc.numero_comprobante }}</div>
+                                                <div class="text-xs text-gray-500">{{ doc.fecha_venta }} | Pendiente: ${{ doc.saldo_pendiente }}</div>
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                @click="agregarDocumentoAImputacion(doc)"
+                                                class="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+                                                :disabled="imputacionesSeleccionadas.some(i => i.venta_id === doc.venta_id)"
+                                            >
+                                                + Agregar
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Documentos seleccionados para imputar -->
+                                    <div v-if="imputacionesSeleccionadas.length > 0" class="bg-indigo-50 p-3 rounded border border-indigo-200">
+                                        <p class="text-xs font-bold text-indigo-800 uppercase mb-2">Imputaciones Seleccionadas:</p>
+                                        <div 
+                                            v-for="(imp, index) in imputacionesSeleccionadas" 
+                                            :key="imp.venta_id"
+                                            class="flex items-center gap-2 py-2 border-b last:border-b-0"
+                                        >
+                                            <div class="flex-1">
+                                                <div class="text-sm font-medium text-gray-800">{{ imp.numero_comprobante }}</div>
+                                                <div class="text-xs text-gray-500">Pendiente: ${{ imp.saldo_pendiente }}</div>
+                                            </div>
+                                            <div class="w-32">
+                                                <input 
+                                                    type="number" 
+                                                    v-model="imp.monto_imputado"
+                                                    :max="imp.saldo_pendiente"
+                                                    min="0.01"
+                                                    step="0.01"
+                                                    class="w-full text-sm border-gray-300 rounded px-2 py-1"
+                                                    placeholder="Monto"
+                                                />
+                                            </div>
+                                            <button 
+                                                type="button"
+                                                @click="removerDocumentoDeImputacion(imp.venta_id)"
+                                                class="text-red-500 hover:text-red-700"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                        
+                                        <div class="mt-3 pt-3 border-t border-indigo-300 flex justify-between text-sm font-bold">
+                                            <span>Total Imputado:</span>
+                                            <span class="font-mono text-indigo-800">${{ totalImputado.toFixed(2) }}</span>
+                                        </div>
+                                        
+                                        <!-- CU-10 Excepción 5a: Alerta de Anticipo -->
+                                        <div v-if="montoRemanente > 0" class="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
+                                            <strong class="text-yellow-800">⚠️ Anticipo:</strong> 
+                                            <span class="text-yellow-700">El remanente de ${{ montoRemanente.toFixed(2) }} se registrará como anticipo a favor del cliente.</span>
+                                        </div>
+                                        
+                                        <InputError :message="form.errors.imputaciones" class="mt-2" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- CU-10 Excepción 3a: Cliente sin documentos pendientes -->
+                            <div v-else-if="clienteSeleccionado && !cargandoDocumentos && documentosPendientes.length === 0" class="md:col-span-2 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                                <p class="text-sm text-yellow-800">
+                                    ℹ️ <strong>El cliente no tiene documentos pendientes.</strong><br>
+                                    El pago se registrará como <strong>anticipo a favor del cliente</strong>.
+                                </p>
                             </div>
 
                             <div class="md:col-span-2">

@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
@@ -18,12 +19,33 @@ const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
+// --- CALCULAR ANTICIPO (CU-10 Post-condición) ---
+const totalImputado = computed(() => {
+    if (!props.pago.ventas_imputadas || props.pago.ventas_imputadas.length === 0) {
+        return 0;
+    }
+    return props.pago.ventas_imputadas.reduce((sum, venta) => sum + parseFloat(venta.pivot.monto_imputado || 0), 0);
+});
+
+const anticipoGenerado = computed(() => {
+    const monto = parseFloat(props.pago.monto);
+    const imputado = totalImputado.value;
+    const anticipo = monto - imputado;
+    return anticipo > 0 ? anticipo : 0;
+});
+
 // --- ACCIÓN DE ANULAR ---
 const anularPago = () => {
     if (confirm('¿Estás seguro de que deseas anular este pago? Esta acción revertirá el saldo en la cuenta corriente.')) {
         // CORRECCIÓN AQUÍ: Pasamos el ID del pago (pago.pagoID) a la ruta
         router.delete(route('pagos.anular', props.pago.pagoID));
     }
+};
+
+// --- ACCIÓN DE IMPRIMIR (CU-10 Paso 12 - Kendall) ---
+const imprimirRecibo = () => {
+    // Abre el recibo en nueva ventana para impresión
+    window.open(route('pagos.imprimir', props.pago.pagoID), '_blank', 'width=800,height=900');
 };
 </script>
 
@@ -103,6 +125,40 @@ const anularPago = () => {
                                 <span class="font-mono">Abonado: {{ formatCurrency(venta.pivot.monto_imputado) }}</span>
                             </li>
                         </ul>
+                        <div class="mt-3 pt-3 border-t border-gray-300 flex justify-between text-sm font-bold">
+                            <span>Total Imputado:</span>
+                            <span class="font-mono text-gray-800">{{ formatCurrency(totalImputado) }}</span>
+                        </div>
+                    </div>
+
+                    <!-- CU-10 Excepción 5a: Mostrar Anticipo si existe -->
+                    <div v-if="anticipoGenerado > 0" class="px-6 py-4 border-t border-yellow-200 bg-yellow-50">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-shrink-0 text-3xl">💰</div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-bold text-yellow-800 uppercase tracking-wider">Anticipo Generado</h4>
+                                <p class="text-xs text-yellow-700 mt-1">
+                                    El importe del pago excedió la deuda imputada. El remanente quedó registrado como saldo a favor del cliente.
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <div class="text-2xl font-bold text-yellow-800">{{ formatCurrency(anticipoGenerado) }}</div>
+                                <div class="text-xs text-yellow-600">Saldo a favor</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mensaje cuando no hay documentos imputados (todo es anticipo) -->
+                    <div v-else-if="!pago.ventas_imputadas || pago.ventas_imputadas.length === 0" class="px-6 py-4 border-t border-blue-200 bg-blue-50">
+                        <div class="flex items-center gap-3">
+                            <div class="flex-shrink-0 text-2xl">ℹ️</div>
+                            <div class="flex-1">
+                                <p class="text-sm text-blue-800">
+                                    <strong>Pago registrado como anticipo completo.</strong><br>
+                                    El cliente no tenía documentos pendientes al momento del pago.
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="bg-gray-50 px-6 py-4 flex justify-between items-center border-t border-gray-200">
@@ -110,12 +166,26 @@ const anularPago = () => {
                             <SecondaryButton>Volver al Listado</SecondaryButton>
                         </Link>
                         
-                        <DangerButton 
-                            v-if="!pago.anulado" 
-                            @click="anularPago"
-                        >
-                            Anular Pago
-                        </DangerButton>
+                        <div class="flex gap-3">
+                            <!-- Botón Imprimir Recibo (CU-10 Paso 12 - Kendall) -->
+                            <button
+                                @click="imprimirRecibo"
+                                class="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring focus:ring-blue-300 disabled:opacity-25 transition"
+                                title="Imprimir Recibo"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                </svg>
+                                🖨️ Imprimir Recibo
+                            </button>
+                            
+                            <DangerButton 
+                                v-if="!pago.anulado" 
+                                @click="anularPago"
+                            >
+                                Anular Pago
+                            </DangerButton>
+                        </div>
                     </div>
 
                 </div>

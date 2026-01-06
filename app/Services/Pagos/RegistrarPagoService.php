@@ -40,10 +40,32 @@ class RegistrarPagoService
                 );
             }
 
-            $this->imputarPagoAutomaticamente($pago, $cliente);
+            // CU-10 Paso 7: Imputación manual o automática
+            if (isset($data['imputaciones']) && is_array($data['imputaciones'])) {
+                $this->imputarPagoManualmente($pago, $data['imputaciones']);
+            } else {
+                $this->imputarPagoAutomaticamente($pago, $cliente);
+            }
 
             // CU-09 Paso 7: Disparar evento para verificar normalización
             event(new PagoRegistrado($pago, $userId));
+
+            // CU-10 Paso 13: Registrar en historial de operaciones
+            \App\Models\Auditoria::registrar(
+                \App\Models\Auditoria::ACCION_REGISTRAR_PAGO,
+                'pagos',
+                $pago->pagoID,
+                null,
+                [
+                    'numero_recibo' => $pago->numero_recibo,
+                    'monto' => $pago->monto,
+                    'clienteID' => $pago->clienteID,
+                    'medioPagoID' => $pago->medioPagoID,
+                ],
+                "Pago recibido de cliente ID {$cliente->clienteID}",
+                "Monto: \${$pago->monto} - Recibo: {$pago->numero_recibo}",
+                $userId
+            );
 
             Log::info("Pago registrado e imputado: ID {$pago->pagoID}");
 
@@ -75,6 +97,18 @@ class RegistrarPagoService
 
                 $montoDisponible -= $montoAImputar;
             }
+        }
+    }
+
+    /**
+     * Imputa el pago manualmente según las instrucciones del usuario (CU-10 Paso 7)
+     */
+    private function imputarPagoManualmente(Pago $pago, array $imputaciones): void
+    {
+        foreach ($imputaciones as $imputacion) {
+            $pago->ventasImputadas()->attach($imputacion['venta_id'], [
+                'monto_imputado' => $imputacion['monto_imputado']
+            ]);
         }
     }
 }

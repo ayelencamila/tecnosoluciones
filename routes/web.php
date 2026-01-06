@@ -135,10 +135,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [PagoController::class, 'index'])->name('index');
         // Formulario de Carga (Create)
         Route::get('/crear', [PagoController::class, 'create'])->name('create');
+        // Obtener documentos pendientes de un cliente (CU-10 Paso 6)
+        Route::get('/cliente/{cliente}/documentos-pendientes', [PagoController::class, 'obtenerDocumentosPendientes'])
+            ->name('cliente.documentos');
         // Guardar Pago (Store)
         Route::post('/', [PagoController::class, 'store'])->name('store');
         // Ver Recibo (Show)
         Route::get('/{pago}', [PagoController::class, 'show'])->name('show');
+        // Imprimir Recibo (CU-10 Paso 12 - Kendall)
+        Route::get('/{pago}/imprimir', [PagoController::class, 'imprimirRecibo'])->name('imprimir');
         // Anular Pago
         Route::delete('/{pago}', [PagoController::class, 'anular'])->name('anular');
     });

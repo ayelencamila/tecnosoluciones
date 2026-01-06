@@ -7,6 +7,7 @@ use App\Models\Cliente;
 use App\Models\MedioPago;
 use App\Services\Pagos\AnularPagoService;
 use App\Services\Pagos\RegistrarPagoService;
+use App\Services\Comprobantes\ComprobanteService;
 use App\Http\Requests\Pagos\StorePagoRequest;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
@@ -79,6 +80,34 @@ class PagoController extends Controller
     }
 
     /**
+     * Obtiene los documentos pendientes (ventas) de un cliente (CU-10 Paso 6)
+     */
+    public function obtenerDocumentosPendientes(Cliente $cliente)
+    {
+        $ventas = Venta::where('clienteID', $cliente->clienteID)
+            ->whereHas('estado', fn($q) => $q->where('nombreEstado', '!=', 'Anulada'))
+            ->with(['estado:estadoVentaID,nombreEstado'])
+            ->select('venta_id', 'numero_comprobante', 'fecha_venta', 'total', 'estado_venta_id')
+            ->orderBy('fecha_venta', 'asc')
+            ->get()
+            ->map(function ($venta) {
+                return [
+                    'venta_id' => $venta->venta_id,
+                    'numero_comprobante' => $venta->numero_comprobante,
+                    'fecha_venta' => $venta->fecha_venta->format('d/m/Y'),
+                    'total' => $venta->total,
+                    'saldo_pendiente' => $venta->saldo_pendiente,
+                    'estado' => $venta->estado->nombreEstado ?? 'Desconocido',
+                ];
+            })
+            ->filter(fn($v) => $v['saldo_pendiente'] > 0); // Solo con saldo pendiente
+
+        return response()->json([
+            'documentos' => $ventas->values()
+        ]);
+    }
+
+    /**
      * Almacena un nuevo pago en la base de datos 
      */
     public function store(StorePagoRequest $request, RegistrarPagoService $registrarPagoService)
@@ -125,5 +154,26 @@ class PagoController extends Controller
             Log::error("Error al anular pago: " . $e->getMessage());
             return back()->with('error', $e->getMessage());
         }
+    }
+
+    /**
+     * Imprime el recibo de pago (CU-10 Paso 12 - Lineamientos de Kendall)
+     * 
+     * Objetivos de Kendall aplicados:
+     * - Servir al propósito previsto: Comprobante de pago recibido
+     * - Proveer a tiempo: Generación inmediata después del registro
+     * - Método correcto: Vista optimizada para impresión (window.print)
+     * 
+     * @param Pago $pago
+     * @param ComprobanteService $comprobanteService
+     * @return \Illuminate\View\View
+     */
+    public function imprimirRecibo(Pago $pago, ComprobanteService $comprobanteService)
+    {
+        // Control (BCE): El servicio prepara los datos de la entidad
+        $datos = $comprobanteService->prepararDatosReciboPago($pago);
+        
+        // Boundary (BCE): La vista Blade renderiza el comprobante
+        return view('comprobantes.recibo-pago', $datos);
     }
 }

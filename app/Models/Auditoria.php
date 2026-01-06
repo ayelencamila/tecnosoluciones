@@ -144,6 +144,11 @@ class Auditoria extends Model
 
     public const ACCION_APLICAR_DESCUENTO = 'APLICAR_DESCUENTO';
 
+    // Módulo Pagos (CU-10)
+    public const ACCION_REGISTRAR_PAGO = 'REGISTRAR_PAGO';
+
+    public const ACCION_ANULAR_PAGO = 'ANULAR_PAGO';
+
     // Acciones del sistema
     public const ACCION_LOGIN = 'LOGIN';
 
