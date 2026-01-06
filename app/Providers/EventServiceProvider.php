@@ -45,6 +45,11 @@ class EventServiceProvider extends ServiceProvider
         \App\Events\PagoRegistrado::class => [
             \App\Listeners\VerificarNormalizacionCC::class,
         ],
+
+        // Flujo de Bonificación - Decisión del Cliente (CU-14/15)
+        \App\Events\ClienteRespondioBonificacion::class => [
+            \App\Listeners\ProcesarDecisionCliente::class,
+        ],
     ];
 
     /**
