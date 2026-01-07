@@ -61,6 +61,14 @@ class Producto extends Model
         return $this->hasMany(DetalleReparacion::class, 'producto_id'); 
     }
 
+    /**
+     * Detalles de órdenes de compra que incluyen este producto (CU-23)
+     */
+    public function detallesOrdenCompra(): HasMany
+    {
+        return $this->hasMany(DetalleOrdenCompra::class, 'producto_id');
+    }
+
     public function marca(): BelongsTo
     {
         return $this->belongsTo(Marca::class);

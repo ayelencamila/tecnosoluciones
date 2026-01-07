@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Reparacion extends Model
 {
@@ -326,5 +327,13 @@ class Reparacion extends Model
     public function scopeEnEstadosMonitoreables($query)
     {
         return $query->whereIn('estado_reparacion_id', [1, 2]);
+    }
+
+    /**
+     * Comprobantes asociados a esta reparación (Larman: Relación Polimórfica)
+     */
+    public function comprobantes(): MorphMany
+    {
+        return $this->morphMany(Comprobante::class, 'entidad', 'tipo_entidad', 'entidad_id');
     }
 }

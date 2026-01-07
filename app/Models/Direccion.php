@@ -94,6 +94,17 @@ class Direccion extends Model
     }
 
     /**
+     * Obtiene todos los proveedores que tienen esta dirección
+     * 
+     * Lineamiento Elmasri: Relación 1:N No Identificada (CU-16)
+     * Una dirección puede ser compartida por múltiples proveedores
+     */
+    public function proveedores(): HasMany
+    {
+        return $this->hasMany(Proveedor::class, 'direccion_id', 'direccionID');
+    }
+
+    /**
      * Genera la dirección completa formateada como string
      *
      * @return string Dirección completa formateada
