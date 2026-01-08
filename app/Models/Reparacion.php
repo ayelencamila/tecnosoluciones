@@ -152,13 +152,25 @@ class Reparacion extends Model
     }
 
     /**
-     * Obtiene el SLA vigente desde configuración
+     * Obtiene el SLA vigente para esta reparación
+     * Prioridad: sla_dias > fecha_promesa_entrega > configuración default
+     * 
      * @return int Días de SLA
      */
     public function getSLAVigente(): int
     {
-        // Usar sla_dias_reparacion que es la clave configurada por el admin
-        return (int) Configuracion::get('sla_dias_reparacion', 3);
+        // Prioridad 1: Si tiene sla_dias explícito, usarlo
+        if ($this->sla_dias !== null && $this->sla_dias > 0) {
+            return (int) $this->sla_dias;
+        }
+        
+        // Prioridad 2: Si tiene fecha_promesa_entrega, calcular días desde ingreso
+        if ($this->fecha_promesa_entrega !== null && $this->fecha_ingreso !== null) {
+            return max(1, $this->fecha_ingreso->diffInDays($this->fecha_promesa_entrega));
+        }
+        
+        // Prioridad 3: Usar configuración default
+        return (int) Configuracion::get('sla_reparaciones_default', 7);
     }
 
     /**
