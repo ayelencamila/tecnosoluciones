@@ -30,8 +30,7 @@ class ConfiguracionSeeder extends Seeder
         Configuracion::set('alerta_stock_bajo', 'true', 'Activar alertas visuales de stock.');
 
         // 5. REPARACIONES
-        Configuracion::set('reparacion_sla_dias_estandar', 3, 'SLA estándar (días).');
-        Configuracion::set('reparacion_habilitar_bonificacion', 'true', 'Habilitar descuentos por demora.');
+        // NOTA: Configuraciones de reparaciones movidas a ConfiguracionReparacionesSeeder (CU-31)
         Configuracion::set('reparacion_bonificacion_diaria_porc', 0.5, '% Descuento diario por demora.');
         Configuracion::set('reparacion_tope_bonificacion_porc', 20, 'Tope máximo de bonificación (%).');
 

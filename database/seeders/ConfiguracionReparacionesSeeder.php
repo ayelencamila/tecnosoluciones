@@ -17,7 +17,7 @@ class ConfiguracionReparacionesSeeder extends Seeder
             [
                 'clave' => 'sla_reparaciones_default',
                 'valor' => '7',
-                'descripcion' => '[Reparaciones - SLA] Días de SLA por defecto para todas las reparaciones',
+                'descripcion' => 'Días de SLA por defecto para todas las reparaciones',
             ],
             
             // ===== BONIFICACIONES =====
@@ -51,7 +51,7 @@ class ConfiguracionReparacionesSeeder extends Seeder
             [
                 'clave' => 'estados_pausa_sla',
                 'valor' => 'En espera de aprobación,En espera de repuesto,Listo para retiro',
-                'descripcion' => '[Reparaciones - SLA] Nombres de estados que pausan el conteo de días efectivos para SLA (separados por coma). IMPORTANTE: Estos nombres deben coincidir exactamente con los de la tabla estados_reparacion',
+                'descripcion' => 'Estados que pausan el conteo de días efectivos para SLA (separados por coma). Deben coincidir exactamente con los nombres establecidos en Gestión de Maestros → Estados de Reparación',
             ],
             
             // ===== PLANTILLAS WHATSAPP =====
