@@ -13,6 +13,7 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ReparacionController;
+use App\Http\Controllers\ProveedorController; 
 use App\Http\Controllers\Admin\CategoriaProductoController;
 use App\Http\Controllers\Api\ClienteBonificacionController;
 use Inertia\Inertia;
@@ -68,7 +69,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // 1. Categorías de Producto (Implementación Actual)
         Route::resource('categorias', CategoriaProductoController::class);
         Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
-        Route::resource('proveedores', \App\Http\Controllers\Admin\ProveedorController::class);
+        // Proveedores MOVIDO al grupo principal (es un módulo operativo)
         Route::resource('unidades-medida', \App\Http\Controllers\Admin\UnidadMedidaController::class);
         // 2. Otras posibles rutas para  maestros
         Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
@@ -165,6 +166,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{cliente}/confirmar-baja', [ClienteController::class, 'confirmDelete'])->name('confirmDelete');   
         Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])->name('darDeBaja'); 
     });
+
+    // --- MÓDULO DE PROVEEDORES (CU-16 a CU-19) ---
+    // Ubicado aquí para acceso operativo (Admin/Compras)
+    Route::resource('proveedores', ProveedorController::class);
     
     // API Interna para buscar clientes (Buscador Asíncrono)
     Route::get('/api/clientes/buscar', [App\Http\Controllers\ClienteController::class, 'buscar'])
