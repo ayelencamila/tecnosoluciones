@@ -57,10 +57,10 @@ class CuentaCorriente extends Model
         $guardado = $this->save();
 
         if ($guardado) {
-            // Obtener tipo_movimiento_cc_id para Débito
+            // Obtener tipo_id del tipo de movimiento Débito
             $tipoDebito = \DB::table('tipos_movimiento_cuenta_corriente')
                 ->where('nombre', 'Debito')
-                ->value('tipo_movimiento_cc_id');
+                ->value('tipo_id');
 
             $this->movimientosCC()->create([
                 'tipo_movimiento_cc_id' => $tipoDebito,
@@ -90,10 +90,10 @@ class CuentaCorriente extends Model
         $guardado = $this->save();
 
         if ($guardado) {
-            // Obtener tipo_movimiento_cc_id para Crédito
+            // Obtener tipo_id del tipo de movimiento Crédito
             $tipoCredito = \DB::table('tipos_movimiento_cuenta_corriente')
                 ->where('nombre', 'Credito')
-                ->value('tipo_movimiento_cc_id');
+                ->value('tipo_id');
 
             $this->movimientosCC()->create([
                 'tipo_movimiento_cc_id' => $tipoCredito,
@@ -117,13 +117,13 @@ class CuentaCorriente extends Model
         $diasGracia = $this->getDiasGraciaAplicables();
         $fechaLimiteVencimiento = Carbon::today()->subDays($diasGracia);
 
-        // Obtener tipo_movimiento_cc_id para Débito y Crédito
+        // Obtener tipo_id de tipos de movimiento Débito y Crédito
         $tipoDebito = \DB::table('tipos_movimiento_cuenta_corriente')
             ->where('nombre', 'Debito')
-            ->value('tipo_movimiento_cc_id');
+            ->value('tipo_id');
         $tipoCredito = \DB::table('tipos_movimiento_cuenta_corriente')
             ->where('nombre', 'Credito')
-            ->value('tipo_movimiento_cc_id');
+            ->value('tipo_id');
 
         $saldoVencido = $this->movimientosCC()
             ->where('tipo_movimiento_cc_id', $tipoDebito)
@@ -160,10 +160,10 @@ class CuentaCorriente extends Model
         
         $fechaLimite = Carbon::today()->subDays($diasGracia + $diasMinimos);
         
-        // Obtener tipo_movimiento_cc_id para Débito
+        // Obtener tipo_id del tipo de movimiento Débito
         $tipoDebito = \DB::table('tipos_movimiento_cuenta_corriente')
             ->where('nombre', 'Debito')
-            ->value('tipo_movimiento_cc_id');
+            ->value('tipo_id');
         
         // Obtener débitos vencidos que califican para recargo
         $debitosVencidos = $this->movimientosCC()

@@ -41,7 +41,6 @@ class HandleInertiaRequests extends Middleware
 
             'auth' => [
                 'user' => fn () => $request->user()
-                    // CORRECCIÓN AQUÍ: Agregamos 'role' a la lista
                     ? $request->user()->only('id', 'name', 'email', 'role')
                     : null,
             ],

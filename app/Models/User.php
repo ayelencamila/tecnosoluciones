@@ -45,11 +45,23 @@ class User extends Authenticatable
     }
 
     /**
-     * Rol del usuario.
+     * Accessor para obtener el nombre del rol (para compatibilidad con frontend).
+     * Lee directamente de la BD sin necesidad de modelo Rol.
      */
-    public function rol(): BelongsTo
+    public function getRoleAttribute(): ?string
     {
-        return $this->belongsTo(Rol::class, 'rol_id', 'rol_id');
+        if (!$this->rol_id) {
+            return null;
+        }
+
+        // Cache en el objeto para evitar múltiples queries
+        if (!isset($this->attributes['_cached_role'])) {
+            $this->attributes['_cached_role'] = \DB::table('roles')
+                ->where('rol_id', $this->rol_id)
+                ->value('nombre');
+        }
+
+        return $this->attributes['_cached_role'];
     }
 
     /**
