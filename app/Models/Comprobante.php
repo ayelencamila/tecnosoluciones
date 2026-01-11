@@ -47,11 +47,11 @@ class Comprobante extends Model
         'tipo_entidad',
         'entidad_id',
         'usuario_id',
-        'tipo_comprobante',
+        'tipo_comprobante_id',
         'numero_correlativo',
         'fecha_emision',
         'ruta_archivo',
-        'estado',
+        'estado_comprobante_id',
         'motivo_estado',
         'original_id',
     ];
@@ -132,7 +132,7 @@ class Comprobante extends Model
 
             // PESSIMISTIC LOCKING: Bloquea la fila hasta que termine la transacción
             // Esto previene que dos usuarios lean el mismo "último número"
-            $ultimoComprobante = self::where('tipo_comprobante', $tipoComprobante)
+            $ultimoComprobante = self::where('tipo_comprobante_id', $tipoComprobanteId)
                 ->where('numero_correlativo', 'like', $prefijo . '%')
                 ->lockForUpdate()  // <--- CRÍTICO: Bloqueo pesimista
                 ->latest('comprobante_id')
@@ -156,7 +156,12 @@ class Comprobante extends Model
      */
     public function anular(string $motivo): void
     {
-        if ($this->estado === self::ESTADO_ANULADO) {
+        // Obtener estado_comprobante_id para ANULADO
+        $estadoAnulado = \DB::table('estados_comprobante')
+            ->where('nombre', 'ANULADO')
+            ->value('estado_comprobante_id');
+
+        if ($this->estado_comprobante_id === $estadoAnulado) {
             throw new \Exception('El comprobante ya está anulado');
         }
 
@@ -165,7 +170,7 @@ class Comprobante extends Model
         }
 
         $this->update([
-            'estado' => self::ESTADO_ANULADO,
+            'estado_comprobante_id' => $estadoAnulado,
             'motivo_estado' => $motivo,
         ]);
     }
@@ -175,7 +180,12 @@ class Comprobante extends Model
      */
     public function reemitir(int $usuarioId): self
     {
-        if ($this->estado === self::ESTADO_ANULADO) {
+        // Obtener estado_comprobante_id para ANULADO y EMITIDO
+        $estadoAnulado = \DB::table('estados_comprobante')->where('nombre', 'ANULADO')->value('estado_comprobante_id');
+        $estadoEmitido = \DB::table('estados_comprobante')->where('nombre', 'EMITIDO')->value('estado_comprobante_id');
+        $estadoReemplazado = \DB::table('estados_comprobante')->where('nombre', 'REEMPLAZADO')->value('estado_comprobante_id');
+
+        if ($this->estado_comprobante_id === $estadoAnulado) {
             throw new \Exception('No se puede reemitir un comprobante anulado');
         }
 
@@ -184,16 +194,16 @@ class Comprobante extends Model
             'tipo_entidad' => $this->tipo_entidad,
             'entidad_id' => $this->entidad_id,
             'usuario_id' => $usuarioId,
-            'tipo_comprobante' => $this->tipo_comprobante,
-            'numero_correlativo' => self::generarNumeroCorrelativo($this->tipo_comprobante),
+            'tipo_comprobante_id' => $this->tipo_comprobante_id,
+            'numero_correlativo' => self::generarNumeroCorrelativo($this->tipo_comprobante_id),
             'fecha_emision' => now(),
-            'estado' => self::ESTADO_EMITIDO,
+            'estado_comprobante_id' => $estadoEmitido,
             'original_id' => $this->comprobante_id,
         ]);
 
         // Marcar el actual como reemplazado
         $this->update([
-            'estado' => self::ESTADO_REEMPLAZADO,
+            'estado_comprobante_id' => $estadoReemplazado,
             'motivo_estado' => 'Reemitido como ' . $nuevoComprobante->numero_correlativo,
         ]);
 

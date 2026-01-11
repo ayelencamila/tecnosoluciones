@@ -57,8 +57,13 @@ class CuentaCorriente extends Model
         $guardado = $this->save();
 
         if ($guardado) {
+            // Obtener tipo_movimiento_cc_id para Débito
+            $tipoDebito = \DB::table('tipos_movimiento_cuenta_corriente')
+                ->where('nombre', 'Debito')
+                ->value('tipo_movimiento_cc_id');
+
             $this->movimientosCC()->create([
-                'tipoMovimiento' => 'Debito',
+                'tipo_movimiento_cc_id' => $tipoDebito,
                 'descripcion' => $descripcion,
                 'monto' => $monto,
                 'fechaEmision' => now(),
@@ -85,8 +90,13 @@ class CuentaCorriente extends Model
         $guardado = $this->save();
 
         if ($guardado) {
+            // Obtener tipo_movimiento_cc_id para Crédito
+            $tipoCredito = \DB::table('tipos_movimiento_cuenta_corriente')
+                ->where('nombre', 'Credito')
+                ->value('tipo_movimiento_cc_id');
+
             $this->movimientosCC()->create([
-                'tipoMovimiento' => 'Credito',
+                'tipo_movimiento_cc_id' => $tipoCredito,
                 'descripcion' => $descripcion,
                 'monto' => $monto,
                 'fechaEmision' => now(),
@@ -107,14 +117,22 @@ class CuentaCorriente extends Model
         $diasGracia = $this->getDiasGraciaAplicables();
         $fechaLimiteVencimiento = Carbon::today()->subDays($diasGracia);
 
+        // Obtener tipo_movimiento_cc_id para Débito y Crédito
+        $tipoDebito = \DB::table('tipos_movimiento_cuenta_corriente')
+            ->where('nombre', 'Debito')
+            ->value('tipo_movimiento_cc_id');
+        $tipoCredito = \DB::table('tipos_movimiento_cuenta_corriente')
+            ->where('nombre', 'Credito')
+            ->value('tipo_movimiento_cc_id');
+
         $saldoVencido = $this->movimientosCC()
-            ->where('tipoMovimiento', 'Debito')
+            ->where('tipo_movimiento_cc_id', $tipoDebito)
             ->whereNotNull('fechaVencimiento')
             ->where('fechaVencimiento', '<=', $fechaLimiteVencimiento)
             ->sum('monto'); 
 
         $totalCreditos = $this->movimientosCC()
-            ->where('tipoMovimiento', 'Credito')
+            ->where('tipo_movimiento_cc_id', $tipoCredito)
             ->sum('monto');
 
         $saldoDeudor = max(0, $this->saldo); 
@@ -142,9 +160,14 @@ class CuentaCorriente extends Model
         
         $fechaLimite = Carbon::today()->subDays($diasGracia + $diasMinimos);
         
+        // Obtener tipo_movimiento_cc_id para Débito
+        $tipoDebito = \DB::table('tipos_movimiento_cuenta_corriente')
+            ->where('nombre', 'Debito')
+            ->value('tipo_movimiento_cc_id');
+        
         // Obtener débitos vencidos que califican para recargo
         $debitosVencidos = $this->movimientosCC()
-            ->where('tipoMovimiento', 'Debito')
+            ->where('tipo_movimiento_cc_id', $tipoDebito)
             ->whereNotNull('fechaVencimiento')
             ->where('fechaVencimiento', '<=', $fechaLimite)
             ->get();

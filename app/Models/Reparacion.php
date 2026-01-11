@@ -39,7 +39,7 @@ class Reparacion extends Model
         // Campos CU-14: Control de SLA
         'sla_excedido',
         'fecha_marcada_demorada',
-        'decision_cliente',
+        'estado_decision_id',
         'fecha_decision_cliente',
     ];
 

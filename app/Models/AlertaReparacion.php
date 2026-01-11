@@ -16,13 +16,12 @@ class AlertaReparacion extends Model
     protected $fillable = [
         'reparacionID',
         'tecnicoID',
-        'tipo_alerta',
+        'tipo_alerta_id',
         'dias_excedidos',
         'dias_efectivos',
         'sla_vigente',
         'leida',
         'fecha_lectura',
-        'respuesta_tecnico',
     ];
 
     protected $casts = [

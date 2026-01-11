@@ -26,7 +26,7 @@ class BonificacionReparacion extends Model
         'aprobada_por',
         'fecha_aprobacion',
         'observaciones_aprobacion',
-        'decision_cliente',
+        'estado_decision_id',
         'fecha_decision_cliente',
         'observaciones_decision',
     ];
@@ -139,8 +139,14 @@ class BonificacionReparacion extends Model
      */
     public function registrarDecisionCliente(string $decision, ?string $observaciones = null): void
     {
+        // Obtener estado_decision_id por nombre y contexto
+        $estadoDecision = \DB::table('estados_decision_cliente')
+            ->where('nombre', $decision)
+            ->where('contexto', 'bonificacion')
+            ->value('estado_decision_id');
+
         $this->update([
-            'decision_cliente' => $decision,
+            'estado_decision_id' => $estadoDecision,
             'fecha_decision_cliente' => now(),
             'observaciones_decision' => $observaciones,
         ]);
