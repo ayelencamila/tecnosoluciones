@@ -97,6 +97,64 @@ Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::clas
 Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
     ->name('api.modelos.por-marca');
 
+// --- API CONFIGURABLE SELECTS (CRUD RÁPIDO) ---
+Route::middleware(['auth'])->prefix('api')->group(function () {
+    // Tipos de Cliente
+    Route::get('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'index']);
+    Route::post('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'store']);
+    Route::delete('/tipos-cliente/{tipoCliente}', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'destroy']);
+    
+    // Estados de Cliente
+    Route::get('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'index']);
+    Route::post('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'store']);
+    Route::delete('/estados-cliente/{estadoCliente}', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'destroy']);
+    
+    // Provincias
+    Route::get('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'index']);
+    Route::post('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'store']);
+    Route::delete('/provincias/{provincia}', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'destroy']);
+    
+    // Localidades
+    Route::get('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'index']);
+    Route::post('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'store']);
+    Route::delete('/localidades/{localidad}', [\App\Http\Controllers\Api\LocalidadApiController::class, 'destroy']);
+    
+    // Marcas
+    Route::get('/marcas', [\App\Http\Controllers\Api\MarcaApiController::class, 'index']);
+    Route::post('/marcas', [\App\Http\Controllers\Api\MarcaApiController::class, 'store']);
+    Route::delete('/marcas/{marca}', [\App\Http\Controllers\Api\MarcaApiController::class, 'destroy']);
+    
+    // Modelos (por marca)
+    Route::get('/modelos', [\App\Http\Controllers\Api\ModeloController::class, 'indexAll']);
+    Route::post('/modelos', [\App\Http\Controllers\Api\ModeloController::class, 'store']);
+    Route::delete('/modelos/{modelo}', [\App\Http\Controllers\Api\ModeloController::class, 'destroy']);
+    
+    // Unidades de Medida
+    Route::get('/unidades-medida', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'index']);
+    Route::post('/unidades-medida', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'store']);
+    Route::delete('/unidades-medida/{unidadMedida}', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'destroy']);
+    
+    // Categorías de Producto
+    Route::get('/categorias-producto', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'index']);
+    Route::post('/categorias-producto', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'store']);
+    Route::delete('/categorias-producto/{categoriaProducto}', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'destroy']);
+    
+    // Estados de Producto
+    Route::get('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'index']);
+    Route::post('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'store']);
+    Route::delete('/estados-producto/{estadoProducto}', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'destroy']);
+    
+    // Medios de Pago
+    Route::get('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'index']);
+    Route::post('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'store']);
+    Route::delete('/medios-pago/{medioPago}', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'destroy']);
+    
+    // Tipos de Movimiento de Stock
+    Route::get('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'index']);
+    Route::post('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'store']);
+    Route::delete('/tipos-movimiento-stock/{tipoMovimientoStock}', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'destroy']);
+});
+
 // --- API DE NOTIFICACIONES ---
 Route::middleware(['auth'])->group(function () {
     Route::get('/api/notifications', function () {
