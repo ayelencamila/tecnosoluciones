@@ -342,6 +342,41 @@ class Reparacion extends Model
     }
 
     /**
+     * Scope: Búsqueda general de reparaciones
+     * Encapsula la lógica de búsqueda compleja (Principio GRASP: Alta Cohesión)
+     * 
+     * Busca en:
+     * - Código de reparación
+     * - Número de serie/IMEI
+     * - Marca del equipo
+     * - Modelo del equipo
+     * - Apellido, nombre o DNI del cliente
+     * 
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string|null $search Término de búsqueda
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeSearch($query, ?string $search)
+    {
+        if (empty($search)) {
+            return $query;
+        }
+
+        return $query->where(function($q) use ($search) {
+            $q->where('codigo_reparacion', 'like', "%{$search}%")
+              ->orWhere('numero_serie_imei', 'like', "%{$search}%")
+              // Búsqueda inteligente a través de relaciones
+              ->orWhereHas('modelo.marca', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
+              ->orWhereHas('modelo', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
+              ->orWhereHas('cliente', function($c) use ($search) {
+                  $c->where('apellido', 'like', "%{$search}%")
+                    ->orWhere('nombre', 'like', "%{$search}%")
+                    ->orWhere('dni', 'like', "%{$search}%");
+              });
+        });
+    }
+
+    /**
      * Comprobantes asociados a esta reparación (Larman: Relación Polimórfica)
      */
     public function comprobantes(): MorphMany

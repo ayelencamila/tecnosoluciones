@@ -42,22 +42,8 @@ class ReparacionController extends Controller
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'modelo.marca'])
             ->latest();
 
-        // Filtro de Búsqueda General
-        if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('codigo_reparacion', 'like', "%{$search}%")
-                  ->orWhere('numero_serie_imei', 'like', "%{$search}%")
-                  // Búsqueda inteligente a través de relaciones
-                  ->orWhereHas('modelo.marca', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
-                  ->orWhereHas('modelo', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
-                  ->orWhereHas('cliente', function($c) use ($search) {
-                      $c->where('apellido', 'like', "%{$search}%")
-                        ->orWhere('nombre', 'like', "%{$search}%")
-                        ->orWhere('dni', 'like', "%{$search}%");
-                  });
-            });
-        }
+        // Filtro de Búsqueda General (delegado al modelo - Alta Cohesión)
+        $query->search($request->search);
 
         // Filtro por Estado
         if ($request->filled('estado_id')) {

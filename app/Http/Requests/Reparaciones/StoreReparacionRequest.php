@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Reparaciones;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreReparacionRequest extends FormRequest
 {
@@ -20,8 +21,16 @@ class StoreReparacionRequest extends FormRequest
             // Técnico (CU-11 Paso 5: Asignación obligatoria)
             'tecnico_id' => ['required', 'exists:users,id'],
 
+            // Validación de Marca y Modelo con relación cruzada
             'marca_id' => ['required', 'exists:marcas,id'],
-            'modelo_id' => ['required', 'exists:modelos,id'],
+            'modelo_id' => [
+                'required', 
+                'exists:modelos,id',
+                // Validación cruzada: el modelo debe pertenecer a la marca seleccionada
+                Rule::exists('modelos', 'id')->where(function ($query) {
+                    $query->where('marca_id', $this->marca_id);
+                })
+            ],
             'numero_serie_imei' => ['nullable', 'string', 'max:100'],
             'clave_bloqueo' => ['nullable', 'string', 'max:50'],
             'accesorios_dejados' => ['nullable', 'string', 'max:500'],
@@ -48,6 +57,7 @@ class StoreReparacionRequest extends FormRequest
         return [
             'marca_id.required' => 'Debes seleccionar una marca de la lista.',
             'modelo_id.required' => 'Debes seleccionar un modelo válido.',
+            'modelo_id.exists' => 'El modelo seleccionado no pertenece a la marca elegida. Por favor, verifica la combinación.',
             'clienteID.required' => 'Es obligatorio asignar un cliente.',
             'tecnico_id.required' => 'Debes asignar un técnico responsable de la reparación.',
         ];
