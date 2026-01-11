@@ -3,12 +3,17 @@ import { ref, watch } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { debounce } from 'lodash';
 
 const props = defineProps({
     ofertas: Object,
     filters: Object,
+    productosConOfertas: {
+        type: Array,
+        default: () => []
+    },
 });
 
 const search = ref(props.filters?.search || '');
@@ -39,6 +44,11 @@ const getPaginationLabel = (label, index, totalLinks) => {
     if (index === totalLinks - 1) return '&raquo;';
     return label;
 };
+
+// Ir a comparar por producto
+const compararPorProducto = (productoId) => {
+    router.get(route('ofertas.comparar', { producto_id: productoId }));
+};
 </script>
 
 <template>
@@ -50,21 +60,43 @@ const getPaginationLabel = (label, index, totalLinks) => {
         </template>
 
         <div class="max-w-7xl mx-auto">
-                
-                <div class="flex justify-between mb-6">
-                    <div class="w-1/3">
-                        <TextInput
-                            v-model="search"
-                            placeholder="Buscar por código o proveedor..."
-                            class="w-full"
-                        />
-                    </div>
-                    <Link :href="route('ofertas.create')">
-                        <PrimaryButton>
-                            + Registrar Oferta Manual
-                        </PrimaryButton>
-                    </Link>
+            
+            <!-- Panel de Comparación Rápida (si hay productos con múltiples ofertas) -->
+            <div v-if="productosConOfertas && productosConOfertas.length > 0" class="mb-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-4 border border-purple-200">
+                <h3 class="text-sm font-semibold text-purple-800 mb-3 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    Comparar Ofertas por Producto
+                </h3>
+                <div class="flex flex-wrap gap-2">
+                    <button 
+                        v-for="prod in productosConOfertas" 
+                        :key="prod.id"
+                        @click="compararPorProducto(prod.id)"
+                        class="inline-flex items-center px-3 py-1.5 text-sm bg-white rounded-lg border border-purple-300 text-purple-700 hover:bg-purple-100 transition-colors">
+                        {{ prod.nombre }}
+                        <span class="ml-2 px-1.5 py-0.5 text-xs bg-purple-200 text-purple-800 rounded-full">
+                            {{ prod.ofertas_count }} ofertas
+                        </span>
+                    </button>
                 </div>
+            </div>
+                
+            <div class="flex justify-between mb-6">
+                <div class="w-1/3">
+                    <TextInput
+                        v-model="search"
+                        placeholder="Buscar por código o proveedor..."
+                        class="w-full"
+                    />
+                </div>
+                <Link :href="route('ofertas.create')">
+                    <PrimaryButton>
+                        + Registrar Oferta Manual
+                    </PrimaryButton>
+                </Link>
+            </div>
 
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="overflow-x-auto">
