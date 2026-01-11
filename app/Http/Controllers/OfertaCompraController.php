@@ -51,11 +51,14 @@ class OfertaCompraController extends Controller
         // Si viene de una solicitud (CU-20), precargamos datos
         $solicitudId = $request->query('solicitud_id');
         
+        // Obtenemos el ID del estado "Activo" para productos
+        $estadoActivo = \App\Models\EstadoProducto::where('nombre', 'Activo')->first();
+        
         return Inertia::render('Compras/Ofertas/Create', [
             'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social']),
-            // Enviamos productos simplificados para el selector del array dinámico
-            'productos' => Producto::where('activo', true) // Asumiendo campo activo o estado
-                ->select('id', 'nombre', 'codigo', 'ultimo_precio_compra')
+            // Enviamos productos activos para el selector del array dinámico
+            'productos' => Producto::when($estadoActivo, fn($q) => $q->where('estadoProductoID', $estadoActivo->id))
+                ->select('id', 'nombre', 'codigo')
                 ->orderBy('nombre')
                 ->get(),
             'solicitud_id' => $solicitudId,

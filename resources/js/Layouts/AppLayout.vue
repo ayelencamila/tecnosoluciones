@@ -8,6 +8,8 @@ import NotificationBell from '@/Components/NotificationBell.vue';
 const showingSidebar = ref(false);
 // Estado para el menú desplegable de Maestros
 const showingMaestros = ref(false);
+// Estado para el menú desplegable de Compras
+const showingCompras = ref(false);
 
 const page = usePage(); 
 
@@ -149,7 +151,20 @@ const maestrosItems = computed(() => {
     ];
 });
 
-// --- 3. MENÚ BONIFICACIONES (SOLO ADMIN) ---
+// --- 3. MENÚ COMPRAS (SOLO ADMIN) ---
+const comprasItems = computed(() => {
+    const role = page.props.auth.user.role;
+    if (role !== 'admin') return [];
+
+    return [
+        // { name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' }, // TODO: CU-20
+        { name: 'Ofertas de Compra', route: 'ofertas.index' },
+        // { name: 'Órdenes de Compra', route: 'ordenes-compra.index' }, // TODO: CU-22
+        // { name: 'Recepción de Mercadería', route: 'recepciones.index' }, // TODO: CU-23
+    ];
+});
+
+// --- 4. MENÚ BONIFICACIONES (SOLO ADMIN) ---
 const bonificacionesNavItems = computed(() => {
     const role = page.props.auth.user.role;
     if (role !== 'admin') return [];
@@ -169,9 +184,16 @@ const isMaestrosActive = computed(() => {
     return maestrosItems.value.some(item => route().current(item.route));
 });
 
+const isComprasActive = computed(() => {
+    return comprasItems.value.some(item => route().current(item.route) || route().current(item.route.replace('.index', '*')));
+});
+
 // Si hay una ruta activa adentro, abrimos el menú por defecto
 if (isMaestrosActive.value) {
     showingMaestros.value = true;
+}
+if (isComprasActive.value) {
+    showingCompras.value = true;
 }
 
 const isActive = (routeName) => {
@@ -214,6 +236,44 @@ const isActive = (routeName) => {
                     {{ item.name }}
                 </Link>
 
+                <!-- SECCIÓN COMPRAS (Admin) - Después de Dashboard -->
+                <div v-if="$page.props.auth.user.role === 'admin'">
+                    <button 
+                        @click="showingCompras = !showingCompras"
+                        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 focus:outline-none transition-colors"
+                        :class="{ 'bg-gray-50': showingCompras || isComprasActive }"
+                    >
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            Compras
+                        </div>
+                        <svg 
+                            class="w-4 h-4 text-gray-400 transform transition-transform duration-200" 
+                            :class="{ 'rotate-180': showingCompras }"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <div v-show="showingCompras" class="mt-1 space-y-1 pl-11">
+                        <Link 
+                            v-for="subitem in comprasItems" 
+                            :key="subitem.name"
+                            :href="route(subitem.route)"
+                            class="block px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                            :class="isActive(subitem.route)
+                                ? 'text-indigo-700 bg-indigo-50'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'"
+                        >
+                            {{ subitem.name }}
+                        </Link>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN ADMINISTRACIÓN -->
                 <div v-if="$page.props.auth.user.role === 'admin'" class="pt-4 pb-2">
                     <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Administración
