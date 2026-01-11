@@ -74,7 +74,9 @@ class ClienteBonificacionController extends Controller
             );
 
             // Notificar a todos los administradores
-            $admins = \App\Models\User::where('role', 'admin')->get();
+            $admins = \App\Models\User::whereHas('rol', function($query) {
+                $query->where('nombre', 'admin');
+            })->get();
             foreach ($admins as $admin) {
                 $admin->notify(new \App\Notifications\ClienteRespondioBoificacion($bonificacion));
             }

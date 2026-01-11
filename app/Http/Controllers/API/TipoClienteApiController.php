@@ -10,6 +10,15 @@ use Illuminate\Http\JsonResponse;
 class TipoClienteApiController extends Controller
 {
     /**
+     * Listar todos los tipos de cliente (API rápida).
+     */
+    public function index(): JsonResponse
+    {
+        $tipos = TipoCliente::orderBy('nombreTipo')->get();
+        return response()->json($tipos);
+    }
+
+    /**
      * Crear un nuevo tipo de cliente (API rápida).
      */
     public function store(Request $request): JsonResponse
@@ -35,6 +44,14 @@ class TipoClienteApiController extends Controller
     public function destroy(TipoCliente $tipoCliente): JsonResponse
     {
         try {
+            // Verificar si hay clientes asociados
+            if ($tipoCliente->clientes()->count() > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede eliminar. El tipo está siendo utilizado por clientes existentes.'
+                ], 422);
+            }
+
             $tipoCliente->delete();
 
             return response()->json([
@@ -44,8 +61,8 @@ class TipoClienteApiController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se puede eliminar. El tipo está siendo utilizado por clientes existentes.'
-            ], 422);
+                'message' => 'Error al eliminar: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

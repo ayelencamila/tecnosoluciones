@@ -10,6 +10,15 @@ use Illuminate\Http\JsonResponse;
 class EstadoClienteApiController extends Controller
 {
     /**
+     * Listar todos los estados de cliente (API rápida).
+     */
+    public function index(): JsonResponse
+    {
+        $estados = EstadoCliente::orderBy('nombreEstado')->get();
+        return response()->json($estados);
+    }
+
+    /**
      * Crear un nuevo estado de cliente (API rápida).
      */
     public function store(Request $request): JsonResponse
@@ -35,6 +44,14 @@ class EstadoClienteApiController extends Controller
     public function destroy(EstadoCliente $estadoCliente): JsonResponse
     {
         try {
+            // Verificar si hay clientes asociados
+            if ($estadoCliente->clientes()->count() > 0) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No se puede eliminar. El estado está siendo utilizado por clientes existentes.'
+                ], 422);
+            }
+
             $estadoCliente->delete();
 
             return response()->json([
@@ -44,8 +61,8 @@ class EstadoClienteApiController extends Controller
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'No se puede eliminar. El estado está siendo utilizado por clientes existentes.'
-            ], 422);
+                'message' => 'Error al eliminar: ' . $e->getMessage()
+            ], 500);
         }
     }
 }

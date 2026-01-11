@@ -10,6 +10,24 @@ use Illuminate\Http\JsonResponse;
 class LocalidadApiController extends Controller
 {
     /**
+     * Listar localidades por provincia (API rápida).
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $provinciaId = $request->query('provincia_id');
+        
+        if ($provinciaId) {
+            $localidades = Localidad::where('provincia_id', $provinciaId)
+                ->orderBy('nombre')
+                ->get();
+        } else {
+            $localidades = Localidad::orderBy('nombre')->get();
+        }
+        
+        return response()->json($localidades);
+    }
+
+    /**
      * Crear una nueva localidad (API rápida).
      */
     public function store(Request $request): JsonResponse

@@ -10,6 +10,15 @@ use Illuminate\Http\JsonResponse;
 class ProvinciaApiController extends Controller
 {
     /**
+     * Listar todas las provincias (API rápida).
+     */
+    public function index(): JsonResponse
+    {
+        $provincias = Provincia::orderBy('nombre')->get();
+        return response()->json($provincias);
+    }
+
+    /**
      * Crear una nueva provincia (API rápida).
      */
     public function store(Request $request): JsonResponse
