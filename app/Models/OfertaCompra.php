@@ -14,22 +14,30 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * 
  * Lineamientos aplicados:
  * - Larman: Trazabilidad total (vincula solicitud con orden)
- * - Kendall: Estados del flujo de selección
+ * - Kendall: Estados del flujo de selección (FK a estados_oferta)
+ * - Elmasri 3FN: estado_id en lugar de string hardcodeado
  * 
  * @property int $id
- * @property int $proveedor_id
- * @property int|null $solicitud_id
- * @property float $precio_total
- * @property int|null $plazo_entrega_real
- * @property string $estado
- * @property string|null $ruta_adjunto
+ * @property string $codigo_oferta Código único OF-YYYYMM-XXXX
+ * @property int $proveedor_id FK a proveedores
+ * @property int|null $solicitud_id FK a solicitudes_cotizacion
+ * @property int|null $cotizacion_proveedor_id FK si vino por Magic Link
+ * @property int $user_id Usuario que registró
+ * @property \Carbon\Carbon $fecha_recepcion
+ * @property \Carbon\Carbon|null $validez_hasta
+ * @property string|null $archivo_adjunto Ruta del PDF/imagen
+ * @property int $estado_id FK a estados_oferta
  * @property string|null $observaciones
+ * @property float $total_estimado Suma de detalles
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * 
  * @property-read Proveedor $proveedor
  * @property-read SolicitudCotizacion|null $solicitud
+ * @property-read User $user
+ * @property-read EstadoOferta $estado
  * @property-read \Illuminate\Database\Eloquent\Collection<OrdenCompra> $ordenesCompra
+ * @property-read \Illuminate\Database\Eloquent\Collection<DetalleOfertaCompra> $detalles
  */
 class OfertaCompra extends Model
 {
@@ -38,27 +46,24 @@ class OfertaCompra extends Model
     protected $table = 'ofertas_compra';
 
     protected $fillable = [
+        'codigo_oferta',
         'proveedor_id',
         'solicitud_id',
-        'precio_total',
-        'plazo_entrega_real',
-        'estado',
-        'ruta_adjunto',
+        'cotizacion_proveedor_id',
+        'user_id',
+        'fecha_recepcion',
+        'validez_hasta',
+        'archivo_adjunto',
+        'estado_id',
         'observaciones',
+        'total_estimado',
     ];
 
     protected $casts = [
-        'precio_total' => 'decimal:2',
-        'plazo_entrega_real' => 'integer',
+        'fecha_recepcion' => 'datetime',
+        'validez_hasta' => 'datetime',
+        'total_estimado' => 'decimal:2',
     ];
-
-    /**
-     * Estados válidos según Kendall
-     */
-    const ESTADO_PRE_APROBADA = 'Pre-aprobada';
-    const ESTADO_ELEGIDA = 'Elegida';
-    const ESTADO_PROCESADA = 'Procesada';
-    const ESTADO_RECHAZADA = 'Rechazada';
 
     // --- RELACIONES (Elmasri) ---
 
@@ -70,6 +75,22 @@ class OfertaCompra extends Model
     public function solicitud(): BelongsTo
     {
         return $this->belongsTo(SolicitudCotizacion::class, 'solicitud_id');
+    }
+
+    /**
+     * Estado de la oferta (3FN - FK a tabla paramétrica)
+     */
+    public function estado(): BelongsTo
+    {
+        return $this->belongsTo(EstadoOferta::class, 'estado_id');
+    }
+
+    /**
+     * Usuario que registró la oferta
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function ordenesCompra(): HasMany
@@ -93,11 +114,13 @@ class OfertaCompra extends Model
      */
     public function elegir(): void
     {
-        if ($this->estado === self::ESTADO_RECHAZADA) {
+        $estadoRechazadaId = EstadoOferta::idPorNombre(EstadoOferta::RECHAZADA);
+        
+        if ($this->estado_id === $estadoRechazadaId) {
             throw new \Exception('No se puede elegir una oferta rechazada');
         }
 
-        $this->update(['estado' => self::ESTADO_ELEGIDA]);
+        $this->update(['estado_id' => EstadoOferta::idPorNombre(EstadoOferta::ELEGIDA)]);
         
         // Actualizar solicitud si existe
         if ($this->solicitud) {
@@ -111,7 +134,7 @@ class OfertaCompra extends Model
     public function rechazar(string $motivo = null): void
     {
         $this->update([
-            'estado' => self::ESTADO_RECHAZADA,
+            'estado_id' => EstadoOferta::idPorNombre(EstadoOferta::RECHAZADA),
             'observaciones' => $motivo ?? $this->observaciones,
         ]);
     }
@@ -121,17 +144,28 @@ class OfertaCompra extends Model
      */
     public function marcarProcesada(): void
     {
-        $this->update(['estado' => self::ESTADO_PROCESADA]);
+        $this->update(['estado_id' => EstadoOferta::idPorNombre(EstadoOferta::PROCESADA)]);
+    }
+
+    /**
+     * Verifica si la oferta está en un estado específico
+     */
+    public function tieneEstado(string $nombreEstado): bool
+    {
+        return $this->estado_id === EstadoOferta::idPorNombre($nombreEstado);
     }
 
     /**
      * Calcula el score para ranking (CU-21)
-     * Considera precio y plazo de entrega
+     * Considera precio y plazo máximo de entrega de los detalles
      */
     public function calcularScore(): float
     {
-        $scorePrecio = 1 / max($this->precio_total, 1); // Menor precio = mayor score
-        $scorePlazo = 1 / max($this->plazo_entrega_real ?? 30, 1); // Menor plazo = mayor score
+        $total = $this->total_estimado ?: $this->detalles->sum('subtotal');
+        $plazoMax = $this->detalles->max('dias_entrega') ?? 30;
+        
+        $scorePrecio = 1 / max($total, 1); // Menor precio = mayor score
+        $scorePlazo = 1 / max($plazoMax, 1); // Menor plazo = mayor score
         
         return ($scorePrecio * 0.6) + ($scorePlazo * 0.4);
     }

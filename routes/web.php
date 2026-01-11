@@ -331,5 +331,25 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{bonificacion}/rechazar', [\App\Http\Controllers\BonificacionReparacionController::class, 'rechazar'])->name('rechazar');
     });
 
+    // --- MÓDULO DE COMPRAS (CU-20 a CU-23) ---
+    
+    // CU-21: Ofertas de Compra
+    Route::prefix('ofertas')->name('ofertas.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\OfertaCompraController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\OfertaCompraController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\OfertaCompraController::class, 'store'])->name('store');
+        Route::get('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'show'])->name('show');
+    });
+
+    // --- MÓDULO DE COMPRAS (CU-20 a CU-23) ---
+    
+    // CU-21: Ofertas de Compra
+    Route::prefix('ofertas')->name('ofertas.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\OfertaCompraController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\OfertaCompraController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\OfertaCompraController::class, 'store'])->name('store');
+        Route::get('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'show'])->name('show');
+    });
+
 });
 
