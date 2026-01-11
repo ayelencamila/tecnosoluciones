@@ -20,4 +20,16 @@ class Marca extends Model
     {
         return $this->hasMany(Modelo::class);
     }
+
+    // Relación: Una Marca tiene muchos Productos
+    public function productos()
+    {
+        return $this->hasMany(Producto::class);
+    }
+
+    // Relación: Una Marca tiene muchas Reparaciones
+    public function reparaciones()
+    {
+        return $this->hasMany(Reparacion::class, 'marca_id');
+    }
 }

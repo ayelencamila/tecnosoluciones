@@ -16,6 +16,14 @@ class TipoCliente extends Model
     public $incrementing = true;
     protected $keyType = 'int';
 
+    /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'tipoClienteID';
+    }
+
     protected $fillable = [
         'nombreTipo',
         'descripcion',

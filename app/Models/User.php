@@ -37,6 +37,14 @@ class User extends Authenticatable
     ];
 
     /**
+     * Relación: Un usuario pertenece a un rol.
+     */
+    public function rol(): BelongsTo
+    {
+        return $this->belongsTo(Rol::class, 'rol_id', 'rol_id');
+    }
+
+    /**
      * Reparaciones asignadas a este usuario (técnico).
      */
     public function reparacionesAsignadas(): HasMany
