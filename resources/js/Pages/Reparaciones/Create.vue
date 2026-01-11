@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { useForm, Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TextInput from '@/Components/TextInput.vue';
@@ -8,6 +8,7 @@ import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import AlertMessage from '@/Components/AlertMessage.vue'; 
+import ConfigurableSelect from '@/Components/ConfigurableSelect.vue';
 import axios from 'axios'; 
 import { debounce } from 'lodash';
 
@@ -17,6 +18,9 @@ const props = defineProps({
     tecnicos: Array, // CU-11 Paso 5: Lista de técnicos disponibles
     errors: Object 
 });
+
+// --- Listas reactivas para ConfigurableSelect ---
+const marcasList = ref([...props.marcas || []]);
 
 const form = useForm({
     clienteID: '',
@@ -32,9 +36,46 @@ const form = useForm({
     imagenes: [],
 });
 
+// --- Computed para opciones de select ---
+const marcasOptions = computed(() => {
+    return marcasList.value.map(m => ({
+        value: m.id,
+        label: m.nombre
+    }));
+});
+
+const modelosOptions = computed(() => {
+    return modelosDisponibles.value.map(m => ({
+        value: m.id,
+        label: m.nombre
+    }));
+});
+
 // --- LÓGICA MARCAS Y MODELOS (Cascada) ---
 const modelosDisponibles = ref([]);
 const cargandoModelos = ref(false);
+
+// Refresh para marcas
+const refreshMarcas = async () => {
+    try {
+        const response = await axios.get('/api/marcas');
+        marcasList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar marcas:', error);
+    }
+};
+
+// Refresh para modelos (depende de marca seleccionada)
+const refreshModelos = async () => {
+    if (form.marca_id) {
+        try {
+            const response = await axios.get(`/api/modelos?marca_id=${form.marca_id}`);
+            modelosDisponibles.value = response.data;
+        } catch (error) {
+            console.error('Error al refrescar modelos:', error);
+        }
+    }
+};
 
 watch(() => form.marca_id, async (nuevaMarcaId) => {
     form.modelo_id = ''; 
@@ -239,39 +280,34 @@ const submit = () => {
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 
                                 <div>
-                                    <InputLabel for="marca_id" value="Marca *" />
-                                    <select 
-                                        id="marca_id" 
-                                        name="marca_id"
-                                        v-model="form.marca_id" 
-                                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
-                                    >
-                                        <option value="" disabled>Selecciona una marca</option>
-                                        <option v-for="marca in marcas" :key="marca.id" :value="marca.id">{{ marca.nombre }}</option>
-                                    </select>
-                                    <InputError :message="form.errors.marca_id" class="mt-2" />
+                                    <ConfigurableSelect
+                                        id="marca_id"
+                                        v-model="form.marca_id"
+                                        label="Marca *"
+                                        :options="marcasOptions"
+                                        placeholder="Selecciona una marca"
+                                        :error="form.errors.marca_id"
+                                        api-endpoint="/api/marcas"
+                                        name-field="nombre"
+                                        @refresh="refreshMarcas"
+                                    />
                                 </div>
 
                                 <div>
-                                    <InputLabel for="modelo_id" value="Modelo *" />
-                                    <div class="relative">
-                                        <select 
-                                            id="modelo_id" 
-                                            name="modelo_id"
-                                            v-model="form.modelo_id" 
-                                            class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm disabled:bg-gray-100 disabled:text-gray-500" 
-                                            :disabled="!form.marca_id || cargandoModelos"
-                                        >
-                                            <option value="" disabled>
-                                                {{ !form.marca_id ? 'Primero selecciona Marca' : (cargandoModelos ? 'Cargando modelos...' : 'Selecciona un modelo') }}
-                                            </option>
-                                            <option v-for="modelo in modelosDisponibles" :key="modelo.id" :value="modelo.id">{{ modelo.nombre }}</option>
-                                        </select>
-                                        <div v-if="cargandoModelos" class="absolute right-8 top-3">
-                                            <svg class="animate-spin h-4 w-4 text-indigo-500" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                        </div>
-                                    </div>
-                                    <InputError :message="form.errors.modelo_id" class="mt-2" />
+                                    <ConfigurableSelect
+                                        id="modelo_id"
+                                        v-model="form.modelo_id"
+                                        label="Modelo *"
+                                        :options="modelosOptions"
+                                        :placeholder="!form.marca_id ? 'Primero selecciona Marca' : (cargandoModelos ? 'Cargando modelos...' : 'Selecciona un modelo')"
+                                        :error="form.errors.modelo_id"
+                                        :disabled="!form.marca_id || cargandoModelos"
+                                        :loading="cargandoModelos"
+                                        api-endpoint="/api/modelos"
+                                        name-field="nombre"
+                                        :additional-data="{ marca_id: form.marca_id }"
+                                        @refresh="refreshModelos"
+                                    />
                                 </div>
 
                                 <!-- CU-11 Paso 5: Asignación de Técnico (Kendall: Variedad de controles - Select) -->
