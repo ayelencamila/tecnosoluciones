@@ -77,6 +77,15 @@ class OfertaCompra extends Model
         return $this->hasMany(OrdenCompra::class, 'oferta_id');
     }
 
+    /**
+     * Detalles de productos ofrecidos (1FN - relación normalizada)
+     * Contiene precios unitarios por producto
+     */
+    public function detalles(): HasMany
+    {
+        return $this->hasMany(DetalleOfertaCompra::class, 'oferta_id');
+    }
+
     // --- MÉTODOS DE NEGOCIO (Larman: Patrón Experto) ---
 
     /**

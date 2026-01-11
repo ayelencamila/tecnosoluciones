@@ -59,37 +59,40 @@ class RegistrarCompraService
             ]);
 
             // 4. Generar Detalles de la Orden
-            // Recuperamos los productos desde la Solicitud de Cotización original.
-            // (Asumimos que la oferta respeta los ítems pedidos en la solicitud)
-            $solicitud = $oferta->solicitud;
+            // Recuperamos los productos desde los detalles de la OFERTA (1FN - Normalizado)
+            // La oferta tiene precios unitarios reales cotizados por el proveedor
+            $detallesOferta = $oferta->detalles;
             
-            if (!$solicitud || empty($solicitud->detalle_productos)) {
-                throw new Exception("La oferta no tiene una solicitud válida o detalles de productos para copiar.");
-            }
-
-            // El detalle_productos en Solicitud es un array JSON: [['producto_id' => 1, 'cantidad' => 10], ...]
-            $itemsSolicitados = $solicitud->detalle_productos;
-            
-            // Lógica de distribución de precio (Design Decision)
-            // Como la oferta suele tener un "Precio Total", calculamos un unitario promedio si no está desglosado,
-            // o usamos el precio total de la oferta distribuido proporcionalmente.
-            // Para esta versión, usaremos una lógica simple: Precio 0 (a definir) o prorrateo.
-            
-            // Calcular si podemos prorratear (Evitar división por cero)
-            $totalCantidad = collect($itemsSolicitados)->sum('cantidad');
-            $precioPromedio = $totalCantidad > 0 ? ($oferta->precio_total / $totalCantidad) : 0;
-
-            foreach ($itemsSolicitados as $item) {
-                $orden->detalles()->create([
-                    'producto_id' => $item['producto_id'],
-                    'cantidad_pedida' => $item['cantidad'],
-                    'cantidad_recibida' => 0, // Inicializa en 0 para el CU-23
-                    
-                    // Aquí asignamos el precio unitario. 
-                    // En un sistema real complejo, la Oferta debería tener su propio JSON de precios unitarios.
-                    // Por ahora, usamos el precio promedio para cuadrar el total.
-                    'precio_unitario' => round($precioPromedio, 2), 
-                ]);
+            if ($detallesOferta->isEmpty()) {
+                // Fallback: Si la oferta no tiene detalles, intentamos desde la solicitud
+                $solicitud = $oferta->solicitud;
+                
+                if (!$solicitud || $solicitud->detalles->isEmpty()) {
+                    throw new Exception("La oferta no tiene detalles de productos para generar la orden.");
+                }
+                
+                // Usar detalles de la solicitud con precio promedio (legacy/fallback)
+                $totalCantidad = $solicitud->detalles->sum('cantidad_sugerida');
+                $precioPromedio = $totalCantidad > 0 ? ($oferta->precio_total / $totalCantidad) : 0;
+                
+                foreach ($solicitud->detalles as $detalleSolicitud) {
+                    $orden->detalles()->create([
+                        'producto_id' => $detalleSolicitud->producto_id,
+                        'cantidad_pedida' => $detalleSolicitud->cantidad_sugerida,
+                        'cantidad_recibida' => 0,
+                        'precio_unitario' => round($precioPromedio, 2),
+                    ]);
+                }
+            } else {
+                // Caso ideal: Usar detalles de la oferta con precios unitarios reales
+                foreach ($detallesOferta as $detalleOferta) {
+                    $orden->detalles()->create([
+                        'producto_id' => $detalleOferta->producto_id,
+                        'cantidad_pedida' => $detalleOferta->cantidad_ofrecida,
+                        'cantidad_recibida' => 0,
+                        'precio_unitario' => $detalleOferta->precio_unitario,
+                    ]);
+                }
             }
 
             // 5. Actualizar estado final de la Oferta

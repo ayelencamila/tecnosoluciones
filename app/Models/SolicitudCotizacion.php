@@ -67,6 +67,15 @@ class SolicitudCotizacion extends Model
         return $this->hasMany(OfertaCompra::class, 'solicitud_id');
     }
 
+    /**
+     * Detalles de productos solicitados (1FN - relación normalizada)
+     * Reemplaza el campo JSON detalle_productos
+     */
+    public function detalles(): HasMany
+    {
+        return $this->hasMany(DetalleSolicitudCotizacion::class, 'solicitud_id');
+    }
+
     // --- MÉTODOS DE NEGOCIO (Larman: Patrón Experto) ---
 
     /**
