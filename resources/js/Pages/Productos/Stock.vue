@@ -1,24 +1,29 @@
 <script setup>
 import { ref, watch, computed } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3'; // <--- IMPORTAR LINK
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue';
+import ConfigurableSelect from '@/Components/ConfigurableSelect.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import Modal from '@/Components/Modal.vue';
 import { debounce } from 'lodash';
+import axios from 'axios';
 
 const props = defineProps({
     stocks: Object,
     categorias: Array,
     depositos: Array,
-    tiposMovimiento: Array, // <--- Prop del controlador
+    tiposMovimiento: Array,
     filters: Object,
     stats: Object,
 });
+
+// Lista reactiva para tipos de movimiento
+const tiposMovimientoList = ref([...props.tiposMovimiento || []]);
 
 const form = ref({
     search: props.filters.search || '',
@@ -32,12 +37,22 @@ const depositosOptions = computed(() => [{ value: '', label: 'Todos los Depósit
 
 // Transformamos los tipos de movimiento para el Select
 const movementTypesOptions = computed(() => {
-    if(!props.tiposMovimiento) return [];
-    return props.tiposMovimiento.map(t => ({
+    if(!tiposMovimientoList.value) return [];
+    return tiposMovimientoList.value.map(t => ({
         value: t.id,
         label: `${t.nombre} (${t.signo > 0 ? '+' : '-'})`
     }));
 });
+
+// Función refresh para ConfigurableSelect
+const refreshTiposMovimiento = async () => {
+    try {
+        const response = await axios.get('/api/tipos-movimiento-stock');
+        tiposMovimientoList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar tipos de movimiento:', error);
+    }
+};
 
 watch(form, debounce(() => {
     router.get(route('productos.stock'), form.value, { preserveState: true, replace: true });
@@ -116,11 +131,11 @@ const getPaginationLabel = (label, index, totalLinks) => {
 
                 <div class="bg-white shadow-sm sm:rounded-lg p-4 mb-6">
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-                        <div class="md:col-span-1"><TextInput v-model="form.search" placeholder="Buscar Producto..." class="w-full" /></div>
-                        <SelectInput v-model="form.categoria_id" class="w-full" :options="categoriasOptions" />
-                        <SelectInput v-model="form.deposito_id" class="w-full" :options="depositosOptions" />
+                        <div class="md:col-span-1"><TextInput id="search" name="search" v-model="form.search" placeholder="Buscar Producto..." class="w-full" /></div>
+                        <SelectInput id="categoria_id" name="categoria_id" v-model="form.categoria_id" class="w-full" :options="categoriasOptions" />
+                        <SelectInput id="deposito_id" name="deposito_id" v-model="form.deposito_id" class="w-full" :options="depositosOptions" />
                         <div class="flex items-center justify-between">
-                            <label class="flex items-center text-sm text-gray-700 cursor-pointer select-none"><input type="checkbox" v-model="form.stock_bajo" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" /><span class="ml-2 font-medium">Ver Stock Bajo</span></label>
+                            <label for="stock_bajo" class="flex items-center text-sm text-gray-700 cursor-pointer select-none"><input id="stock_bajo" name="stock_bajo" type="checkbox" v-model="form.stock_bajo" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" /><span class="ml-2 font-medium">Ver Stock Bajo</span></label>
                             <button @click="resetFilters" class="text-sm text-gray-500 hover:text-gray-900 underline">Limpiar</button>
                         </div>
                     </div>
@@ -175,9 +190,18 @@ const getPaginationLabel = (label, index, totalLinks) => {
 
                 <form @submit.prevent="submitAdjustment" class="space-y-4">
                     <div>
-                        <InputLabel for="tipo_movimiento" value="Tipo de Movimiento" />
-                        <SelectInput id="tipo_movimiento" v-model="adjustmentForm.tipo_movimiento_id" class="w-full mt-1" :options="movementTypesOptions" />
-                        <InputError :message="adjustmentForm.errors.tipo_movimiento_id" class="mt-2" />
+                        <ConfigurableSelect
+                            id="tipo_movimiento"
+                            v-model="adjustmentForm.tipo_movimiento_id"
+                            label="Tipo de Movimiento"
+                            :options="movementTypesOptions"
+                            placeholder="Seleccione tipo..."
+                            :error="adjustmentForm.errors.tipo_movimiento_id"
+                            api-endpoint="/api/tipos-movimiento-stock"
+                            name-field="nombre"
+                            @refresh="refreshTiposMovimiento"
+                        />
+                        <p class="text-xs text-gray-500 mt-1">Tip: Use "Entrada" o "Ingreso" para +, "Salida" o "Baja" para -</p>
                     </div>
                     <div>
                         <InputLabel for="cantidad" value="Cantidad (Positiva)" />
@@ -186,7 +210,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                     </div>
                     <div>
                         <InputLabel for="motivo" value="Motivo (Requerido)" />
-                        <textarea id="motivo" v-model="adjustmentForm.motivo" rows="2" class="w-full mt-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"></textarea>
+                        <textarea id="motivo" name="motivo" v-model="adjustmentForm.motivo" rows="2" class="w-full mt-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"></textarea>
                         <InputError :message="adjustmentForm.errors.motivo" class="mt-2" />
                     </div>
                     <div class="mt-6 flex justify-end">

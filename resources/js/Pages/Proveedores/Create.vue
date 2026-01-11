@@ -13,7 +13,7 @@ const props = defineProps({
 const form = useForm({
     razon_social: '', cuit: '', email: '', telefono: '',
     forma_pago_preferida: '', plazo_entrega_estimado: '',
-    calle: '', altura: '', localidad_id: '',
+    calle: '', altura: '', provincia_id: '', localidad_id: '',
 });
 
 const submit = () => {

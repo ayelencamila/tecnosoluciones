@@ -7,6 +7,7 @@ import PrimaryButton from '@/Components/PrimaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue';
+import ConfigurableSelect from '@/Components/ConfigurableSelect.vue';
 import InputError from '@/Components/InputError.vue';
 import { debounce } from 'lodash';
 
@@ -15,14 +16,27 @@ const props = defineProps({
     mediosPago: Array, 
 });
 
+// --- Lista reactiva para medios de pago ---
+const mediosPagoList = ref([...props.mediosPago || []]);
+
 // --- LÓGICA MEDIOS DE PAGO ---
 const mediosOptions = computed(() => {
-    if (!props.mediosPago) return [];
-    return props.mediosPago.map(m => ({
+    if (!mediosPagoList.value) return [];
+    return mediosPagoList.value.map(m => ({
         value: m.medioPagoID,
         label: `${m.nombre} ${parseFloat(m.recargo_porcentaje) > 0 ? '(+' + parseFloat(m.recargo_porcentaje) + '%)' : ''}`
     }));
 });
+
+// --- Función refresh para ConfigurableSelect ---
+const refreshMediosPago = async () => {
+    try {
+        const response = await axios.get('/api/medios-pago');
+        mediosPagoList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar medios de pago:', error);
+    }
+};
 
 // --- ESTADO LOCAL ---
 const searchTermCliente = ref('');
@@ -255,14 +269,17 @@ onMounted(() => {
                             </div>
 
                             <div>
-                                <InputLabel for="medioPagoID" value="Método de Pago" />
-                                <SelectInput
+                                <ConfigurableSelect
                                     id="medioPagoID"
                                     v-model="form.medioPagoID"
-                                    class="w-full mt-1"
+                                    label="Método de Pago"
                                     :options="mediosOptions"
+                                    placeholder="Seleccione método..."
+                                    :error="form.errors.medioPagoID"
+                                    api-endpoint="/api/medios-pago"
+                                    name-field="nombre"
+                                    @refresh="refreshMediosPago"
                                 />
-                                <InputError :message="form.errors.medioPagoID" class="mt-2" />
                             </div>
 
                             <!-- CU-10 Paso 6 y 7: Documentos Pendientes e Imputación -->

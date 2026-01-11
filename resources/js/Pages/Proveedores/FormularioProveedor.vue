@@ -1,8 +1,10 @@
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputError from '@/Components/InputError.vue';
+import ConfigurableSelect from '@/Components/ConfigurableSelect.vue';
+import axios from 'axios';
 
 const props = defineProps({
     form: Object,
@@ -11,12 +13,74 @@ const props = defineProps({
     esEdicion: { type: Boolean, default: false }
 });
 
-const provinciaSeleccionada = ref('');
+// Estados reactivos para listas configurables
+const provinciasList = ref([...props.provincias]);
+const localidadesList = ref([]);
+const cargandoLocalidades = ref(false);
 
-const localidadesFiltradas = computed(() => {
-    if (!provinciaSeleccionada.value) return props.localidades;
-    return props.localidades.filter(loc => loc.provincia?.provinciaID == provinciaSeleccionada.value);
+// Computed para opciones de selects
+const provinciasOptions = computed(() => {
+    return provinciasList.value.map(p => ({
+        value: p.provinciaID,
+        label: p.nombre
+    }));
 });
+
+const localidadesOptions = computed(() => {
+    if (cargandoLocalidades.value) {
+        return [{ value: '', label: 'Cargando...' }];
+    }
+    const opciones = localidadesList.value.map(l => ({
+        value: l.localidadID,
+        label: l.nombre
+    }));
+    if (opciones.length === 0 && props.form.provincia_id) {
+        return [{ value: '', label: 'No hay localidades disponibles' }];
+    }
+    return opciones;
+});
+
+// Watcher para cargar localidades al cambiar provincia
+watch(() => props.form.provincia_id, async (newProvinciaId) => {
+    props.form.localidad_id = '';
+    localidadesList.value = [];
+    
+    if (newProvinciaId) {
+        cargandoLocalidades.value = true;
+        try {
+            const response = await axios.get(`/api/localidades?provincia_id=${newProvinciaId}`);
+            localidadesList.value = response.data;
+        } catch (error) {
+            console.error('Error al cargar localidades:', error);
+        } finally {
+            cargandoLocalidades.value = false;
+        }
+    }
+});
+
+// Funciones refresh para ConfigurableSelect
+const refreshProvincias = async () => {
+    try {
+        const response = await axios.get('/api/provincias');
+        provinciasList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar provincias:', error);
+    }
+};
+
+const refreshLocalidades = async () => {
+    if (!props.form.provincia_id) return;
+    
+    cargandoLocalidades.value = true;
+    try {
+        const response = await axios.get(`/api/localidades?provincia_id=${props.form.provincia_id}`);
+        localidadesList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar localidades:', error);
+    } finally {
+        cargandoLocalidades.value = false;
+    }
+};
 </script>
 
 <template>
@@ -61,24 +125,36 @@ const localidadesFiltradas = computed(() => {
                     <TextInput v-model="form.altura" class="w-full mt-1" />
                     <InputError :message="form.errors.altura" />
                 </div>
-                <div class="md:col-span-3">
-                    <InputLabel value="Provincia" />
-                    <select v-model="provinciaSeleccionada" class="w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">Todas las provincias</option>
-                        <option v-for="prov in provincias" :key="prov.provinciaID" :value="prov.provinciaID">
-                            {{ prov.nombre }}
-                        </option>
-                    </select>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                    <ConfigurableSelect
+                        id="provincia_id"
+                        v-model="form.provincia_id"
+                        label="Provincia"
+                        :options="provinciasOptions"
+                        placeholder="Seleccione Provincia..."
+                        :error="form.errors.provincia_id"
+                        api-endpoint="/api/provincias"
+                        name-field="nombre"
+                        @refresh="refreshProvincias"
+                    />
                 </div>
-                <div class="md:col-span-3">
-                    <InputLabel value="Localidad *" />
-                    <select v-model="form.localidad_id" class="w-full mt-1 border-gray-300 rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                        <option value="">Seleccione una localidad...</option>
-                        <option v-for="loc in localidadesFiltradas" :key="loc.localidadID" :value="loc.localidadID">
-                            {{ loc.nombre }} - {{ loc.provincia?.nombre }}
-                        </option>
-                    </select>
-                    <InputError :message="form.errors.localidad_id" />
+                <div>
+                    <ConfigurableSelect
+                        id="localidad_id"
+                        v-model="form.localidad_id"
+                        label="Localidad *"
+                        :options="localidadesOptions"
+                        placeholder="Seleccione Localidad..."
+                        :error="form.errors.localidad_id"
+                        :disabled="!form.provincia_id || cargandoLocalidades"
+                        :loading="cargandoLocalidades"
+                        api-endpoint="/api/localidades"
+                        name-field="nombre"
+                        :additional-data="{ provincia_id: form.provincia_id }"
+                        @refresh="refreshLocalidades"
+                    />
                 </div>
             </div>
         </div>

@@ -115,8 +115,8 @@ watch(() => form.provincia_id, async (newProvinciaId) => {
 // Funciones de refresh para ConfigurableSelect
 const refreshTiposCliente = async () => {
     try {
-        const response = await axios.get(route('clientes.create'));
-        tiposClienteList.value = response.data.props.tiposCliente;
+        const response = await axios.get('/api/tipos-cliente');
+        tiposClienteList.value = response.data;
     } catch (error) {
         console.error('Error al refrescar tipos de cliente:', error);
     }
@@ -124,8 +124,8 @@ const refreshTiposCliente = async () => {
 
 const refreshEstadosCliente = async () => {
     try {
-        const response = await axios.get(route('clientes.create'));
-        estadosClienteList.value = response.data.props.estadosCliente;
+        const response = await axios.get('/api/estados-cliente');
+        estadosClienteList.value = response.data;
     } catch (error) {
         console.error('Error al refrescar estados de cliente:', error);
     }
@@ -133,8 +133,8 @@ const refreshEstadosCliente = async () => {
 
 const refreshProvincias = async () => {
     try {
-        const response = await axios.get(route('clientes.create'));
-        provinciasList.value = response.data.props.provincias;
+        const response = await axios.get('/api/provincias');
+        provinciasList.value = response.data;
     } catch (error) {
         console.error('Error al refrescar provincias:', error);
     }
@@ -145,7 +145,7 @@ const refreshLocalidades = async () => {
     
     cargandoLocalidades.value = true;
     try {
-        const response = await axios.get(route('api.localidades.por-provincia', form.provincia_id));
+        const response = await axios.get(`/api/localidades?provincia_id=${form.provincia_id}`);
         localidadesList.value = response.data;
     } catch (error) {
         console.error('Error al refrescar localidades:', error);

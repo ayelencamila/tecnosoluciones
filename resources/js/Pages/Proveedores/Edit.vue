@@ -22,6 +22,7 @@ const form = useForm({
     // Datos de dirección
     calle: props.proveedor.direccion?.calle,
     altura: props.proveedor.direccion?.altura,
+    provincia_id: props.proveedor.direccion?.localidad?.provinciaID || '',
     localidad_id: props.proveedor.direccion?.localidadID,
 
     motivo: '', // Campo obligatorio para el PUT

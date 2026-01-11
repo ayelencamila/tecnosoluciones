@@ -7,6 +7,7 @@ import SecondaryButton from '@/Components/SecondaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import SelectInput from '@/Components/SelectInput.vue';
+import ConfigurableSelect from '@/Components/ConfigurableSelect.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import InputError from '@/Components/InputError.vue';
 import AlertMessage from '@/Components/AlertMessage.vue'; 
@@ -26,13 +27,24 @@ const page = usePage();
 const ventaStore = useVentaStore();
 
 // --- MEDIOS DE PAGO ---
+const mediosPagoList = ref([...props.mediosPago || []]);
+
 const mediosOptions = computed(() => {
-    if (!props.mediosPago) return [];
-    return props.mediosPago.map(m => ({
+    if (!mediosPagoList.value) return [];
+    return mediosPagoList.value.map(m => ({
         value: m.medioPagoID,
         label: `${m.nombre} ${parseFloat(m.recargo_porcentaje) > 0 ? '(+' + parseFloat(m.recargo_porcentaje) + '%)' : ''}`
     }));
 });
+
+const refreshMediosPago = async () => {
+    try {
+        const response = await axios.get('/api/medios-pago');
+        mediosPagoList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar medios de pago:', error);
+    }
+};
 
 // --- ESTADO LOCAL ---
 const searchTermCliente = ref('');
@@ -337,15 +349,17 @@ onMounted(() => {
 
                         <div class="mt-6 border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <InputLabel for="medio_pago_select" value="Método de Pago" />
-                                <SelectInput 
-                                    id="medio_pago_select" 
-                                    name="medio_pago"
-                                    v-model="ventaStore.metodoPago" 
-                                    :options="mediosOptions" 
-                                    class="w-full" 
+                                <ConfigurableSelect
+                                    id="medio_pago_select"
+                                    v-model="ventaStore.metodoPago"
+                                    label="Método de Pago"
+                                    :options="mediosOptions"
+                                    placeholder="Seleccione medio de pago..."
+                                    :error="form.errors.medio_pago_id"
+                                    api-endpoint="/api/medios-pago"
+                                    name-field="nombre"
+                                    @refresh="refreshMediosPago"
                                 />
-                                <InputError :message="form.errors.medio_pago_id" class="mt-2" />
                             </div>
                         </div>
                     </div>
