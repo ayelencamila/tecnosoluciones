@@ -88,7 +88,7 @@ class RegistrarCompraService
                     // Aquí asignamos el precio unitario. 
                     // En un sistema real complejo, la Oferta debería tener su propio JSON de precios unitarios.
                     // Por ahora, usamos el precio promedio para cuadrar el total.
-                    'precio_unitario_pactado' => round($precioPromedio, 2), 
+                    'precio_unitario' => round($precioPromedio, 2), 
                 ]);
             }
 

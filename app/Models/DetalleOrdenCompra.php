@@ -12,118 +12,95 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * Representa el detalle de productos en una orden de compra.
  * 
  * Lineamientos aplicados:
- * - Elmasri: Entidad Débil con PK compuesta (orden_compra_id, producto_id)
- * - Relación 1:N Identificada
+ * - Surrogate Key (id) + UNIQUE constraint (orden_compra_id, producto_id)
+ * - Patrón alineado con DetalleVenta y DetalleReparacion
  * - CU-23: Soporte para recepción parcial
  * 
- * @property int $orden_compra_id (PK compuesta parte 1)
- * @property int $producto_id (PK compuesta parte 2)
+ * @property int $id Surrogate Key
+ * @property int $orden_compra_id FK a orden de compra
+ * @property int $producto_id FK a producto
  * @property int $cantidad_pedida
  * @property int $cantidad_recibida
- * @property float $precio_unitario_pactado
+ * @property float $precio_unitario Precio pactado con proveedor
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * 
  * @property-read OrdenCompra $ordenCompra
  * @property-read Producto $producto
+ * @property-read int $cantidad_pendiente Accessor
+ * @property-read float $subtotal Accessor
  */
 class DetalleOrdenCompra extends Model
 {
     use HasFactory;
 
-    protected $table = 'detalle_orden_compra';
+    /**
+     * Nombre correcto de la tabla (plural)
+     */
+    protected $table = 'detalle_ordenes_compra';
     
     /**
-     * Elmasri: PK Compuesta (Entidad Débil)
-     * La clave primaria es una combinación de orden_compra_id y producto_id
+     * Surrogate Key estándar de Laravel
+     * La integridad se garantiza con UNIQUE(orden_compra_id, producto_id)
      */
-    protected $primaryKey = ['orden_compra_id', 'producto_id'];
-    
-    /**
-     * Indica que NO es auto-incremental (PK compuesta)
-     */
-    public $incrementing = false;
+    protected $primaryKey = 'id';
 
     protected $fillable = [
         'orden_compra_id',
         'producto_id',
         'cantidad_pedida',
         'cantidad_recibida',
-        'precio_unitario_pactado',
+        'precio_unitario',
     ];
 
     protected $casts = [
         'cantidad_pedida' => 'integer',
         'cantidad_recibida' => 'integer',
-        'precio_unitario_pactado' => 'decimal:2',
+        'precio_unitario' => 'decimal:2',
     ];
 
-    // --- RELACIONES (Elmasri: Entidad Débil) ---
+    // --- RELACIONES ---
 
+    /**
+     * Orden de compra a la que pertenece el detalle
+     */
     public function ordenCompra(): BelongsTo
     {
         return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
     }
 
+    /**
+     * Producto incluido en el detalle
+     */
     public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class);
     }
 
-    // --- MÉTODOS DE NEGOCIO (Larman: Patrón Experto) ---
+    // --- MÉTODOS DE BÚSQUEDA ---
 
     /**
-     * Override para manejar PK compuesta en búsquedas
+     * Busca un detalle por la combinación única orden + producto
      * 
-     * @param array $ids ['orden_compra_id' => x, 'producto_id' => y]
+     * @param int $ordenCompraId
+     * @param int $productoId
      * @return static|null
      */
-    public static function findByCompoundKey(int $ordenCompraId, int $productoId)
+    public static function findByOrdenProducto(int $ordenCompraId, int $productoId)
     {
         return static::where('orden_compra_id', $ordenCompraId)
                      ->where('producto_id', $productoId)
                      ->first();
     }
 
-    /**
-     * Override setKeysForSaveQuery para manejar PK compuesta en updates
-     * 
-     * CRÍTICO: Eloquent nativo lucha con PKs compuestas al hacer updates.
-     * Este método garantiza que use ambas columnas en el WHERE.
-     */
-    protected function setKeysForSaveQuery($query)
-    {
-        $keys = $this->getKeyName();
-        
-        if (!is_array($keys)) {
-            return parent::setKeysForSaveQuery($query);
-        }
-
-        foreach ($keys as $keyName) {
-            $query->where($keyName, '=', $this->getKeyForSaveQuery($keyName));
-        }
-
-        return $query;
-    }
-
-    /**
-     * Get the value for a given key
-     */
-    protected function getKeyForSaveQuery($keyName = null)
-    {
-        if (is_null($keyName)) {
-            $keyName = $this->getKeyName();
-        }
-
-        if (isset($this->original[$keyName])) {
-            return $this->original[$keyName];
-        }
-
-        return $this->getAttribute($keyName);
-    }
+    // --- MÉTODOS DE NEGOCIO (Larman: Patrón Experto) ---
 
     /**
      * Registra la recepción de productos (CU-23)
+     * 
+     * @param int $cantidad Cantidad recibida
+     * @throws \InvalidArgumentException Si cantidad <= 0
+     * @throws \Exception Si excede lo pedido
      */
     public function registrarRecepcion(int $cantidad): void
     {
@@ -151,8 +128,10 @@ class DetalleOrdenCompra extends Model
         return $this->cantidad_recibida >= $this->cantidad_pedida;
     }
 
+    // --- ACCESSORS ---
+
     /**
-     * Obtiene la cantidad pendiente
+     * Obtiene la cantidad pendiente de recibir
      */
     public function getCantidadPendienteAttribute(): int
     {
@@ -160,10 +139,10 @@ class DetalleOrdenCompra extends Model
     }
 
     /**
-     * Calcula el subtotal del detalle
+     * Calcula el subtotal del detalle (cantidad * precio)
      */
     public function getSubtotalAttribute(): float
     {
-        return $this->cantidad_pedida * $this->precio_unitario_pactado;
+        return $this->cantidad_pedida * $this->precio_unitario;
     }
 }
