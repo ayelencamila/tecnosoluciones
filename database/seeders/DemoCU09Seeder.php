@@ -92,9 +92,14 @@ class DemoCU09Seeder extends Seeder
             $fechaVencimiento = Carbon::now()->subDays(35); // Vencido hace 35 días
             $fechaEmision = Carbon::now()->subDays(60); // Compra hace 60 días
 
+            // Obtener tipo_movimiento_cc_id para Débito
+            $tipoDebito = DB::table('tipos_movimiento_cuenta_corriente')
+                ->where('nombre', 'Debito')
+                ->value('tipo_movimiento_cc_id');
+
             MovimientoCuentaCorriente::create([
                 'cuentaCorrienteID' => $cc->cuentaCorrienteID,
-                'tipoMovimiento' => 'Debito',
+                'tipo_movimiento_cc_id' => $tipoDebito,
                 'monto' => $montoDeuda,
                 'saldoAlMomento' => $montoDeuda,
                 'descripcion' => 'Venta vencida - Demo CU-09',

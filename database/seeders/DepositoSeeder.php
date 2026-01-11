@@ -12,16 +12,18 @@ class DepositoSeeder extends Seeder
      */
     public function run(): void
     {
-        DB::table('depositos')->insert([
-            'deposito_id' => 1,
-            'nombre' => 'Depósito Principal',
-            'descripcion' => 'Depósito central de la sede principal',
-            'direccion' => 'Sede principal',
-            'activo' => true,
-            'esPrincipal' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('depositos')->updateOrInsert(
+            ['deposito_id' => 1],
+            [
+                'nombre' => 'Depósito Principal',
+                'descripcion' => 'Depósito central de la sede principal',
+                'direccion' => 'Sede principal',
+                'activo' => true,
+                'esPrincipal' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
 
         echo "✅ Depósito Principal creado exitosamente.\n";
     }

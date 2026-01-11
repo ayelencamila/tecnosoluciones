@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\DB;
 
 use App\Models\User;
 
@@ -15,13 +16,18 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
+        // Obtener rol_id desde tabla roles
+        $rolAdmin = DB::table('roles')->where('nombre', 'admin')->value('rol_id');
+        $rolVendedor = DB::table('roles')->where('nombre', 'vendedor')->value('rol_id');
+        $rolTecnico = DB::table('roles')->where('nombre', 'tecnico')->value('rol_id');
+
         // Admin
         User::updateOrCreate(
             ['email' => 'admin@tecnosoluciones.com'],
             [
                 'name' => 'Admin',
                 'password' => Hash::make('1234'),
-                'role' => 'admin',
+                'rol_id' => $rolAdmin,
             ]
         );
 
@@ -31,7 +37,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Vendedor',
                 'password' => Hash::make('1234'),
-                'role' => 'vendedor',
+                'rol_id' => $rolVendedor,
             ]
         );
 
@@ -41,7 +47,7 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Técnico',
                 'password' => Hash::make('1234'),
-                'role' => 'tecnico',
+                'rol_id' => $rolTecnico,
             ]
         );
     }

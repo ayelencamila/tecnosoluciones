@@ -175,7 +175,10 @@ class LocalidadSeeder extends Seeder
                 ->exists();
             
             if (!$existe) {
-                Localidad::create($localidad);
+                Localidad::updateOrCreate(
+                    ['localidadID' => $localidad['localidadID']],
+                    $localidad
+                );
                 $creadas++;
             } else {
                 $existentes++;

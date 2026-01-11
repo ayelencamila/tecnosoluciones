@@ -25,7 +25,10 @@ class EstadoProductoSeeder extends Seeder
         ];
 
         foreach ($estados as $estado) {
-            EstadoProducto::create($estado);
+            EstadoProducto::updateOrCreate(
+                ['nombre' => $estado['nombre']],
+                $estado
+            );
         }
     }
 }

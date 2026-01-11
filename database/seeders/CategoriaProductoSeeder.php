@@ -33,7 +33,10 @@ class CategoriaProductoSeeder extends Seeder
         ];
 
         foreach ($categorias as $categoria) {
-            CategoriaProducto::create($categoria);
+            CategoriaProducto::updateOrCreate(
+                ['nombre' => $categoria['nombre']],
+                $categoria
+            );
         }
     }
 }
