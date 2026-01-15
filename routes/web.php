@@ -345,5 +345,18 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{oferta}/rechazar', [\App\Http\Controllers\OfertaCompraController::class, 'rechazar'])->name('rechazar');
     });
 
+    // CU-22: Órdenes de Compra
+    Route::prefix('ordenes')->name('ordenes.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index');
+        Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store');
+        Route::get('/{orden}', [\App\Http\Controllers\OrdenCompraController::class, 'show'])->name('show');
+        Route::get('/{orden}/descargar-pdf', [\App\Http\Controllers\OrdenCompraController::class, 'descargarPdf'])->name('descargar-pdf');
+        Route::post('/{orden}/reenviar-whatsapp', [\App\Http\Controllers\OrdenCompraController::class, 'reenviarWhatsApp'])->name('reenviar-whatsapp');
+        Route::post('/{orden}/reenviar-email', [\App\Http\Controllers\OrdenCompraController::class, 'reenviarEmail'])->name('reenviar-email');
+        Route::post('/{orden}/regenerar-pdf', [\App\Http\Controllers\OrdenCompraController::class, 'regenerarPdf'])->name('regenerar-pdf');
+        Route::post('/{orden}/confirmar', [\App\Http\Controllers\OrdenCompraController::class, 'confirmar'])->name('confirmar');
+        Route::post('/{orden}/cancelar', [\App\Http\Controllers\OrdenCompraController::class, 'cancelar'])->name('cancelar');
+    });
+
 });
 

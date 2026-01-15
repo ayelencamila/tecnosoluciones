@@ -21,6 +21,13 @@ const formRechazar = useForm({
     motivo: '',
 });
 
+// Modal de generar OC (CU-22)
+const showGenerarOCModal = ref(false);
+const formGenerarOC = useForm({
+    oferta_id: props.oferta.id,
+    observaciones: '',
+});
+
 // Elegir oferta (CU-21 Paso 12)
 const elegirOferta = () => {
     if (confirm('¿Confirma elegir esta oferta? Podrá generar la Orden de Compra después.')) {
@@ -41,12 +48,15 @@ const rechazarOferta = () => {
     });
 };
 
-// Generar OC (CU-22 - pendiente)
+// Generar OC (CU-22)
 const generarOrdenCompra = () => {
-    if (confirm('¿Estás seguro de que deseas generar la Orden de Compra para esta oferta?')) {
-        // TODO: Implementar en CU-22
-        alert('Funcionalidad CU-22 pendiente de implementación.');
-    }
+    formGenerarOC.post(route('ordenes.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showGenerarOCModal.value = false;
+            formGenerarOC.reset('observaciones');
+        },
+    });
 };
 
 // Helper para clases de estado (Feedback visual)
@@ -197,7 +207,7 @@ const estadoClass = (estado) => {
                     <!-- Botón Generar OC (Solo si ya está Elegida) -->
                     <PrimaryButton 
                         v-if="oferta.estado.nombre === 'Elegida'"
-                        @click="generarOrdenCompra">
+                        @click="showGenerarOCModal = true">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
@@ -258,6 +268,90 @@ const estadoClass = (estado) => {
                         <span v-if="formRechazar.processing">Procesando...</span>
                         <span v-else>Confirmar Rechazo</span>
                     </DangerButton>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Modal Generar Orden de Compra (CU-22) -->
+        <Modal :show="showGenerarOCModal" @close="showGenerarOCModal = false" max-width="lg">
+            <div class="p-6">
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0 w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="text-lg font-semibold text-gray-900">
+                            Generar Orden de Compra
+                        </h2>
+                        <p class="text-sm text-gray-500">
+                            Oferta: {{ oferta.codigo_oferta }} | Proveedor: {{ oferta.proveedor.razon_social }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Resumen de la oferta -->
+                <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="text-gray-500">Total:</span>
+                            <span class="font-bold text-gray-900 ml-2">
+                                ${{ Number(oferta.total_estimado).toLocaleString('es-AR', {minimumFractionDigits: 2}) }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-gray-500">Productos:</span>
+                            <span class="font-medium text-gray-900 ml-2">{{ oferta.detalles.length }} ítems</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <InputLabel for="observaciones" value="Instrucciones para el proveedor *" />
+                    <textarea
+                        id="observaciones"
+                        v-model="formGenerarOC.observaciones"
+                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                        rows="4"
+                        placeholder="Ej: Entregar en depósito central. Horario de recepción: 9 a 17hs. Incluir remito..."
+                    ></textarea>
+                    <InputError :message="formGenerarOC.errors.observaciones" class="mt-2" />
+                    <p class="mt-1 text-xs text-gray-500">
+                        Mínimo 10 caracteres. Estas instrucciones se incluirán en el PDF y WhatsApp enviado al proveedor.
+                    </p>
+                </div>
+
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                    <div class="flex">
+                        <svg class="w-5 h-5 text-blue-400 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                        </svg>
+                        <div class="text-sm text-blue-700">
+                            <p class="font-medium">Al confirmar se ejecutarán las siguientes acciones:</p>
+                            <ul class="mt-1 list-disc list-inside">
+                                <li>Se generará la Orden de Compra en PDF</li>
+                                <li>Se enviará WhatsApp al proveedor con la OC</li>
+                                <li>Recibirás un email de confirmación</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <SecondaryButton @click="showGenerarOCModal = false">
+                        Cancelar
+                    </SecondaryButton>
+                    <PrimaryButton 
+                        @click="generarOrdenCompra"
+                        :disabled="formGenerarOC.processing || formGenerarOC.observaciones.length < 10">
+                        <svg v-if="formGenerarOC.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span v-if="formGenerarOC.processing">Generando OC...</span>
+                        <span v-else>Confirmar y Generar OC</span>
+                    </PrimaryButton>
                 </div>
             </div>
         </Modal>
