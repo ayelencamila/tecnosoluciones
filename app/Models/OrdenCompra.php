@@ -99,6 +99,14 @@ class OrdenCompra extends Model
         return $this->hasMany(DetalleOrdenCompra::class, 'orden_compra_id');
     }
 
+    /**
+     * CU-23: Recepciones de mercadería vinculadas a esta OC
+     */
+    public function recepciones(): HasMany
+    {
+        return $this->hasMany(RecepcionMercaderia::class, 'orden_compra_id');
+    }
+
     // --- MÉTODOS DE NEGOCIO (Larman: Patrón Experto) ---
 
     /**
