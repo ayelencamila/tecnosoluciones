@@ -160,7 +160,7 @@ const comprasItems = computed(() => {
         // { name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' }, // TODO: CU-20
         { name: 'Ofertas de Compra', route: 'ofertas.index' },
         { name: 'Órdenes de Compra', route: 'ordenes.index' }, // CU-22
-        // { name: 'Recepción de Mercadería', route: 'recepciones.index' }, // TODO: CU-23
+        { name: 'Recepción de Mercadería', route: 'recepciones.index' }, // CU-23
     ];
 });
 

@@ -358,5 +358,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{orden}/cancelar', [\App\Http\Controllers\OrdenCompraController::class, 'cancelar'])->name('cancelar');
     });
 
+    // CU-23: Recepción de Mercadería
+    Route::prefix('recepciones')->name('recepciones.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'store'])->name('store');
+        Route::get('/{recepcion}', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'show'])->name('show');
+    });
+
 });
 

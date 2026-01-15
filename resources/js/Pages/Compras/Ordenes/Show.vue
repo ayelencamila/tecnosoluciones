@@ -136,6 +136,13 @@ const puedeCancelar = () => {
     const estado = props.orden.estado?.nombre;
     return !['Cancelada', 'Recibida Parcial', 'Recibida Total'].includes(estado);
 };
+
+// CU-23: Verificar si se puede recepcionar mercadería
+const puedeRecepcionar = () => {
+    const estado = props.orden.estado?.nombre;
+    // Solo se puede recepcionar si está Confirmada (Aprobada) o Recibida Parcial
+    return ['Confirmada', 'Recibida Parcial'].includes(estado);
+};
 </script>
 
 <template>
@@ -215,6 +222,16 @@ const puedeCancelar = () => {
                                          :disabled="procesando.confirmar">
                                 {{ procesando.confirmar ? 'Confirmando...' : 'Confirmar Recepción' }}
                             </PrimaryButton>
+
+                            <!-- CU-23: Recepcionar Mercadería -->
+                            <Link v-if="puedeRecepcionar()"
+                                  :href="route('recepciones.create', { orden_compra_id: orden.id })"
+                                  class="inline-flex items-center px-4 py-2 bg-green-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-green-700 focus:bg-green-700 active:bg-green-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                                </svg>
+                                Recepcionar Mercadería
+                            </Link>
 
                             <!-- Cancelar -->
                             <DangerButton v-if="puedeCancelar()" @click="showCancelarModal = true">
@@ -352,6 +369,56 @@ const puedeCancelar = () => {
                                     </td>
                                 </tr>
                             </tfoot>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- CU-24: Historial de Recepciones -->
+                <div v-if="orden.recepciones && orden.recepciones.length > 0" class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
+                    <h4 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                        </svg>
+                        Historial de Recepciones
+                    </h4>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Recepción</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipo</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recibido por</th>
+                                    <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr v-for="recepcion in orden.recepciones" :key="recepcion.id" class="hover:bg-gray-50">
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {{ recepcion.numero_recepcion }}
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {{ formatFecha(recepcion.fecha_recepcion) }}
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-center">
+                                        <span :class="recepcion.tipo === 'total' 
+                                            ? 'bg-green-100 text-green-800' 
+                                            : 'bg-yellow-100 text-yellow-800'"
+                                            class="px-2 py-1 text-xs font-medium rounded-full capitalize">
+                                            {{ recepcion.tipo }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                                        {{ recepcion.usuario?.name || '-' }}
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-center">
+                                        <Link :href="route('recepciones.show', recepcion.id)" 
+                                              class="text-indigo-600 hover:text-indigo-900 text-sm">
+                                            Ver detalle
+                                        </Link>
+                                    </td>
+                                </tr>
+                            </tbody>
                         </table>
                     </div>
                 </div>
