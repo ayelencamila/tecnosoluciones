@@ -8,7 +8,7 @@
                 <select
                     :id="id"
                     :value="modelValue"
-                    @change="$emit('update:modelValue', $event.target.value)"
+                    @change="emitChange($event.target.value)"
                     class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm w-full"
                     :class="{ 'border-red-500': error }"
                     :disabled="disabled || loading"
@@ -23,7 +23,7 @@
             <!-- Botón Configurar -->
             <button
                 type="button"
-                @click="openModal"
+                @click.prevent.stop="openModal"
                 class="inline-flex items-center justify-center w-10 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors h-10"
                 :disabled="disabled"
                 title="Configurar opciones"
@@ -41,7 +41,8 @@
                     Configurar {{ label }}
                 </h3>
                 <button
-                    @click="closeModal"
+                    type="button"
+                    @click.prevent.stop="closeModal"
                     class="text-indigo-200 hover:text-white transition-colors"
                 >
                     <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -64,12 +65,13 @@
                             type="text"
                             :placeholder="`Nuevo ${label}...`"
                             class="flex-1 border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
-                            @keyup.enter="createItem"
+                            @keyup.enter.prevent.stop="createItem"
+                            @keydown.enter.prevent
                             autocomplete="off"
                         />
                         <button
                             type="button"
-                            @click="createItem"
+                            @click.prevent.stop="createItem"
                             :disabled="!newItemName.trim() || creating"
                             class="inline-flex items-center px-4 py-2 bg-indigo-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-indigo-700 focus:bg-indigo-700 active:bg-indigo-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition ease-in-out duration-150 disabled:opacity-50"
                         >
@@ -92,7 +94,7 @@
                         <span class="text-sm font-medium text-gray-900">{{ option.label }}</span>
                         <button
                             type="button"
-                            @click="deleteItem(option.value)"
+                            @click.prevent.stop="deleteItem(option.value)"
                             :disabled="deleting === option.value"
                             class="text-red-600 hover:text-red-800 transition-colors disabled:opacity-50"
                             title="Eliminar"
@@ -115,7 +117,7 @@
             <div class="bg-gray-50 px-6 py-3 flex justify-end">
                 <button
                     type="button"
-                    @click="closeModal"
+                    @click.prevent.stop="closeModal"
                     class="inline-flex items-center px-4 py-2 bg-white border border-gray-300 rounded-md font-semibold text-xs text-gray-700 uppercase tracking-widest shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-25 transition ease-in-out duration-150"
                 >
                     Cerrar
@@ -153,6 +155,17 @@ const newItemName = ref('');
 const creating = ref(false);
 const deleting = ref(null);
 
+// Helper para emitir el valor correcto (string vacío o número)
+const emitChange = (value) => {
+    if (value === '' || value === null || value === undefined) {
+        emit('update:modelValue', '');
+    } else {
+        // Convertir a número si es numérico
+        const numValue = Number(value);
+        emit('update:modelValue', isNaN(numValue) ? value : numValue);
+    }
+};
+
 const openModal = () => {
     showModal.value = true;
 };
@@ -167,16 +180,26 @@ const createItem = async () => {
 
     creating.value = true;
     try {
-        await axios.post(props.apiEndpoint, {
+        const response = await axios.post(props.apiEndpoint, {
             [props.nameField]: newItemName.value.trim(),
             ...props.additionalData
         });
         
         newItemName.value = '';
-        emit('refresh'); // Notificar al padre que recargue los datos
         
-        // Mostrar mensaje de éxito (opcional)
-        // alert('Item creado exitosamente');
+        // Emitir refresh para que el padre recargue las opciones
+        emit('refresh');
+        
+        // Auto-seleccionar el nuevo item
+        // Soporta respuestas con { id: X } o { data: { id: X } }
+        const newId = response.data?.data?.id || response.data?.id;
+        if (newId) {
+            // Pequeño delay para que el refresh tenga tiempo de actualizar las opciones
+            setTimeout(() => {
+                emit('update:modelValue', newId);
+            }, 100);
+        }
+        
     } catch (error) {
         console.error('Error al crear item:', error);
         alert('Error al crear el item. Por favor, intente nuevamente.');
