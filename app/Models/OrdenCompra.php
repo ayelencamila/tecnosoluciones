@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Modelo ORDENES_COMPRA (CU-22)
@@ -15,24 +16,27 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * Lineamientos aplicados:
  * - Larman: Trazabilidad completa (desde oferta hasta recepción)
  * - Kendall: Numeración correlativa única
- * - Elmasri: Relación 1:1 con oferta elegida
+ * - Elmasri 3FN: estado_id FK a tabla paramétrica
  * 
  * @property int $id
  * @property string $numero_oc
  * @property int $proveedor_id
  * @property int $oferta_id
  * @property int $user_id
- * @property float $total
- * @property string $estado
+ * @property int $estado_id
+ * @property float $total_final
  * @property \Carbon\Carbon $fecha_emision
  * @property \Carbon\Carbon|null $fecha_envio
+ * @property \Carbon\Carbon|null $fecha_confirmacion
  * @property string|null $observaciones
+ * @property string|null $archivo_pdf Ruta del PDF generado
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * 
  * @property-read Proveedor $proveedor
  * @property-read OfertaCompra $oferta
  * @property-read User $usuario
+ * @property-read EstadoOrdenCompra $estado
  * @property-read \Illuminate\Database\Eloquent\Collection<DetalleOrdenCompra> $detalles
  */
 class OrdenCompra extends Model
@@ -46,28 +50,21 @@ class OrdenCompra extends Model
         'proveedor_id',
         'oferta_id',
         'user_id',
-        'total',
-        'estado',
+        'estado_id',
+        'total_final',
         'fecha_emision',
         'fecha_envio',
+        'fecha_confirmacion',
         'observaciones',
+        'archivo_pdf',
     ];
 
     protected $casts = [
-        'total' => 'decimal:2',
+        'total_final' => 'decimal:2',
         'fecha_emision' => 'datetime',
         'fecha_envio' => 'datetime',
+        'fecha_confirmacion' => 'datetime',
     ];
-
-    /**
-     * Estados válidos según Kendall (CU-22)
-     */
-    const ESTADO_BORRADOR = 'Borrador';
-    const ESTADO_ENVIADA = 'Enviada';
-    const ESTADO_ACEPTADA = 'Aceptada';
-    const ESTADO_RECIBIDA_PARCIAL = 'Recibida Parcial';
-    const ESTADO_RECIBIDA_TOTAL = 'Recibida Total';
-    const ESTADO_CANCELADA = 'Cancelada';
 
     // --- RELACIONES (Elmasri) ---
 
@@ -87,6 +84,14 @@ class OrdenCompra extends Model
     }
 
     /**
+     * Estado de la orden (3FN - FK a tabla paramétrica)
+     */
+    public function estado(): BelongsTo
+    {
+        return $this->belongsTo(EstadoOrdenCompra::class, 'estado_id');
+    }
+
+    /**
      * Elmasri: Entidad débil (relación 1:N identificada)
      */
     public function detalles(): HasMany
@@ -99,47 +104,63 @@ class OrdenCompra extends Model
     /**
      * Genera el siguiente número de OC correlativo
      * 
+     * Formato: OC-YYYYMMDD-XXX
      * CRÍTICO: Usa lockForUpdate() para prevenir condición de carrera
-     * cuando múltiples usuarios generan OCs simultáneamente
      */
     public static function generarNumeroOC(): string
     {
-        return \DB::transaction(function () {
-            // PESSIMISTIC LOCKING: Bloquea la fila hasta que termine la transacción
-            $ultimaOrden = self::lockForUpdate()
-                ->latest('id')
-                ->first();
+        return DB::transaction(function () {
+            $hoy = now()->format('Ymd');
             
-            $numero = $ultimaOrden ? ((int) substr($ultimaOrden->numero_oc, 3)) + 1 : 1;
+            // Contar órdenes del día actual
+            $countHoy = self::whereDate('fecha_emision', now()->toDateString())
+                ->lockForUpdate()
+                ->count();
             
-            return 'OC-' . str_pad($numero, 4, '0', STR_PAD_LEFT);
+            $secuencia = str_pad($countHoy + 1, 3, '0', STR_PAD_LEFT);
+            
+            return "OC-{$hoy}-{$secuencia}";
         });
     }
 
     /**
-     * Envía la orden al proveedor
+     * Verifica si la orden tiene un estado específico
      */
-    public function enviar(): void
+    public function tieneEstado(string $nombreEstado): bool
     {
-        if ($this->estado !== self::ESTADO_BORRADOR) {
-            throw new \Exception('Solo se pueden enviar órdenes en estado Borrador');
-        }
-
-        $this->update([
-            'estado' => self::ESTADO_ENVIADA,
-            'fecha_envio' => now(),
-        ]);
-
-        // Marcar oferta como procesada
-        $this->oferta->marcarProcesada();
+        return $this->estado_id === EstadoOrdenCompra::idPorNombre($nombreEstado);
     }
 
     /**
-     * Marca la orden como aceptada por el proveedor
+     * Envía la orden al proveedor (cambia estado)
      */
-    public function marcarAceptada(): void
+    public function marcarEnviada(): void
     {
-        $this->update(['estado' => self::ESTADO_ACEPTADA]);
+        $this->update([
+            'estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::ENVIADA),
+            'fecha_envio' => now(),
+        ]);
+    }
+
+    /**
+     * Marca el envío como fallido
+     */
+    public function marcarEnvioFallido(): void
+    {
+        $this->update([
+            'estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::ENVIO_FALLIDO),
+        ]);
+    }
+
+    /**
+     * Marca la orden como confirmada por el proveedor
+     */
+    public function marcarConfirmada(): void
+    {
+        $this->update([
+            'estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::CONFIRMADA),
+            'fecha_confirmacion' => now(),
+        ]);
     }
 
     /**
@@ -151,14 +172,13 @@ class OrdenCompra extends Model
         $totalRecibido = $this->detalles->sum('cantidad_recibida');
 
         if ($totalRecibido === 0) {
-            // No se ha recibido nada, mantener estado actual
             return;
         }
 
         if ($totalRecibido >= $totalPedido) {
-            $this->update(['estado' => self::ESTADO_RECIBIDA_TOTAL]);
+            $this->update(['estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL)]);
         } else {
-            $this->update(['estado' => self::ESTADO_RECIBIDA_PARCIAL]);
+            $this->update(['estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL)]);
         }
     }
 
@@ -167,13 +187,23 @@ class OrdenCompra extends Model
      */
     public function cancelar(string $motivo): void
     {
-        if (in_array($this->estado, [self::ESTADO_RECIBIDA_TOTAL, self::ESTADO_RECIBIDA_PARCIAL])) {
+        $estadoActual = $this->estado->nombre ?? '';
+        
+        if (in_array($estadoActual, [EstadoOrdenCompra::RECIBIDA_TOTAL, EstadoOrdenCompra::RECIBIDA_PARCIAL])) {
             throw new \Exception('No se puede cancelar una orden que ya fue recibida');
         }
 
         $this->update([
-            'estado' => self::ESTADO_CANCELADA,
+            'estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::CANCELADA),
             'observaciones' => $motivo,
         ]);
+    }
+
+    /**
+     * Obtiene la URL pública del PDF
+     */
+    public function getUrlPdfAttribute(): ?string
+    {
+        return $this->archivo_pdf ? asset('storage/' . $this->archivo_pdf) : null;
     }
 }
