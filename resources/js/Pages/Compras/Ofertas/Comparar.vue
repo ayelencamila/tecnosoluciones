@@ -1,14 +1,28 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
+import Modal from '@/Components/Modal.vue';
+import InputLabel from '@/Components/InputLabel.vue';
 
 const props = defineProps({
     producto: Object,
     ofertas: Array,
     filters: Object,
+    comparacionSignificativa: {
+        type: Boolean,
+        default: true
+    },
+});
+
+// Modal de cancelación (Excepción 12a)
+const showCancelarModal = ref(false);
+const formCancelar = useForm({
+    producto_id: props.producto.id,
+    motivo: '',
 });
 
 // Ofertas seleccionadas para comparar
@@ -35,6 +49,14 @@ const mejorPlazo = computed(() => {
     
     if (plazos.length === 0) return null;
     return plazos.reduce((min, p) => p.dias < min.dias ? p : min, plazos[0]);
+});
+
+// Mejor opción global (mejor precio Y mejor plazo)
+const mejorOpcionGlobal = computed(() => {
+    if (mejorPrecio.value && mejorPlazo.value && mejorPrecio.value.ofertaId === mejorPlazo.value.ofertaId) {
+        return mejorPrecio.value.ofertaId;
+    }
+    return null;
 });
 
 // Obtener detalle del producto para una oferta
@@ -73,11 +95,17 @@ const elegirOferta = (oferta) => {
     if (confirm(`¿Confirma elegir la oferta ${oferta.codigo_oferta} de ${oferta.proveedor.razon_social}?`)) {
         router.post(route('ofertas.elegir', oferta.id), {}, {
             preserveScroll: true,
-            onSuccess: () => {
-                // La página se actualizará automáticamente
-            }
         });
     }
+};
+
+// Cancelar evaluación (Excepción 12a)
+const cancelarEvaluacion = () => {
+    formCancelar.post(route('ofertas.cancelar-evaluacion'), {
+        onSuccess: () => {
+            showCancelarModal.value = false;
+        },
+    });
 };
 
 // Formateo de moneda
@@ -110,25 +138,49 @@ const formatCurrency = (value) => {
                     <div class="text-right">
                         <p class="text-indigo-200 text-sm">Ofertas Comparadas</p>
                         <p class="text-4xl font-bold">{{ ofertas.length }}</p>
+                        <p v-if="!comparacionSignificativa" class="text-yellow-300 text-xs mt-1">
+                            ⚠️ Solo hay una oferta
+                        </p>
                     </div>
                 </div>
             </div>
 
-            <!-- Leyenda de indicadores -->
-            <div class="bg-white rounded-lg shadow-sm p-4 mb-6">
-                <div class="flex items-center space-x-6 text-sm">
-                    <span class="flex items-center">
-                        <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                        Mejor precio
-                    </span>
-                    <span class="flex items-center">
-                        <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                        Mejor plazo de entrega
-                    </span>
-                    <span class="flex items-center">
-                        <span class="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
-                        Mejor opción global
-                    </span>
+            <!-- Excepción 10a: Mensaje cuando solo hay una oferta -->
+            <div v-if="!comparacionSignificativa" class="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6 rounded-r-lg">
+                <div class="flex items-start">
+                    <svg class="w-6 h-6 text-amber-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <div>
+                        <h3 class="text-amber-800 font-semibold">Comparación no disponible</h3>
+                        <p class="text-amber-700 text-sm mt-1">
+                            Solo existe <strong>una oferta</strong> para este producto. No es posible realizar una comparación significativa.
+                            Puede aprobar o rechazar esta oferta directamente.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Leyenda de indicadores (solo si hay comparación significativa) -->
+            <div v-if="comparacionSignificativa" class="bg-white rounded-lg shadow-sm p-4 mb-6">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-6 text-sm">
+                        <span class="flex items-center">
+                            <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                            Mejor precio
+                        </span>
+                        <span class="flex items-center">
+                            <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
+                            Mejor plazo de entrega
+                        </span>
+                        <span v-if="mejorOpcionGlobal" class="flex items-center">
+                            <span class="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
+                            Mejor opción global
+                        </span>
+                    </div>
+                    <p class="text-xs text-gray-500">
+                        📊 Ordenado por precio (menor primero), luego por plazo
+                    </p>
                 </div>
             </div>
 
@@ -141,12 +193,28 @@ const formatCurrency = (value) => {
                                 <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-48">
                                     Criterio
                                 </th>
-                                <th v-for="oferta in ofertas" :key="oferta.id" 
+                                <th v-for="(oferta, index) in ofertas" :key="oferta.id" 
                                     class="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[200px]"
                                     :class="{ 
-                                        'bg-green-50': mejorPrecio?.ofertaId === oferta.id && mejorPlazo?.ofertaId === oferta.id 
+                                        'bg-purple-50 border-t-4 border-purple-500': mejorOpcionGlobal === oferta.id,
+                                        'bg-green-50': mejorPrecio?.ofertaId === oferta.id && mejorOpcionGlobal !== oferta.id
                                     }">
                                     <div class="space-y-1">
+                                        <!-- Ranking (CU-21 Paso 10) -->
+                                        <div v-if="comparacionSignificativa" class="mb-2">
+                                            <span v-if="index === 0" class="inline-flex items-center px-2 py-1 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-full">
+                                                🥇 #1
+                                            </span>
+                                            <span v-else-if="index === 1" class="inline-flex items-center px-2 py-1 text-xs font-bold bg-gray-300 text-gray-800 rounded-full">
+                                                🥈 #2
+                                            </span>
+                                            <span v-else-if="index === 2" class="inline-flex items-center px-2 py-1 text-xs font-bold bg-amber-600 text-white rounded-full">
+                                                🥉 #3
+                                            </span>
+                                            <span v-else class="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-200 text-gray-600 rounded-full">
+                                                #{{ index + 1 }}
+                                            </span>
+                                        </div>
                                         <Link :href="route('ofertas.show', oferta.id)" class="text-indigo-600 hover:text-indigo-800 font-bold">
                                             {{ oferta.codigo_oferta }}
                                         </Link>
@@ -154,6 +222,12 @@ const formatCurrency = (value) => {
                                         <span :class="estadoClass(oferta.estado.nombre)" class="px-2 py-0.5 text-xs rounded-full">
                                             {{ oferta.estado.nombre }}
                                         </span>
+                                        <!-- Indicador de mejor opción global -->
+                                        <div v-if="mejorOpcionGlobal === oferta.id" class="mt-2">
+                                            <span class="inline-flex items-center px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">
+                                                ⭐ Mejor opción
+                                            </span>
+                                        </div>
                                     </div>
                                 </th>
                             </tr>
@@ -335,10 +409,56 @@ const formatCurrency = (value) => {
                     Volver al listado
                 </Link>
 
-                <div class="text-sm text-gray-500">
-                    CU-21 Paso 10: Comparación de ofertas
+                <div class="flex items-center space-x-4">
+                    <!-- Botón Cancelar Evaluación (Excepción 12a) -->
+                    <SecondaryButton @click="showCancelarModal = true" class="text-gray-600">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        Cancelar Evaluación
+                    </SecondaryButton>
+                    
+                    <div class="text-sm text-gray-500">
+                        CU-21 Paso 10: Comparación de ofertas
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Modal de Cancelar Evaluación (Excepción 12a) -->
+        <Modal :show="showCancelarModal" @close="showCancelarModal = false">
+            <div class="p-6">
+                <h2 class="text-lg font-semibold text-gray-900 mb-4">
+                    Cancelar Evaluación de Ofertas
+                </h2>
+                <p class="text-sm text-gray-600 mb-4">
+                    ¿Está seguro que desea cancelar la evaluación? Las ofertas permanecerán en estado 
+                    <span class="font-semibold text-yellow-600">"Pendiente"</span> para futuras gestiones.
+                </p>
+                
+                <div class="mb-4">
+                    <InputLabel for="motivo" value="Motivo (opcional)" />
+                    <textarea
+                        id="motivo"
+                        v-model="formCancelar.motivo"
+                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
+                        rows="2"
+                        placeholder="Ej: Se requiere más información, esperando otras cotizaciones..."
+                    ></textarea>
+                </div>
+
+                <div class="flex justify-end space-x-3">
+                    <PrimaryButton @click="showCancelarModal = false">
+                        Continuar Evaluando
+                    </PrimaryButton>
+                    <SecondaryButton 
+                        @click="cancelarEvaluacion"
+                        :disabled="formCancelar.processing">
+                        <span v-if="formCancelar.processing">Procesando...</span>
+                        <span v-else>Sí, Cancelar</span>
+                    </SecondaryButton>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>

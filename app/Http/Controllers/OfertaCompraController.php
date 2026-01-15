@@ -119,14 +119,13 @@ class OfertaCompraController extends Controller
     /**
      * CU-21 (Paso 10): Vista de comparación de ofertas
      * Muestra un cuadro comparativo de ofertas para un mismo producto
+     * Ordenadas por precio y, a igualdad, por plazo (según especificación)
      */
     public function comparar(Request $request): Response
     {
         $productoId = $request->query('producto_id');
         
         if (!$productoId) {
-            // Sin producto específico, mostrar todas las ofertas pendientes/pre-aprobadas
-            // agrupadas por producto para facilitar la comparación
             return redirect()->route('ofertas.index')
                 ->with('info', 'Seleccione un producto para comparar ofertas.');
         }
@@ -142,13 +141,30 @@ class OfertaCompraController extends Controller
             ->whereHas('detalles', function ($q) use ($productoId) {
                 $q->where('producto_id', $productoId);
             })
-            ->orderBy('fecha_recepcion', 'desc')
             ->get();
+
+        // CU-21 Paso 10: Ordenar por precio y, a igualdad de precio, por plazo de entrega
+        // Usamos el método calcularScore() del modelo (Larman: Patrón Experto)
+        $ofertas = $ofertas->map(function ($oferta) use ($productoId) {
+            // Calcular score específico para este producto
+            $detalle = $oferta->detalles->firstWhere('producto_id', $productoId);
+            $oferta->score = $oferta->calcularScore();
+            $oferta->precio_producto = $detalle ? $detalle->precio_unitario : PHP_INT_MAX;
+            $oferta->plazo_producto = $detalle ? ($detalle->disponibilidad_inmediata ? 0 : $detalle->dias_entrega) : PHP_INT_MAX;
+            return $oferta;
+        })->sortBy([
+            ['precio_producto', 'asc'],  // Primero por precio ascendente
+            ['plazo_producto', 'asc'],   // Luego por plazo ascendente
+        ])->values();
+
+        // Flag para indicar si hay suficientes ofertas para comparar (Excepción 10a)
+        $comparacionSignificativa = $ofertas->count() > 1;
 
         return Inertia::render('Compras/Ofertas/Comparar', [
             'producto' => $producto,
             'ofertas' => $ofertas,
             'filters' => $request->only(['producto_id']),
+            'comparacionSignificativa' => $comparacionSignificativa,
         ]);
     }
 
@@ -232,6 +248,44 @@ class OfertaCompraController extends Controller
             
             return back()
                 ->withErrors(['error' => 'No se pudo rechazar la oferta: ' . $e->getMessage()]);
+        }
+    }
+
+    /**
+     * CU-21 Excepción 12a: Cancelar evaluación de ofertas
+     * El usuario decide no seleccionar ninguna oferta en ese momento.
+     * Las ofertas quedan en estado "Pendiente" para futuras gestiones.
+     */
+    public function cancelarEvaluacion(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'producto_id' => 'required|exists:productos,id',
+            'motivo' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            // Registrar la cancelación en auditoría
+            Auditoria::create([
+                'accion' => 'CANCELAR_EVALUACION_OFERTAS',
+                'tabla_afectada' => 'ofertas_compra',
+                'registro_id' => null,
+                'user_id' => auth()->id(),
+                'motivo' => $request->motivo ?? 'Evaluación cancelada por el usuario',
+                'detalles_json' => json_encode([
+                    'producto_id' => $request->producto_id,
+                    'accion' => 'El usuario canceló la evaluación sin seleccionar ninguna oferta',
+                ]),
+                'fecha' => now(),
+            ]);
+
+            return redirect()->route('ofertas.index')
+                ->with('info', 'Evaluación cancelada. Las ofertas permanecen en estado pendiente para futuras gestiones.');
+
+        } catch (\Exception $e) {
+            Log::error("Error al cancelar evaluación: " . $e->getMessage());
+            
+            return back()
+                ->withErrors(['error' => 'Error al registrar la cancelación: ' . $e->getMessage()]);
         }
     }
 }
