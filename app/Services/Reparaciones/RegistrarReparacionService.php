@@ -7,6 +7,7 @@ use App\Exceptions\Ventas\SinStockException;
 use App\Models\Reparacion;
 use App\Models\DetalleReparacion;
 use App\Models\ImagenReparacion;
+use App\Models\EtapaImagenReparacion;
 use App\Models\Producto;
 use App\Models\Stock;
 use App\Models\MovimientoStock;
@@ -92,7 +93,7 @@ class RegistrarReparacionService
                     'reparacion_id' => $reparacion->reparacionID,
                     'ruta_archivo' => $ruta,
                     'nombre_original' => $imagen->getClientOriginalName(),
-                    'etapa' => 'ingreso',
+                    'etapa_id' => EtapaImagenReparacion::where('nombre', 'ingreso')->value('etapa_id'),
                 ]);
             }
         }
