@@ -2,7 +2,6 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
 
 const props = defineProps({
     bonificaciones: Object,
@@ -21,11 +20,11 @@ const cambiarFiltro = (estado) => {
 
 const getEstadoColor = (estado) => {
     const colores = {
-        'pendiente': 'bg-yellow-100 text-yellow-800',
-        'aprobada': 'bg-green-100 text-green-800',
-        'rechazada': 'bg-red-100 text-red-800',
+        'pendiente': 'bg-amber-50 text-amber-700 border border-amber-200',
+        'aprobada': 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+        'rechazada': 'bg-rose-50 text-rose-700 border border-rose-200',
     };
-    return colores[estado] || 'bg-gray-100 text-gray-800';
+    return colores[estado] || 'bg-gray-50 text-gray-700 border border-gray-200';
 };
 
 const formatFecha = (fecha) => {
@@ -49,147 +48,204 @@ const formatMonto = (monto) => {
 
     <AppLayout>
         <template #header>
-            <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Gestión de Bonificaciones
-                </h2>
-                <Link :href="route('bonificaciones.historial')">
-                    <PrimaryButton>
-                        📊 Ver Historial
-                    </PrimaryButton>
-                </Link>
-            </div>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
+                Gestión de Bonificaciones
+            </h2>
         </template>
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="py-8">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 
-                <!-- Filtros -->
-                <div class="bg-white shadow-sm sm:rounded-lg p-4 mb-6">
-                    <div class="flex items-center space-x-2">
-                        <span class="text-sm font-medium text-gray-700">Filtrar por estado:</span>
-                        <button 
-                            @click="cambiarFiltro('pendiente')"
-                            :class="filtroEstado === 'pendiente' ? 'bg-yellow-100 text-yellow-800' : 'bg-gray-100 text-gray-600'"
-                            class="px-3 py-1 text-sm font-medium rounded-md hover:bg-yellow-50 transition">
-                            Pendientes
-                        </button>
-                        <button 
-                            @click="cambiarFiltro('aprobada')"
-                            :class="filtroEstado === 'aprobada' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'"
-                            class="px-3 py-1 text-sm font-medium rounded-md hover:bg-green-50 transition">
-                            Aprobadas
-                        </button>
-                        <button 
-                            @click="cambiarFiltro('rechazada')"
-                            :class="filtroEstado === 'rechazada' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-600'"
-                            class="px-3 py-1 text-sm font-medium rounded-md hover:bg-red-50 transition">
-                            Rechazadas
-                        </button>
-                        <button 
-                            @click="cambiarFiltro('')"
-                            :class="!filtroEstado ? 'bg-indigo-100 text-indigo-800' : 'bg-gray-100 text-gray-600'"
-                            class="px-3 py-1 text-sm font-medium rounded-md hover:bg-indigo-50 transition">
-                            Todas
-                        </button>
+                <!-- Breadcrumb + Navegación -->
+                <nav class="flex items-center justify-between mb-6">
+                    <ol class="flex items-center space-x-2 text-sm">
+                        <li>
+                            <Link :href="route('dashboard')" class="text-gray-400 hover:text-gray-600 transition-colors">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                                </svg>
+                            </Link>
+                        </li>
+                        <li class="text-gray-300">/</li>
+                        <li class="text-gray-900 font-medium">Bonificaciones</li>
+                    </ol>
+                    
+                    <Link :href="route('bonificaciones.historial')" 
+                          class="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-indigo-600 transition-colors">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        Ver Historial
+                    </Link>
+                </nav>
+
+                <!-- Filtros elegantes -->
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-medium text-gray-500">Filtrar:</span>
+                        <div class="flex gap-2">
+                            <button 
+                                @click="cambiarFiltro('pendiente')"
+                                :class="filtroEstado === 'pendiente' 
+                                    ? 'bg-amber-50 text-amber-700 border-amber-300 ring-2 ring-amber-200' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-amber-200 hover:text-amber-600'"
+                                class="px-4 py-2 text-sm font-medium rounded-lg border transition-all">
+                                Pendientes
+                            </button>
+                            <button 
+                                @click="cambiarFiltro('aprobada')"
+                                :class="filtroEstado === 'aprobada' 
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 ring-2 ring-emerald-200' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-emerald-200 hover:text-emerald-600'"
+                                class="px-4 py-2 text-sm font-medium rounded-lg border transition-all">
+                                Aprobadas
+                            </button>
+                            <button 
+                                @click="cambiarFiltro('rechazada')"
+                                :class="filtroEstado === 'rechazada' 
+                                    ? 'bg-rose-50 text-rose-700 border-rose-300 ring-2 ring-rose-200' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-rose-200 hover:text-rose-600'"
+                                class="px-4 py-2 text-sm font-medium rounded-lg border transition-all">
+                                Rechazadas
+                            </button>
+                            <button 
+                                @click="cambiarFiltro('')"
+                                :class="!filtroEstado 
+                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-300 ring-2 ring-indigo-200' 
+                                    : 'bg-white text-gray-600 border-gray-200 hover:border-indigo-200 hover:text-indigo-600'"
+                                class="px-4 py-2 text-sm font-medium rounded-lg border transition-all">
+                                Todas
+                            </button>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Lista de bonificaciones -->
-                <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                    <div v-if="bonificaciones.data.length > 0" class="divide-y divide-gray-200">
+                <div class="space-y-4">
+                    <template v-if="bonificaciones.data.length > 0">
                         <div v-for="bonificacion in bonificaciones.data" 
                              :key="bonificacion.bonificacionID"
-                             class="p-6 hover:bg-gray-50 transition">
+                             class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md hover:border-gray-200 transition-all">
                             
-                            <div class="flex items-start justify-between">
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-3 mb-3">
-                                        <span :class="getEstadoColor(bonificacion.estado)"
-                                              class="px-3 py-1 text-xs font-semibold rounded-full uppercase">
-                                            {{ bonificacion.estado }}
-                                        </span>
-                                        <span class="text-sm font-mono text-gray-600">
-                                            Reparación #{{ bonificacion.reparacion.codigo_reparacion }}
-                                        </span>
-                                        <span v-if="bonificacion.dias_excedidos" 
-                                              class="text-sm text-red-600 font-medium">
-                                            +{{ bonificacion.dias_excedidos }} días excedidos
-                                        </span>
-                                    </div>
-
-                                    <div class="grid grid-cols-2 gap-6 mb-3">
-                                        <div>
-                                            <p class="text-sm font-medium text-gray-900">
-                                                Cliente: {{ bonificacion.reparacion.cliente.nombre }} 
-                                                {{ bonificacion.reparacion.cliente.apellido }}
-                                            </p>
-                                            <p class="text-sm text-gray-500">
-                                                Técnico: {{ bonificacion.reparacion.tecnico?.name || 'N/A' }}
-                                            </p>
-                                            <p class="text-sm text-gray-500">
-                                                Motivo: {{ bonificacion.motivo_demora?.nombre || 'N/A' }}
-                                            </p>
+                            <div class="p-6">
+                                <div class="flex items-start justify-between">
+                                    <div class="flex-1">
+                                        <!-- Header con estado y código -->
+                                        <div class="flex items-center gap-3 mb-4">
+                                            <span :class="getEstadoColor(bonificacion.estado)"
+                                                  class="px-3 py-1.5 text-xs font-semibold rounded-full uppercase tracking-wide">
+                                                {{ bonificacion.estado }}
+                                            </span>
+                                            <span class="text-sm font-mono text-gray-500 bg-gray-50 px-2 py-1 rounded">
+                                                #{{ bonificacion.reparacion.codigo_reparacion }}
+                                            </span>
+                                            <span v-if="bonificacion.dias_excedidos" 
+                                                  class="inline-flex items-center gap-1 text-sm text-rose-600 font-medium">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                +{{ bonificacion.dias_excedidos }} días
+                                            </span>
                                         </div>
 
-                                        <div class="space-y-1">
-                                            <div class="flex justify-between text-sm">
-                                                <span class="text-gray-500">Monto original:</span>
-                                                <span class="font-semibold text-gray-900">
-                                                    {{ formatMonto(bonificacion.monto_original) }}
-                                                </span>
+                                        <!-- Info grid -->
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            <div class="space-y-2">
+                                                <div class="flex items-center gap-2">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                    </svg>
+                                                    <span class="text-sm text-gray-900 font-medium">
+                                                        {{ bonificacion.reparacion.cliente.nombre }} {{ bonificacion.reparacion.cliente.apellido }}
+                                                    </span>
+                                                </div>
+                                                <div class="flex items-center gap-2 text-sm text-gray-500">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                    </svg>
+                                                    Técnico: {{ bonificacion.reparacion.tecnico?.name || 'Sin asignar' }}
+                                                </div>
+                                                <div v-if="bonificacion.motivo_demora" class="flex items-center gap-2 text-sm text-gray-500">
+                                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                                                    </svg>
+                                                    {{ bonificacion.motivo_demora.nombre }}
+                                                </div>
                                             </div>
-                                            <div class="flex justify-between text-sm">
-                                                <span class="text-gray-500">Bonificación sugerida:</span>
-                                                <span class="font-semibold text-orange-600">
-                                                    {{ bonificacion.porcentaje_sugerido }}% 
-                                                    ({{ formatMonto(bonificacion.monto_bonificado) }})
-                                                </span>
+
+                                            <div class="bg-gray-50 rounded-lg p-4 space-y-2">
+                                                <div class="flex justify-between text-sm">
+                                                    <span class="text-gray-500">Monto original</span>
+                                                    <span class="font-semibold text-gray-900">
+                                                        {{ formatMonto(bonificacion.monto_original) }}
+                                                    </span>
+                                                </div>
+                                                <div class="flex justify-between text-sm">
+                                                    <span class="text-gray-500">Bonificación sugerida</span>
+                                                    <span class="font-semibold text-amber-600">
+                                                        {{ bonificacion.porcentaje_sugerido }}% 
+                                                        <span class="text-gray-400">({{ formatMonto(bonificacion.monto_bonificado) }})</span>
+                                                    </span>
+                                                </div>
+                                                <div v-if="bonificacion.porcentaje_aprobado" 
+                                                     class="flex justify-between text-sm pt-2 border-t border-gray-200">
+                                                    <span class="text-gray-600 font-medium">Aprobada</span>
+                                                    <span class="font-bold text-emerald-600">
+                                                        {{ bonificacion.porcentaje_aprobado }}%
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div v-if="bonificacion.porcentaje_aprobado" 
-                                                 class="flex justify-between text-sm border-t border-gray-200 pt-1">
-                                                <span class="text-gray-700 font-medium">Bonificación aprobada:</span>
-                                                <span class="font-bold text-green-600">
-                                                    {{ bonificacion.porcentaje_aprobado }}%
+                                        </div>
+
+                                        <!-- Justificación -->
+                                        <div v-if="bonificacion.justificacion_tecnico" 
+                                             class="mt-4 text-sm text-gray-600 bg-slate-50 rounded-lg p-3 border-l-2 border-slate-300">
+                                            <span class="font-medium text-gray-700">Justificación:</span> 
+                                            {{ bonificacion.justificacion_tecnico }}
+                                        </div>
+
+                                        <!-- Footer con fechas -->
+                                        <div class="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                                            <div class="text-xs text-gray-400 space-x-3">
+                                                <span>Solicitud: {{ formatFecha(bonificacion.created_at) }}</span>
+                                                <span v-if="bonificacion.fecha_aprobacion">
+                                                    • Decisión: {{ formatFecha(bonificacion.fecha_aprobacion) }}
+                                                </span>
+                                                <span v-if="bonificacion.aprobada_por">
+                                                    por {{ bonificacion.aprobada_por.name }}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div v-if="bonificacion.justificacion_tecnico" class="text-sm text-gray-600 bg-gray-50 rounded p-2 mb-2">
-                                        <span class="font-medium">Justificación técnico:</span> 
-                                        {{ bonificacion.justificacion_tecnico }}
+                                    <!-- Acción -->
+                                    <div class="ml-6">
+                                        <Link :href="route('bonificaciones.show', bonificacion.bonificacionID)"
+                                              class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-50 text-indigo-700 text-sm font-medium rounded-lg hover:bg-indigo-100 transition-colors">
+                                            Ver detalle
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                            </svg>
+                                        </Link>
                                     </div>
-
-                                    <div class="text-xs text-gray-400">
-                                        Solicitud: {{ formatFecha(bonificacion.created_at) }}
-                                        <span v-if="bonificacion.fecha_aprobacion">
-                                            | Decisión: {{ formatFecha(bonificacion.fecha_aprobacion) }}
-                                        </span>
-                                        <span v-if="bonificacion.aprobada_por">
-                                            | Por: {{ bonificacion.aprobada_por.name }}
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div class="ml-4 flex flex-col gap-2">
-                                    <Link :href="route('bonificaciones.show', bonificacion.bonificacionID)"
-                                          class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-md hover:bg-indigo-700 transition text-center">
-                                        Ver Detalle
-                                    </Link>
                                 </div>
                             </div>
                         </div>
-                    </div>
+                    </template>
 
                     <!-- Sin bonificaciones -->
-                    <div v-else class="p-12 text-center">
-                        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        <h3 class="mt-2 text-sm font-medium text-gray-900">No hay bonificaciones</h3>
-                        <p class="mt-1 text-sm text-gray-500">
-                            No se encontraron bonificaciones con el estado "{{ filtroEstado || 'todos' }}".
+                    <div v-else class="bg-white rounded-xl shadow-sm border border-gray-100 p-12 text-center">
+                        <div class="w-16 h-16 mx-auto bg-gray-50 rounded-full flex items-center justify-center mb-4">
+                            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-sm font-medium text-gray-900 mb-1">No hay bonificaciones</h3>
+                        <p class="text-sm text-gray-500">
+                            No se encontraron bonificaciones 
+                            <span v-if="filtroEstado">con estado "{{ filtroEstado }}"</span>
+                            <span v-else>registradas</span>.
                         </p>
                     </div>
                 </div>

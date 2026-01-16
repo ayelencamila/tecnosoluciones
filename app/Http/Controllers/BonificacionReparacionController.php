@@ -56,8 +56,12 @@ class BonificacionReparacionController extends Controller
             'reparacion.tecnico',
             'reparacion.estado',
             'motivoDemora',
-            'aprobadaPor'
+            'aprobadaPor',
+            'estadoDecision'
         ]);
+
+        // Agregar decision_cliente manualmente para que llegue a la vista
+        $bonificacion->decision_cliente = $bonificacion->estadoDecision?->nombre;
 
         return Inertia::render('Reparaciones/Bonificaciones/Detalle', [
             'bonificacion' => $bonificacion,

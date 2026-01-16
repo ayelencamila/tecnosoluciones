@@ -3,7 +3,7 @@
  * Vista: Detalle de Solicitud de Cotización (CU-20)
  */
 import { ref } from 'vue'
-import { Link, useForm } from '@inertiajs/vue3'
+import { Link, useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 
 const props = defineProps({
@@ -13,7 +13,10 @@ const props = defineProps({
 })
 
 const mostrarModalEnvio = ref(false)
+const mostrarModalReenvio = ref(false)
+const cotizacionReenviar = ref(null)
 const formEnvio = useForm({ canal: 'whatsapp' })
+const formReenvio = useForm({ canal: 'whatsapp' })
 
 function enviarASProveedores() {
     formEnvio.post(route('solicitudes-cotizacion.enviar', props.solicitud.id), {
@@ -21,6 +24,28 @@ function enviarASProveedores() {
             mostrarModalEnvio.value = false
         }
     })
+}
+
+function abrirModalReenvio(cotizacion) {
+    cotizacionReenviar.value = cotizacion
+    mostrarModalReenvio.value = true
+}
+
+function reenviarRecordatorio() {
+    formReenvio.post(route('solicitudes-cotizacion.reenviar', [props.solicitud.id, cotizacionReenviar.value.id]), {
+        onSuccess: () => {
+            mostrarModalReenvio.value = false
+            cotizacionReenviar.value = null
+        }
+    })
+}
+
+function puedeReenviar(cotizacion) {
+    // Puede reenviar si: está enviado, no ha respondido, no ha rechazado, solicitud no vencida
+    return cotizacion.estado_envio === 'Enviado' 
+        && !cotizacion.fecha_respuesta 
+        && !cotizacion.motivo_rechazo
+        && new Date(props.solicitud.fecha_vencimiento) > new Date()
 }
 
 function cerrarSolicitud() {
@@ -244,14 +269,31 @@ function formatCurrency(value) {
                                     </span>
                                 </td>
                                 <td class="px-6 py-4 text-center">
-                                    <a
-                                        v-if="cotizacion.token_unico"
-                                        :href="route('portal.cotizacion', cotizacion.token_unico)"
-                                        target="_blank"
-                                        class="text-indigo-600 hover:text-indigo-800 text-sm"
-                                    >
-                                        Ver Portal
-                                    </a>
+                                    <div class="flex items-center justify-center gap-2">
+                                        <a
+                                            v-if="cotizacion.token_unico"
+                                            :href="route('portal.cotizacion', cotizacion.token_unico)"
+                                            target="_blank"
+                                            class="text-indigo-600 hover:text-indigo-800 text-sm"
+                                        >
+                                            Ver Portal
+                                        </a>
+                                        <button
+                                            v-if="puedeReenviar(cotizacion)"
+                                            @click="abrirModalReenvio(cotizacion)"
+                                            class="text-orange-600 hover:text-orange-800 text-sm font-medium"
+                                            title="Enviar recordatorio"
+                                        >
+                                            🔔 Recordar
+                                        </button>
+                                        <span 
+                                            v-if="cotizacion.recordatorios_enviados > 0"
+                                            class="text-xs text-gray-400"
+                                            :title="`Último: ${cotizacion.ultimo_recordatorio ? formatDate(cotizacion.ultimo_recordatorio) : 'N/A'}`"
+                                        >
+                                            ({{ cotizacion.recordatorios_enviados }} enviado{{ cotizacion.recordatorios_enviados > 1 ? 's' : '' }})
+                                        </span>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -382,6 +424,63 @@ function formatCurrency(value) {
                         >
                             <span v-if="formEnvio.processing">Enviando...</span>
                             <span v-else>Enviar</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de reenvío de recordatorio -->
+        <div v-if="mostrarModalReenvio" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4">
+                <div class="fixed inset-0 bg-black/50" @click="mostrarModalReenvio = false"></div>
+                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2">
+                        🔔 Enviar Recordatorio
+                    </h3>
+                    <p class="text-sm text-gray-600 mb-4">
+                        Enviar recordatorio a: <strong>{{ cotizacionReenviar?.proveedor?.razon_social }}</strong>
+                    </p>
+                    
+                    <div class="space-y-3">
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                               :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'whatsapp' }">
+                            <input type="radio" v-model="formReenvio.canal" value="whatsapp" class="text-orange-600" />
+                            <span class="ml-3">
+                                <span class="font-medium">📱 WhatsApp</span>
+                            </span>
+                        </label>
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                               :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'email' }">
+                            <input type="radio" v-model="formReenvio.canal" value="email" class="text-orange-600" />
+                            <span class="ml-3">
+                                <span class="font-medium">📧 Email</span>
+                            </span>
+                        </label>
+                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
+                               :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'ambos' }">
+                            <input type="radio" v-model="formReenvio.canal" value="ambos" class="text-orange-600" />
+                            <span class="ml-3">
+                                <span class="font-medium">📱📧 Ambos</span>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div class="mt-6 flex gap-3 justify-end">
+                        <button
+                            type="button"
+                            @click="mostrarModalReenvio = false"
+                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                        >
+                            Cancelar
+                        </button>
+                        <button
+                            @click="reenviarRecordatorio"
+                            :disabled="formReenvio.processing"
+                            class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                        >
+                            <span v-if="formReenvio.processing">Enviando...</span>
+                            <span v-else>Enviar Recordatorio</span>
                         </button>
                     </div>
                 </div>

@@ -53,14 +53,15 @@ class NotificarBonificacionCliente implements ShouldQueue
             }
 
             // Cargar relaciones necesarias
-            $this->bonificacion->load(['reparacion.cliente', 'motivoDemora']);
+            $this->bonificacion->load(['reparacion.cliente', 'reparacion.modelo.marca', 'motivoDemora']);
 
             $reparacion = $this->bonificacion->reparacion;
             $cliente = $reparacion->cliente;
 
-            // Verificar que el cliente tenga teléfono
-            if (!$cliente || !$cliente->telefono) {
-                Log::warning('Cliente sin teléfono registrado', [
+            // Verificar que el cliente tenga WhatsApp o teléfono
+            $telefonoCliente = $cliente->whatsapp ?: $cliente->telefono;
+            if (!$cliente || !$telefonoCliente) {
+                Log::warning('Cliente sin teléfono/WhatsApp registrado', [
                     'bonificacion_id' => $this->bonificacion->bonificacionID,
                     'cliente_id' => $cliente?->clienteID,
                 ]);
@@ -76,11 +77,15 @@ class NotificarBonificacionCliente implements ShouldQueue
             $montoFinal = $this->bonificacion->monto_original - $this->bonificacion->monto_bonificado;
             $porcentaje = $this->bonificacion->porcentaje_aprobado ?? $this->bonificacion->porcentaje_sugerido;
             
+            // Obtener marca y modelo desde las relaciones
+            $equipoMarca = $reparacion->modelo?->marca?->nombre ?? 'Sin marca';
+            $equipoModelo = $reparacion->modelo?->nombre ?? 'Sin modelo';
+            
             $datosPlantilla = [ 
                 'codigo_reparacion' => $reparacion->codigo_reparacion,
                 'nombre_cliente' => $cliente->nombre . ' ' . $cliente->apellido,
-                'equipo_marca' => $reparacion->equipo_marca,
-                'equipo_modelo' => $reparacion->equipo_modelo,
+                'equipo_marca' => $equipoMarca,
+                'equipo_modelo' => $equipoModelo,
                 'fecha_ingreso' => $reparacion->fecha_ingreso->format('d/m/Y'),
                 'dias_excedidos' => $this->bonificacion->dias_excedidos ?? 'N/A',
                 'porcentaje' => $porcentaje,
@@ -95,12 +100,12 @@ class NotificarBonificacionCliente implements ShouldQueue
             $mensaje = $plantilla->compilar($datosPlantilla);
 
             // Enviar mensaje por WhatsApp
-            $this->enviarWhatsApp($cliente->telefono, $mensaje);
+            $this->enviarWhatsApp($telefonoCliente, $mensaje);
 
             Log::info('Notificación WhatsApp enviada a cliente', [
                 'bonificacion_id' => $this->bonificacion->bonificacionID,
                 'cliente_id' => $cliente->clienteID,
-                'telefono' => $cliente->telefono,
+                'telefono' => $telefonoCliente,
                 'reparacion_id' => $reparacion->reparacionID,
             ]);
 

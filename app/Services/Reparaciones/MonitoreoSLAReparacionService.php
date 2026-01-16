@@ -4,6 +4,7 @@ namespace App\Services\Reparaciones;
 
 use App\Models\Reparacion;
 use App\Models\AlertaReparacion;
+use App\Models\TipoAlertaReparacion;
 use App\Models\Configuracion;
 use App\Jobs\NotificarAlertaSLATecnico;
 use Illuminate\Support\Facades\Log;
@@ -84,13 +85,13 @@ class MonitoreoSLAReparacionService
         // Marcar reparación como demorada en BD
         $reparacion->marcarComoDemorada();
 
-        // Determinar tipo de alerta (usar valores del ENUM de la migración)
-        $tipoAlerta = 'sla_excedido'; // Todos los excesos de SLA usan este tipo
+        // Obtener tipo de alerta SLA Excedido (ID = 1)
+        $tipoAlertaId = TipoAlertaReparacion::SLA_EXCEDIDO;
 
         // Verificar si ya existe alerta del mismo tipo y no leída
         $alertaExistente = AlertaReparacion::where('reparacionID', $reparacion->reparacionID)
             ->where('tecnicoID', $reparacion->tecnico_id)
-            ->where('tipo_alerta', $tipoAlerta)
+            ->where('tipo_alerta_id', $tipoAlertaId)
             ->where('leida', false)
             ->exists();
 
@@ -102,7 +103,7 @@ class MonitoreoSLAReparacionService
         $alerta = AlertaReparacion::create([
             'reparacionID' => $reparacion->reparacionID,
             'tecnicoID' => $reparacion->tecnico_id,
-            'tipo_alerta' => $tipoAlerta,
+            'tipo_alerta_id' => $tipoAlertaId,
             'dias_excedidos' => $estadoSLA['dias_excedidos'],
             'dias_efectivos' => $estadoSLA['dias_efectivos'],
             'sla_vigente' => $estadoSLA['sla_vigente'],
@@ -114,7 +115,7 @@ class MonitoreoSLAReparacionService
         // Despachar notificación WhatsApp al técnico
         NotificarAlertaSLATecnico::dispatch($alerta);
 
-        Log::info("Alerta de {$tipoAlerta} generada y notificación despachada", [
+        Log::info("Alerta de SLA excedido generada y notificación despachada", [
             'reparacion_id' => $reparacion->reparacionID,
             'codigo' => $reparacion->codigo_reparacion,
             'tecnico_id' => $reparacion->tecnico_id,

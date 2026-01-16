@@ -4,16 +4,18 @@ namespace App\Listeners;
 
 use App\Events\ClienteRespondioBonificacion;
 use App\Models\Reparacion;
+use App\Models\User;
+use App\Notifications\ClienteRespondioBoificacion;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Notification;
 
 /**
  * Listener que procesa la decisión del cliente sobre la bonificación
  * CU-14/CU-15: Actualiza el estado de la reparación según la decisión
  * 
  * Principio aplicado: Single Responsibility (SOLID)
- * - Este listener SOLO procesa la decisión del cliente
- * - No envía notificaciones (eso lo hace otro listener si es necesario)
+ * - Este listener procesa la decisión del cliente y notifica a admins
  */
 class ProcesarDecisionCliente
 {
@@ -27,18 +29,14 @@ class ProcesarDecisionCliente
                 $bonificacion = $event->bonificacion;
                 $decision = $event->decision;
 
-                // 1. Actualizar decisión del cliente en la bonificación
-                $bonificacion->update([
-                    'decision_cliente' => $decision,
-                    'fecha_decision_cliente' => now(),
-                ]);
+                // La decisión ya fue guardada en registrarDecisionCliente()
+                // Solo procesamos la lógica de negocio aquí
 
-                // 2. Actualizar estado de la reparación según decisión
+                // Actualizar estado de la reparación según decisión
                 $reparacion = $bonificacion->reparacion;
 
-                if ($decision === 'continuar') {
+                if ($decision === 'aceptar') {
                     // Cliente acepta la bonificación, continuar con la reparación
-                    // Buscar estado "En Reparación" o el apropiado
                     $estadoEnReparacion = \App\Models\EstadoReparacion::where('nombreEstado', 'En Reparación')
                         ->orWhere('nombreEstado', 'En reparación')
                         ->first();
@@ -53,18 +51,16 @@ class ProcesarDecisionCliente
                     Log::info("Cliente aceptó bonificación", [
                         'bonificacion_id' => $bonificacion->bonificacionID,
                         'reparacion_id' => $reparacion->reparacionID,
-                        'decision' => 'continuar',
+                        'decision' => 'aceptar',
                     ]);
 
                 } else {
-                    // Cliente rechaza, quiere retirar el equipo
-                    // Buscar estado "Listo para Retiro" o "Cancelado"
+                    // Cliente rechaza/cancela, quiere retirar el equipo
                     $estadoListoRetiro = \App\Models\EstadoReparacion::where('nombreEstado', 'LIKE', '%Listo%')
                         ->orWhere('nombreEstado', 'LIKE', '%Retiro%')
                         ->first();
 
                     if (!$estadoListoRetiro) {
-                        // Si no existe "Listo", buscar "Cancelado"
                         $estadoListoRetiro = \App\Models\EstadoReparacion::where('nombreEstado', 'LIKE', '%Cancelad%')->first();
                     }
 
@@ -81,6 +77,22 @@ class ProcesarDecisionCliente
                         'decision' => 'cancelar',
                     ]);
                 }
+
+                // Refrescar la bonificación para obtener el estado actualizado
+                $bonificacion->refresh();
+
+                // Notificar a los administradores (rol_id = 1 es admin)
+                $admins = User::where('rol_id', 1)->get();
+
+                if ($admins->isNotEmpty()) {
+                    Notification::send($admins, new ClienteRespondioBoificacion($bonificacion));
+                    
+                    Log::info("Notificación enviada a administradores sobre decisión del cliente", [
+                        'bonificacion_id' => $bonificacion->bonificacionID,
+                        'admins_notificados' => $admins->count(),
+                        'decision' => $decision,
+                    ]);
+                }
             });
 
         } catch (\Exception $e) {
@@ -92,3 +104,4 @@ class ProcesarDecisionCliente
         }
     }
 }
+

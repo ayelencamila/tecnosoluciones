@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\Reparacion;
+use App\Models\BonificacionReparacion;
 use App\Models\HistorialEstadoReparacion;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
@@ -62,6 +63,45 @@ class ReparacionObserver
                 'reparacion_id' => $reparacion->reparacionID,
                 'estado_anterior' => $estadoAnterior,
                 'estado_nuevo' => $estadoNuevo,
+            ]);
+        }
+
+        // Recalcular bonificaciones pendientes si cambia el monto
+        if ($reparacion->isDirty('total_final') || $reparacion->isDirty('costo_mano_obra')) {
+            $this->recalcularBonificacionesPendientes($reparacion);
+        }
+    }
+
+    /**
+     * Recalcula las bonificaciones pendientes cuando se actualiza el monto de la reparación
+     * Esto evita que queden bonificaciones con monto $0 si se crearon antes de cargar el costo
+     */
+    protected function recalcularBonificacionesPendientes(Reparacion $reparacion): void
+    {
+        $bonificacionesPendientes = BonificacionReparacion::where('reparacionID', $reparacion->reparacionID)
+            ->where('estado', 'pendiente')
+            ->get();
+
+        if ($bonificacionesPendientes->isEmpty()) {
+            return;
+        }
+
+        $montoOriginal = $reparacion->total_final ?? $reparacion->costo_mano_obra ?? 0;
+
+        foreach ($bonificacionesPendientes as $bonificacion) {
+            $montoDescuento = $montoOriginal * ($bonificacion->porcentaje_sugerido / 100);
+            
+            $bonificacion->update([
+                'monto_original' => $montoOriginal,
+                'monto_bonificado' => $montoDescuento,
+            ]);
+
+            Log::info('Bonificación pendiente recalculada por cambio de monto', [
+                'bonificacion_id' => $bonificacion->bonificacionID,
+                'reparacion_id' => $reparacion->reparacionID,
+                'monto_original' => $montoOriginal,
+                'monto_bonificado' => $montoDescuento,
+                'porcentaje' => $bonificacion->porcentaje_sugerido,
             ]);
         }
     }

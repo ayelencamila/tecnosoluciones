@@ -182,6 +182,69 @@ Route::middleware(['auth'])->group(function () {
         auth()->user()->unreadNotifications->markAsRead();
         return response()->json(['success' => true]);
     });
+
+    // API de Alertas para Técnicos (CU-14)
+    Route::get('/api/tecnico/alertas', function () {
+        return \App\Models\AlertaReparacion::where('tecnicoID', auth()->id())
+            ->where('leida', false)
+            ->with(['reparacion.cliente', 'reparacion.modelo.marca', 'tipoAlerta'])
+            ->orderBy('created_at', 'desc')
+            ->take(20)
+            ->get();
+    });
+
+    // API de Motivos de Demora (para técnicos y admins)
+    Route::get('/api/motivos-demora', function () {
+        return \App\Models\MotivoDemoraReparacion::orderBy('orden')->get();
+    });
+
+    Route::post('/api/motivos-demora', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'codigo' => 'nullable|string|max:50',
+            'nombre' => 'required|string|max:100',
+            'descripcion' => 'nullable|string|max:500',
+            'requiere_bonificacion' => 'boolean',
+            'pausa_sla' => 'boolean',
+            'activo' => 'boolean',
+        ]);
+
+        // Generar código si no se proporciona
+        if (empty($validated['codigo'])) {
+            $base = strtoupper(preg_replace('/[^A-Za-z0-9]/', '_', substr($validated['nombre'], 0, 10)));
+            $validated['codigo'] = 'MOT_' . $base . '_' . substr(time(), -4);
+        }
+
+        // Asegurar que el código sea único
+        $baseCode = $validated['codigo'];
+        $counter = 1;
+        while (\App\Models\MotivoDemoraReparacion::where('codigo', $validated['codigo'])->exists()) {
+            $validated['codigo'] = $baseCode . '_' . $counter++;
+        }
+
+        // Obtener el próximo orden disponible
+        $maxOrden = \App\Models\MotivoDemoraReparacion::max('orden') ?? 0;
+        $validated['orden'] = $maxOrden + 1;
+        $validated['activo'] = $validated['activo'] ?? true;
+        $validated['requiere_bonificacion'] = $validated['requiere_bonificacion'] ?? false;
+        $validated['pausa_sla'] = $validated['pausa_sla'] ?? false;
+
+        $motivo = \App\Models\MotivoDemoraReparacion::create($validated);
+
+        return response()->json($motivo, 201);
+    });
+
+    Route::patch('/api/motivos-demora/{id}/toggle', function ($id) {
+        $motivo = \App\Models\MotivoDemoraReparacion::findOrFail($id);
+        $motivo->update(['activo' => !$motivo->activo]);
+        return response()->json(['success' => true, 'activo' => $motivo->activo]);
+    });
+
+    Route::delete('/api/motivos-demora/{id}', function ($id) {
+        $motivo = \App\Models\MotivoDemoraReparacion::findOrFail($id);
+        // Soft delete: solo desactivar
+        $motivo->update(['activo' => false]);
+        return response()->json(['success' => true]);
+    });
 });
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
@@ -384,6 +447,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{solicitud}/agregar-proveedor', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'agregarProveedor'])->name('agregar-proveedor');
         Route::post('/{solicitud}/cerrar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cerrar'])->name('cerrar');
         Route::post('/{solicitud}/cancelar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cancelar'])->name('cancelar');
+        Route::post('/{solicitud}/reenviar/{cotizacion}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'reenviarRecordatorio'])->name('reenviar');
         Route::post('/generar-automaticas', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'generarAutomaticas'])->name('generar-automaticas');
     });
 

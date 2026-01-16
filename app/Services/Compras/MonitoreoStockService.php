@@ -9,15 +9,18 @@ use App\Models\SolicitudCotizacion;
 use App\Models\DetalleSolicitudCotizacion;
 use App\Models\CotizacionProveedor;
 use App\Models\EstadoSolicitud;
+use App\Models\DetalleVenta;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 /**
  * Servicio: Monitoreo Automático de Stock (CU-20)
  * 
  * Responsabilidades:
  * - Detectar productos bajo punto de reorden
+ * - Detectar productos con alta rotación (muchas ventas)
  * - Generar solicitudes de cotización automáticas
  * - Agrupar productos por proveedor habitual
  * 
@@ -27,6 +30,11 @@ use Illuminate\Support\Facades\Log;
  */
 class MonitoreoStockService
 {
+    /**
+     * Umbral de ventas para considerar alta rotación (configurable)
+     * Si un producto vendió más de X unidades en el último mes
+     */
+    const UMBRAL_ALTA_ROTACION = 10;
     /**
      * Detecta todos los productos bajo stock mínimo
      * 
@@ -48,8 +56,93 @@ class MonitoreoStockService
                     'stock_minimo' => $stock->stock_minimo,
                     'faltante' => $stock->stock_minimo - $stock->cantidad_disponible,
                     'proveedor_habitual' => $stock->producto->proveedorHabitual,
+                    'motivo' => 'stock_bajo',
                 ];
             });
+    }
+
+    /**
+     * Detecta productos con alta rotación en el último mes
+     * Productos que vendieron mucho y podrían necesitar reposición preventiva
+     * 
+     * @param int $diasAnalizar Días hacia atrás para analizar ventas (default: 30)
+     * @param int|null $umbral Cantidad mínima de ventas para considerar alta rotación
+     * @return Collection Productos con alta rotación
+     */
+    public function detectarProductosAltaRotacion(int $diasAnalizar = 30, ?int $umbral = null): Collection
+    {
+        $umbral = $umbral ?? self::UMBRAL_ALTA_ROTACION;
+        $fechaDesde = Carbon::now()->subDays($diasAnalizar);
+
+        // Obtener productos con muchas ventas en el período
+        $ventasPorProducto = DetalleVenta::select('producto_id', DB::raw('SUM(cantidad) as total_vendido'))
+            ->whereHas('venta', function ($query) use ($fechaDesde) {
+                $query->where('fecha', '>=', $fechaDesde)
+                      ->whereHas('estado', fn($q) => $q->where('nombre', '!=', 'Anulada'));
+            })
+            ->groupBy('producto_id')
+            ->having('total_vendido', '>=', $umbral)
+            ->get();
+
+        if ($ventasPorProducto->isEmpty()) {
+            return collect();
+        }
+
+        $productosIds = $ventasPorProducto->pluck('producto_id')->toArray();
+
+        // Obtener información de stock de estos productos
+        return Stock::with(['producto.proveedorHabitual', 'deposito'])
+            ->whereIn('productoID', $productosIds)
+            ->get()
+            ->map(function ($stock) use ($ventasPorProducto) {
+                $ventasInfo = $ventasPorProducto->firstWhere('producto_id', $stock->productoID);
+                $totalVendido = $ventasInfo ? $ventasInfo->total_vendido : 0;
+                
+                // Calcular cobertura: cuántos días de stock quedan basado en ritmo de ventas
+                $ventasDiarias = $totalVendido / 30;
+                $diasCobertura = $ventasDiarias > 0 ? round($stock->cantidad_disponible / $ventasDiarias, 1) : 999;
+                
+                // Solo incluir si tiene menos de 14 días de cobertura
+                if ($diasCobertura > 14) {
+                    return null;
+                }
+
+                return [
+                    'producto_id' => $stock->productoID,
+                    'producto' => $stock->producto,
+                    'deposito' => $stock->deposito,
+                    'cantidad_actual' => $stock->cantidad_disponible,
+                    'stock_minimo' => $stock->stock_minimo,
+                    'faltante' => max(0, ($stock->stock_minimo ?: $totalVendido) - $stock->cantidad_disponible),
+                    'proveedor_habitual' => $stock->producto->proveedorHabitual,
+                    'motivo' => 'alta_rotacion',
+                    'ventas_mes' => $totalVendido,
+                    'dias_cobertura' => $diasCobertura,
+                ];
+            })
+            ->filter() // Eliminar nulls
+            ->values();
+    }
+
+    /**
+     * Detecta todos los productos que necesitan reposición
+     * Combina: stock bajo + alta rotación (sin duplicados)
+     * 
+     * @return Collection Todos los productos que necesitan atención
+     */
+    public function detectarProductosNecesitanReposicion(): Collection
+    {
+        $bajoStock = $this->detectarProductosBajoStock();
+        $altaRotacion = $this->detectarProductosAltaRotacion();
+
+        // Combinar sin duplicados (priorizando el de stock bajo si existe en ambos)
+        $productosIds = $bajoStock->pluck('producto_id')->toArray();
+        
+        $altaRotacionSinDuplicados = $altaRotacion->filter(function ($item) use ($productosIds) {
+            return !in_array($item['producto_id'], $productosIds);
+        });
+
+        return $bajoStock->concat($altaRotacionSinDuplicados);
     }
 
     /**
@@ -66,28 +159,40 @@ class MonitoreoStockService
     }
 
     /**
-     * Genera solicitudes de cotización automáticas para productos bajo stock
+     * Genera solicitudes de cotización automáticas para productos que necesitan reposición
+     * Incluye: stock bajo + productos de alta rotación
      * 
      * @param int|null $userId Usuario que ejecuta (null si es proceso automático)
      * @param int $diasVencimiento Días hasta vencimiento de la solicitud
+     * @param bool $incluirAltaRotacion Incluir productos de alta rotación
      * @return array Resultado con solicitudes creadas y errores
      */
     public function generarSolicitudesAutomaticas(
         ?int $userId = null, 
-        int $diasVencimiento = 7
+        int $diasVencimiento = 7,
+        bool $incluirAltaRotacion = true
     ): array {
-        $productosBajoStock = $this->detectarProductosBajoStock();
+        // Detectar todos los productos que necesitan atención
+        $productosNecesitan = $incluirAltaRotacion 
+            ? $this->detectarProductosNecesitanReposicion()
+            : $this->detectarProductosBajoStock();
         
-        if ($productosBajoStock->isEmpty()) {
+        if ($productosNecesitan->isEmpty()) {
             return [
                 'solicitudes_creadas' => 0,
                 'productos_procesados' => 0,
+                'productos_bajo_stock' => 0,
+                'productos_alta_rotacion' => 0,
                 'errores' => [],
-                'mensaje' => 'No hay productos bajo stock mínimo',
+                'mensaje' => 'No hay productos que necesiten reposición',
             ];
         }
 
-        $porProveedor = $this->agruparPorProveedor($productosBajoStock);
+        // Conteo por motivo
+        $bajoStock = $productosNecesitan->where('motivo', 'stock_bajo')->count();
+        $altaRotacion = $productosNecesitan->where('motivo', 'alta_rotacion')->count();
+
+        $porProveedor = $this->agruparPorProveedor($productosNecesitan);
         $solicitudesCreadas = [];
         $errores = [];
         $productosYaSolicitados = $this->obtenerProductosEnSolicitudesAbiertas();
@@ -130,7 +235,9 @@ class MonitoreoStockService
 
             return [
                 'solicitudes_creadas' => count($solicitudesCreadas),
-                'productos_procesados' => $productosBajoStock->count(),
+                'productos_procesados' => $productosNecesitan->count(),
+                'productos_bajo_stock' => $bajoStock,
+                'productos_alta_rotacion' => $altaRotacion,
                 'solicitudes' => $solicitudesCreadas,
                 'errores' => $errores,
                 'mensaje' => count($solicitudesCreadas) > 0 
@@ -145,6 +252,8 @@ class MonitoreoStockService
             return [
                 'solicitudes_creadas' => 0,
                 'productos_procesados' => 0,
+                'productos_bajo_stock' => 0,
+                'productos_alta_rotacion' => 0,
                 'errores' => [$e->getMessage()],
                 'mensaje' => 'Error al generar solicitudes',
             ];

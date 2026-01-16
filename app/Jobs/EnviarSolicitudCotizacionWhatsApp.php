@@ -34,10 +34,12 @@ class EnviarSolicitudCotizacionWhatsApp implements ShouldQueue
     public $backoff = [60, 300, 900]; // 1min, 5min, 15min
 
     protected CotizacionProveedor $cotizacion;
+    protected bool $esRecordatorio;
 
-    public function __construct(CotizacionProveedor $cotizacion)
+    public function __construct(CotizacionProveedor $cotizacion, bool $esRecordatorio = false)
     {
         $this->cotizacion = $cotizacion;
+        $this->esRecordatorio = $esRecordatorio;
     }
 
     /**
@@ -80,7 +82,7 @@ class EnviarSolicitudCotizacionWhatsApp implements ShouldQueue
         // 4. Construir mensaje con Magic Link
         $mensaje = $this->construirMensaje();
 
-        Log::info("📱 Enviando solicitud cotización {$solicitud->codigo_solicitud} a {$proveedor->razon_social}");
+        Log::info("📱 Enviando solicitud cotización {$solicitud->codigo_solicitud} a {$proveedor->razon_social}" . ($this->esRecordatorio ? ' (RECORDATORIO)' : ''));
 
         // 5. Envío via Twilio
         try {
@@ -99,10 +101,12 @@ class EnviarSolicitudCotizacionWhatsApp implements ShouldQueue
                 'body' => $mensaje,
             ]);
 
-            // 6. Marcar como enviada
-            $this->cotizacion->marcarEnviado();
+            // 6. Marcar como enviada (solo si no es recordatorio)
+            if (!$this->esRecordatorio) {
+                $this->cotizacion->marcarEnviado();
+            }
 
-            Log::info("✅ WhatsApp enviado - Solicitud {$solicitud->codigo_solicitud} a {$proveedor->razon_social}");
+            Log::info("✅ WhatsApp enviado - Solicitud {$solicitud->codigo_solicitud} a {$proveedor->razon_social}" . ($this->esRecordatorio ? ' (RECORDATORIO)' : ''));
 
         } catch (Exception $e) {
             Log::error("❌ Error enviando WhatsApp solicitud {$solicitud->codigo_solicitud}: " . $e->getMessage());
@@ -119,14 +123,30 @@ class EnviarSolicitudCotizacionWhatsApp implements ShouldQueue
         $proveedor = $this->cotizacion->proveedor;
         $magicLink = $this->cotizacion->generarMagicLink();
 
-        $lineas = [
-            "📋 *SOLICITUD DE COTIZACIÓN*",
-            "",
-            "Estimado/a *{$proveedor->razon_social}*,",
-            "",
-            "Le invitamos a cotizar los siguientes productos:",
-            "",
-        ];
+        // Encabezado diferente para recordatorios
+        if ($this->esRecordatorio) {
+            $diasRestantes = now()->diffInDays($solicitud->fecha_vencimiento, false);
+            $lineas = [
+                "🔔 *RECORDATORIO - SOLICITUD DE COTIZACIÓN*",
+                "",
+                "Estimado/a *{$proveedor->razon_social}*,",
+                "",
+                "Le recordamos que tenemos una solicitud de cotización pendiente.",
+                "⏰ *Solo quedan {$diasRestantes} día(s) para responder.*",
+                "",
+                "*Productos solicitados:*",
+                "",
+            ];
+        } else {
+            $lineas = [
+                "📋 *SOLICITUD DE COTIZACIÓN*",
+                "",
+                "Estimado/a *{$proveedor->razon_social}*,",
+                "",
+                "Le invitamos a cotizar los siguientes productos:",
+                "",
+            ];
+        }
 
         // Lista de productos
         foreach ($solicitud->detalles as $detalle) {

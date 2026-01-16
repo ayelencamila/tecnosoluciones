@@ -33,3 +33,46 @@ Schedule::command('reparaciones:monitorear-sla')
     ->onFailure(function () {
         \Log::error('Error al ejecutar monitoreo de SLA de reparaciones.');
     });
+
+// ============================================================================
+// SCHEDULER PARA CU-20: Monitoreo Automático de Stock y Cotizaciones
+// ============================================================================
+
+// --- 1. Monitoreo de Stock (diario a las 8:00 AM) ---
+// Detecta productos bajo stock y alta rotación, genera y envía solicitudes
+Schedule::command('stock:monitorear --generar --enviar')
+    ->dailyAt('08:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('✅ Monitoreo de stock ejecutado con éxito - Solicitudes generadas y enviadas.');
+    })
+    ->onFailure(function () {
+        \Log::error('❌ Error al ejecutar monitoreo de stock.');
+    });
+
+// --- 2. Cerrar Solicitudes Vencidas (cada hora) ---
+// Marca como vencidas las solicitudes que superaron su fecha límite
+Schedule::command('cotizaciones:cerrar-vencidas')
+    ->hourly()
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('✅ Verificación de solicitudes vencidas ejecutada con éxito.');
+    })
+    ->onFailure(function () {
+        \Log::error('❌ Error al verificar solicitudes vencidas.');
+    });
+
+// --- 3. Enviar Recordatorios a Proveedores (diario a las 9:00 AM) ---
+// Recuerda a proveedores que no han respondido (después de 2 días, máximo 3 recordatorios)
+Schedule::command('cotizaciones:enviar-recordatorios --dias=2 --canal=ambos')
+    ->dailyAt('09:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('✅ Recordatorios de cotización enviados con éxito.');
+    })
+    ->onFailure(function () {
+        \Log::error('❌ Error al enviar recordatorios de cotización.');
+    });

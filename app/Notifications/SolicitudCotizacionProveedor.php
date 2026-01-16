@@ -23,10 +23,12 @@ class SolicitudCotizacionProveedor extends Notification implements ShouldQueue
     use Queueable;
 
     protected CotizacionProveedor $cotizacion;
+    protected bool $esRecordatorio;
 
-    public function __construct(CotizacionProveedor $cotizacion)
+    public function __construct(CotizacionProveedor $cotizacion, bool $esRecordatorio = false)
     {
         $this->cotizacion = $cotizacion;
+        $this->esRecordatorio = $esRecordatorio;
     }
 
     /**
@@ -44,12 +46,26 @@ class SolicitudCotizacionProveedor extends Notification implements ShouldQueue
     {
         $solicitud = $this->cotizacion->solicitud;
         $magicLink = $this->cotizacion->generarMagicLink();
+        $diasRestantes = now()->diffInDays($solicitud->fecha_vencimiento, false);
         
+        // Asunto diferente para recordatorios
+        $asunto = $this->esRecordatorio 
+            ? "🔔 RECORDATORIO - Solicitud de Cotización {$solicitud->codigo_solicitud}"
+            : "Solicitud de Cotización - {$solicitud->codigo_solicitud}";
+
         $mail = (new MailMessage)
-            ->subject("Solicitud de Cotización - {$solicitud->codigo_solicitud}")
-            ->greeting("Estimado/a {$notifiable->razon_social},")
-            ->line("Le invitamos a cotizar los siguientes productos para TecnoSoluciones:")
-            ->line('');
+            ->subject($asunto)
+            ->greeting("Estimado/a {$notifiable->razon_social},");
+
+        // Mensaje diferente para recordatorios
+        if ($this->esRecordatorio) {
+            $mail->line("Le recordamos que tenemos una solicitud de cotización pendiente de su respuesta.")
+                 ->line("⏰ **Solo quedan {$diasRestantes} día(s) para responder.**")
+                 ->line('');
+        } else {
+            $mail->line("Le invitamos a cotizar los siguientes productos para TecnoSoluciones:")
+                 ->line('');
+        }
 
         // Agregar lista de productos
         $productosTexto = '';

@@ -302,13 +302,68 @@ class SolicitudCotizacionController extends Controller
     public function monitoreoStock(): Response
     {
         $productosBajoStock = $this->monitoreoService->detectarProductosBajoStock();
+        $productosAltaRotacion = $this->monitoreoService->detectarProductosAltaRotacion();
         $resumen = $this->monitoreoService->obtenerResumenStock();
         $porProveedor = $this->monitoreoService->agruparPorProveedor($productosBajoStock);
 
         return Inertia::render('Compras/MonitoreoStock/Index', [
             'productosBajoStock' => $productosBajoStock,
+            'productosAltaRotacion' => $productosAltaRotacion,
             'porProveedor' => $porProveedor,
             'resumen' => $resumen,
         ]);
+    }
+
+    /**
+     * Reenviar recordatorio a un proveedor específico
+     * 
+     * POST /compras/solicitudes-cotizacion/{solicitud}/reenviar/{cotizacion}
+     */
+    public function reenviarRecordatorio(
+        Request $request, 
+        SolicitudCotizacion $solicitud, 
+        \App\Models\CotizacionProveedor $cotizacion
+    ): RedirectResponse {
+        $validated = $request->validate([
+            'canal' => 'required|in:whatsapp,email,ambos',
+        ]);
+
+        // Verificar que la cotización pertenece a la solicitud
+        if ($cotizacion->solicitud_id !== $solicitud->id) {
+            return back()->with('error', 'La cotización no pertenece a esta solicitud');
+        }
+
+        // Verificar que no ha respondido
+        if ($cotizacion->fecha_respuesta || $cotizacion->motivo_rechazo) {
+            return back()->with('error', 'Este proveedor ya respondió a la solicitud');
+        }
+
+        // Verificar que la solicitud no está vencida
+        if ($solicitud->fecha_vencimiento < now()) {
+            return back()->with('error', 'La solicitud ya venció');
+        }
+
+        try {
+            $proveedor = $cotizacion->proveedor;
+
+            if ($validated['canal'] === 'whatsapp' || $validated['canal'] === 'ambos') {
+                \App\Jobs\EnviarSolicitudCotizacionWhatsApp::dispatch($cotizacion, true);
+            }
+
+            if ($validated['canal'] === 'email' || $validated['canal'] === 'ambos') {
+                $proveedor->notify(new \App\Notifications\SolicitudCotizacionProveedor($cotizacion, true));
+            }
+
+            // Actualizar contadores
+            $cotizacion->update([
+                'recordatorios_enviados' => $cotizacion->recordatorios_enviados + 1,
+                'ultimo_recordatorio' => now(),
+            ]);
+
+            return back()->with('success', "Recordatorio enviado a {$proveedor->razon_social}");
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al enviar recordatorio: ' . $e->getMessage());
+        }
     }
 }

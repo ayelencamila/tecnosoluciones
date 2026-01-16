@@ -81,17 +81,40 @@ class BonificacionReparacion extends Model
     }
 
     /**
+     * Estado de decisión del cliente
+     */
+    public function estadoDecision(): BelongsTo
+    {
+        return $this->belongsTo(EstadoDecisionCliente::class, 'estado_decision_id', 'estado_id');
+    }
+
+    /**
+     * Accessor para obtener decision_cliente como string (compatibilidad)
+     */
+    public function getDecisionClienteAttribute(): ?string
+    {
+        return $this->estadoDecision?->nombre;
+    }
+
+    /**
      * Aprobar bonificación
      */
     public function aprobar(int $usuarioID, ?string $observaciones = null): void
     {
+        // Obtener estado_id 'pendiente' para contexto 'bonificacion'
+        $estadoPendiente = \DB::table('estados_decision_cliente')
+            ->where('nombre', 'pendiente')
+            ->where('contexto', 'bonificacion')
+            ->value('estado_id');
+
         $this->update([
             'estado' => 'aprobada',
             'porcentaje_aprobado' => $this->porcentaje_sugerido,
-            'monto_bonificado' => $this->monto_original * (1 - $this->porcentaje_sugerido / 100),
+            'monto_bonificado' => $this->monto_original * ($this->porcentaje_sugerido / 100),
             'aprobada_por' => $usuarioID,
             'fecha_aprobacion' => now(),
             'observaciones_aprobacion' => $observaciones,
+            'estado_decision_id' => $estadoPendiente, // Esperando respuesta del cliente
         ]);
     }
 
@@ -116,6 +139,12 @@ class BonificacionReparacion extends Model
         // Calcular el descuento (no el total con descuento)
         $montoDescuento = $this->monto_original * ($porcentaje / 100);
         
+        // Obtener estado_id 'pendiente' para contexto 'bonificacion'
+        $estadoPendiente = \DB::table('estados_decision_cliente')
+            ->where('nombre', 'pendiente')
+            ->where('contexto', 'bonificacion')
+            ->value('estado_id');
+
         $this->update([
             'estado' => 'aprobada',
             'porcentaje_aprobado' => $porcentaje,
@@ -123,6 +152,7 @@ class BonificacionReparacion extends Model
             'aprobada_por' => $usuarioID,
             'fecha_aprobacion' => now(),
             'observaciones_aprobacion' => $observaciones,
+            'estado_decision_id' => $estadoPendiente, // Esperando respuesta del cliente
         ]);
     }
 
@@ -139,11 +169,11 @@ class BonificacionReparacion extends Model
      */
     public function registrarDecisionCliente(string $decision, ?string $observaciones = null): void
     {
-        // Obtener estado_decision_id por nombre y contexto
+        // Obtener estado_id por nombre y contexto
         $estadoDecision = \DB::table('estados_decision_cliente')
             ->where('nombre', $decision)
             ->where('contexto', 'bonificacion')
-            ->value('estado_decision_id');
+            ->value('estado_id');
 
         $this->update([
             'estado_decision_id' => $estadoDecision,

@@ -20,6 +20,7 @@ class AlertaReparacion extends Model
         'dias_excedidos',
         'dias_efectivos',
         'sla_vigente',
+        'respuesta_tecnico',
         'leida',
         'fecha_lectura',
     ];
@@ -55,6 +56,14 @@ class AlertaReparacion extends Model
     public function tecnico(): BelongsTo
     {
         return $this->belongsTo(User::class, 'tecnicoID', 'id');
+    }
+
+    /**
+     * Tipo de alerta (tabla paramétrica)
+     */
+    public function tipoAlerta(): BelongsTo
+    {
+        return $this->belongsTo(TipoAlertaReparacion::class, 'tipo_alerta_id', 'tipo_id');
     }
 
     /**

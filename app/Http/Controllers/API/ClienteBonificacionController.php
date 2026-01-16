@@ -17,11 +17,13 @@ class ClienteBonificacionController extends Controller
         // Decodificar el token para obtener el bonificacionID
         try {
             $bonificacionID = $this->decodificarToken($token);
-            $bonificacion = BonificacionReparacion::with(['reparacion.cliente', 'motivodemora'])
+            $bonificacion = BonificacionReparacion::with(['reparacion.cliente', 'reparacion.modelo.marca', 'motivodemora', 'estadoDecision'])
                 ->findOrFail($bonificacionID);
 
             // Verificar que la bonificación esté aprobada y pendiente de decisión del cliente
-            if ($bonificacion->estado !== 'aprobada' || $bonificacion->decision_cliente !== 'pendiente') {
+            // estado_decision_id = 1 es 'pendiente' para contexto 'bonificacion'
+            $estadoPendiente = $bonificacion->estadoDecision?->nombre === 'pendiente';
+            if ($bonificacion->estado !== 'aprobada' || !$estadoPendiente) {
                 return view('bonificacion-cliente-error', [
                     'mensaje' => 'Esta bonificación ya no está disponible para respuesta.'
                 ]);

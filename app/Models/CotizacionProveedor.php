@@ -50,11 +50,15 @@ class CotizacionProveedor extends Model
         'fecha_envio',
         'fecha_respuesta',
         'motivo_rechazo',
+        'recordatorios_enviados',
+        'ultimo_recordatorio',
     ];
 
     protected $casts = [
         'fecha_envio' => 'datetime',
         'fecha_respuesta' => 'datetime',
+        'ultimo_recordatorio' => 'datetime',
+        'recordatorios_enviados' => 'integer',
     ];
 
     // --- BOOT (Generar token automáticamente) ---

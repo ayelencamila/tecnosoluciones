@@ -4,6 +4,7 @@ import { Link, usePage } from '@inertiajs/vue3';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
+import TecnicoAlertBell from '@/Components/TecnicoAlertBell.vue';
 
 const showingSidebar = ref(false);
 // Estado para el menú desplegable de Maestros
@@ -386,6 +387,7 @@ const isActive = (routeName) => {
 
                 <div class="ml-4 flex items-center gap-4">
                     <NotificationBell v-if="$page.props.auth.user.role === 'admin'" />
+                    <TecnicoAlertBell v-if="$page.props.auth.user.role === 'tecnico'" />
                     
                     <div class="relative">
                         <Dropdown align="right" width="48">

@@ -153,7 +153,7 @@ class Reparacion extends Model
 
     /**
      * Obtiene el SLA vigente para esta reparación
-     * Prioridad: sla_dias > fecha_promesa_entrega > configuración default
+     * Prioridad: sla_dias > fecha_promesa > configuración default
      * 
      * @return int Días de SLA
      */
@@ -164,9 +164,9 @@ class Reparacion extends Model
             return (int) $this->sla_dias;
         }
         
-        // Prioridad 2: Si tiene fecha_promesa_entrega, calcular días desde ingreso
-        if ($this->fecha_promesa_entrega !== null && $this->fecha_ingreso !== null) {
-            return max(1, $this->fecha_ingreso->diffInDays($this->fecha_promesa_entrega));
+        // Prioridad 2: Si tiene fecha_promesa, calcular días desde ingreso
+        if ($this->fecha_promesa !== null && $this->fecha_ingreso !== null) {
+            return max(1, $this->fecha_ingreso->diffInDays($this->fecha_promesa));
         }
         
         // Prioridad 3: Usar configuración default
@@ -261,19 +261,42 @@ class Reparacion extends Model
     /**
      * Determina si la reparación excede o incumple el SLA
      * 
-     * @return array ['excede' => bool, 'incumple' => bool, 'dias_efectivos' => int, 'sla_vigente' => int]
+     * @return array ['excede' => bool, 'incumple' => bool, 'dias_efectivos' => int, 'sla_vigente' => int, 'dias_excedidos' => int]
      */
     public function excedeOIncumpleSLA(): array
     {
         $diasEfectivos = $this->calcularDiasEfectivos();
         $slaVigente = $this->getSLAVigente();
 
+        // Si tiene fecha_promesa, verificar directamente si ya pasó
+        $excede = false;
+        $diasExcedidos = 0;
+        
+        if ($this->fecha_promesa !== null) {
+            $fechaPromesa = \Carbon\Carbon::parse($this->fecha_promesa);
+            $ahora = now();
+            
+            // Excede si ya pasó la fecha/hora prometida
+            $excede = $ahora->gt($fechaPromesa);
+            
+            // Calcular horas/días excedidos desde fecha_promesa
+            if ($excede) {
+                $horasExcedidas = $fechaPromesa->diffInHours($ahora);
+                // Convertir a días (mínimo 1 si excede aunque sea por horas)
+                $diasExcedidos = max(1, (int) floor($horasExcedidas / 24));
+            }
+        } else {
+            // Sin fecha_promesa, comparar días efectivos vs SLA
+            $excede = $diasEfectivos > $slaVigente;
+            $diasExcedidos = max(0, $diasEfectivos - $slaVigente);
+        }
+
         return [
             'dias_efectivos' => $diasEfectivos,
             'sla_vigente' => $slaVigente,
-            'excede' => $diasEfectivos > $slaVigente, // Pasó el SLA
-            'incumple' => $diasEfectivos > ($slaVigente + 3), // Más de 3 días de exceso
-            'dias_excedidos' => max(0, $diasEfectivos - $slaVigente),
+            'excede' => $excede,
+            'incumple' => $diasExcedidos > 3, // Más de 3 días de exceso
+            'dias_excedidos' => $diasExcedidos,
         ];
     }
 
