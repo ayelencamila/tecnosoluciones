@@ -196,10 +196,9 @@ class PlantillaWhatsappController extends Controller
     {
         $plantilla = PlantillaWhatsapp::findOrFail($id);
 
-        $historial = \App\Models\Auditoria::where('entidad', 'plantillas_whatsapp')
-            ->where('entidad_id', $id)
+        $historial = \App\Models\Auditoria::where('tabla_afectada', 'plantillas_whatsapp')
+            ->where('registro_id', $id)
             ->orderBy('created_at', 'desc')
-            ->with('usuario:id,name')
             ->get()
             ->map(function ($auditoria) {
                 return [
@@ -208,6 +207,8 @@ class PlantillaWhatsappController extends Controller
                     'accion' => $auditoria->accion,
                     'motivo' => $auditoria->motivo,
                     'detalles' => $auditoria->detalles,
+                    'datos_anteriores' => $auditoria->datos_anteriores,
+                    'datos_nuevos' => $auditoria->datos_nuevos,
                 ];
             });
 
