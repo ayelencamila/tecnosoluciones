@@ -30,6 +30,14 @@ Route::prefix('bonificacion')->group(function () {
     Route::post('/{token}/responder', [ClienteBonificacionController::class, 'responder'])->name('bonificacion.responder');
 });
 
+// CU-20: Rutas públicas del Portal de Proveedores (Magic Links)
+Route::prefix('portal')->name('portal.')->group(function () {
+    Route::get('/cotizacion/{token}', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'mostrarCotizacion'])->name('cotizacion');
+    Route::post('/cotizacion/{token}/responder', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'responderCotizacion'])->name('cotizacion.responder');
+    Route::post('/cotizacion/{token}/rechazar', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'rechazarCotizacion'])->name('cotizacion.rechazar');
+    Route::get('/cotizacion/{token}/agradecimiento-rechazo', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'agradecimientoRechazo'])->name('agradecimiento.rechazo');
+});
+
 // Ruta de inicio
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -365,6 +373,24 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'store'])->name('store');
         Route::get('/{recepcion}', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'show'])->name('show');
     });
+
+    // CU-20: Solicitudes de Cotización
+    Route::prefix('solicitudes-cotizacion')->name('solicitudes-cotizacion.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'store'])->name('store');
+        Route::get('/{solicitud}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'show'])->name('show');
+        Route::post('/{solicitud}/enviar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'enviar'])->name('enviar');
+        Route::post('/{solicitud}/agregar-proveedor', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'agregarProveedor'])->name('agregar-proveedor');
+        Route::post('/{solicitud}/cerrar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cerrar'])->name('cerrar');
+        Route::post('/{solicitud}/cancelar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cancelar'])->name('cancelar');
+        Route::post('/generar-automaticas', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'generarAutomaticas'])->name('generar-automaticas');
+    });
+
+    // CU-20: Monitoreo de Stock
+    Route::get('/monitoreo-stock', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'monitoreoStock'])
+        ->name('monitoreo-stock.index')
+        ->middleware('role:admin');
 
 });
 
