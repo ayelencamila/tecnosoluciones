@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use App\Models\BonificacionReparacion;
@@ -21,9 +21,7 @@ class ClienteBonificacionController extends Controller
                 ->findOrFail($bonificacionID);
 
             // Verificar que la bonificación esté aprobada y pendiente de decisión del cliente
-            // estado_decision_id = 1 es 'pendiente' para contexto 'bonificacion'
-            $estadoPendiente = $bonificacion->estadoDecision?->nombre === 'pendiente';
-            if ($bonificacion->estado !== 'aprobada' || !$estadoPendiente) {
+            if ($bonificacion->estado !== 'aprobada' || $bonificacion->decision_cliente !== 'pendiente') {
                 return view('bonificacion-cliente-error', [
                     'mensaje' => 'Esta bonificación ya no está disponible para respuesta.'
                 ]);
@@ -60,7 +58,8 @@ class ClienteBonificacionController extends Controller
 
         try {
             $bonificacionID = $this->decodificarToken($token);
-            $bonificacion = BonificacionReparacion::with('reparacion')->findOrFail($bonificacionID);
+            $bonificacion = BonificacionReparacion::with(['reparacion', 'estadoDecision'])
+                ->findOrFail($bonificacionID);
 
             // Verificar que la bonificación esté aprobada y pendiente
             if ($bonificacion->estado !== 'aprobada' || $bonificacion->decision_cliente !== 'pendiente') {
@@ -69,19 +68,11 @@ class ClienteBonificacionController extends Controller
                 ], 400);
             }
 
-            // Registrar decisión
+            // Registrar decisión (esto dispara el evento que notifica a los admins via listener)
             $bonificacion->registrarDecisionCliente(
                 $request->decision,
                 $request->observaciones
             );
-
-            // Notificar a todos los administradores
-            $admins = \App\Models\User::whereHas('rol', function($query) {
-                $query->where('nombre', 'admin');
-            })->get();
-            foreach ($admins as $admin) {
-                $admin->notify(new \App\Notifications\ClienteRespondioBoificacion($bonificacion));
-            }
 
             Log::info('Cliente respondió a bonificación', [
                 'bonificacion_id' => $bonificacion->bonificacionID,
