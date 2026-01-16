@@ -157,7 +157,8 @@ const comprasItems = computed(() => {
     if (role !== 'admin') return [];
 
     return [
-        // { name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' }, // TODO: CU-20
+        { name: 'Monitoreo de Stock', route: 'monitoreo-stock.index' }, // CU-20
+        { name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' }, // CU-20
         { name: 'Ofertas de Compra', route: 'ofertas.index' },
         { name: 'Órdenes de Compra', route: 'ordenes.index' }, // CU-22
         { name: 'Recepción de Mercadería', route: 'recepciones.index' }, // CU-23
