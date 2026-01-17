@@ -43,7 +43,8 @@ class RegistrarPagoService
             // Para clientes minoristas sin CC, el pago solo se registra y se imputa a ventas
 
             // CU-10 Paso 7: Imputación manual o automática
-            if (isset($data['imputaciones']) && is_array($data['imputaciones'])) {
+            // Si hay imputaciones manuales con contenido, usarlas. Si no, imputar automáticamente.
+            if (!empty($data['imputaciones']) && is_array($data['imputaciones'])) {
                 $this->imputarPagoManualmente($pago, $data['imputaciones']);
             } else {
                 $this->imputarPagoAutomaticamente($pago, $cliente);

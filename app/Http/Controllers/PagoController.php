@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Pago;
 use App\Models\Cliente;
 use App\Models\MedioPago;
+use App\Models\Venta;
 use App\Services\Pagos\AnularPagoService;
 use App\Services\Pagos\RegistrarPagoService;
 use App\Services\Comprobantes\ComprobanteService;
@@ -63,9 +64,9 @@ class PagoController extends Controller
      */
     public function create()
     {
-        // Todos los clientes activos pueden registrar pagos (minoristas y mayoristas)
+        // Clientes activos Y morosos pueden registrar pagos (los morosos necesitan pagar para regularizarse)
         $clientes = Cliente::whereHas('estadoCliente', function($q) {
-                $q->where('nombreEstado', 'Activo');
+                $q->whereIn('nombreEstado', ['Activo', 'Moroso']);
             })
             ->select('clienteID', 'nombre', 'apellido', 'DNI', 'cuentaCorrienteID')
             ->with('cuentaCorriente:cuentaCorrienteID,saldo,estadoCuentaCorrienteID') 

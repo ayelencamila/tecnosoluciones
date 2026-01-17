@@ -61,6 +61,17 @@ const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 };
 
+// Parsear número en formato argentino (74.925,50 → 74925.50)
+const parseMontoArgentino = (value) => {
+    if (!value) return 0;
+    // Remover puntos de miles y cambiar coma decimal por punto
+    const cleaned = String(value).replace(/\./g, '').replace(',', '.');
+    return parseFloat(cleaned) || 0;
+};
+
+// Obtener monto numérico del formulario
+const getMontoNumerico = () => parseMontoArgentino(form.monto);
+
 // --- LÓGICA CLIENTES ---
 const debouncedFilterClientes = debounce(() => {
     if (searchTermCliente.value.length >= 2) {
@@ -121,11 +132,11 @@ const clearCliente = () => {
 
 // --- LÓGICA DE IMPUTACIÓN (CU-10 Paso 7) ---
 const calcularImputacionAutomatica = () => {
-    if (!form.monto || documentosPendientes.value.length === 0) {
+    if (!getMontoNumerico() || documentosPendientes.value.length === 0) {
         return [];
     }
     
-    let montoDisponible = parseFloat(form.monto);
+    let montoDisponible = getMontoNumerico();
     const imputaciones = [];
     
     for (const doc of documentosPendientes.value) {
@@ -172,7 +183,7 @@ const totalImputado = computed(() => {
 });
 
 const montoRemanente = computed(() => {
-    const monto = parseFloat(form.monto) || 0;
+    const monto = getMontoNumerico();
     return monto - totalImputado.value;
 });
 
@@ -188,6 +199,12 @@ const infoCuentaCorriente = computed(() => {
 const submit = () => {
     if (!form.clienteID) {
         alert('Debe seleccionar un cliente.');
+        return;
+    }
+
+    const montoNumerico = getMontoNumerico();
+    if (montoNumerico <= 0) {
+        alert('El monto debe ser mayor a 0.');
         return;
     }
     
@@ -207,8 +224,12 @@ const submit = () => {
     } else {
         form.imputaciones = [];
     }
-    
-    form.post(route('pagos.store'), {
+
+    // Convertir monto a formato numérico antes de enviar
+    form.transform(data => ({
+        ...data,
+        monto: montoNumerico
+    })).post(route('pagos.store'), {
         preserveScroll: true,
         onSuccess: () => form.reset(),
     });
@@ -263,8 +284,9 @@ onMounted(() => {
                                 <InputLabel for="monto" value="Monto a Pagar" />
                                 <div class="relative mt-1">
                                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><span class="text-gray-500 sm:text-sm">$</span></div>
-                                    <TextInput id="monto" type="number" v-model="form.monto" class="w-full pl-7 font-bold text-lg" placeholder="0.00" min="0.01" step="0.01" />
+                                    <TextInput id="monto" type="text" v-model="form.monto" class="w-full pl-7 font-bold text-lg" placeholder="Ej: 74.925,00" inputmode="decimal" />
                                 </div>
+                                <p class="text-xs text-gray-500 mt-1">Formato: 74.925,00</p>
                                 <InputError :message="form.errors.monto" class="mt-2" />
                             </div>
 
