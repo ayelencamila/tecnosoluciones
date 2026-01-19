@@ -1,6 +1,7 @@
 <script setup>
 /**
  * CU-22 y CU-24: Listado de Órdenes de Compra con filtros
+ * MEJORA: Usa composable useFormatters para formateo consistente
  * 
  * Vista índice que muestra todas las OC generadas con opciones de filtrado.
  */
@@ -9,12 +10,16 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import AlertMessage from '@/Components/AlertMessage.vue';
+import { useFormatters } from '@/Composables/useFormatters';
 
 const props = defineProps({
     ordenes: Object,
     estados: Array,
     filters: Object,
 });
+
+// MEJORA: Usar composable para formateo (reutilizable)
+const { formatMoneda, formatFecha } = useFormatters();
 
 // Estado local de filtros
 const localFilters = ref({
@@ -62,27 +67,6 @@ const estadoClass = (estado) => {
         case 'Cancelada': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
         default: return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300';
     }
-};
-
-// Formatear fecha
-const formatFecha = (fecha) => {
-    if (!fecha) return '-';
-    return new Date(fecha).toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    });
-};
-
-// Formatear moneda
-const formatMoneda = (valor) => {
-    return Number(valor).toLocaleString('es-AR', {
-        style: 'currency',
-        currency: 'ARS',
-        minimumFractionDigits: 2,
-    });
 };
 
 // Contadores para estadísticas
@@ -264,7 +248,7 @@ const stats = computed(() => {
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {{ formatFecha(orden.fecha_emision) }}
+                                        {{ formatFecha(orden.fecha_emision, true) }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white text-right">
                                         {{ formatMoneda(orden.total_final) }}

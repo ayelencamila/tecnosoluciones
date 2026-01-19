@@ -77,8 +77,8 @@ class MonitoreoStockService
         // Obtener productos con muchas ventas en el período
         $ventasPorProducto = DetalleVenta::select('producto_id', DB::raw('SUM(cantidad) as total_vendido'))
             ->whereHas('venta', function ($query) use ($fechaDesde) {
-                $query->where('fecha', '>=', $fechaDesde)
-                      ->whereHas('estado', fn($q) => $q->where('nombre', '!=', 'Anulada'));
+                $query->where('fecha_venta', '>=', $fechaDesde)
+                      ->whereHas('estado', fn($q) => $q->where('nombreEstado', '!=', 'Anulada'));
             })
             ->groupBy('producto_id')
             ->having('total_vendido', '>=', $umbral)

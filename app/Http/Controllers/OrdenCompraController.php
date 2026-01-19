@@ -6,6 +6,7 @@ use App\Http\Requests\Compras\StoreOrdenCompraRequest;
 use App\Models\OrdenCompra;
 use App\Models\OfertaCompra;
 use App\Models\EstadoOrdenCompra;
+use App\Repositories\OrdenCompraRepository;
 use App\Services\Compras\RegistrarCompraService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,53 +19,31 @@ use Exception;
  * Controlador de Órdenes de Compra (CU-22 y CU-24)
  * 
  * Responsabilidades:
- * - Generar OC desde oferta elegida
- * - Visualizar OC con sus detalles
- * - Descargar PDF
- * - Reenviar WhatsApp (reintento manual)
- * - CU-24: Consultar/filtrar órdenes de compra
+ * - Coordinar casos de uso (GRASP: Controller)
+ * - Delegar consultas complejas al Repository (Sommerville)
+ * - Delegar lógica de negocio al Service (Larman)
  */
 class OrdenCompraController extends Controller
 {
     public function __construct(
-        protected RegistrarCompraService $registrarCompraService
+        protected RegistrarCompraService $registrarCompraService,
+        protected OrdenCompraRepository $ordenCompraRepository
     ) {}
 
     /**
      * CU-24: Lista todas las órdenes de compra con filtros
+     * MEJORA: Usa Repository para encapsular queries complejas
      */
     public function index(Request $request): Response
     {
-        $query = OrdenCompra::with(['proveedor', 'oferta.solicitud', 'estado', 'usuario'])
-            ->orderByDesc('fecha_emision');
+        // Delegar filtrado al repository (Sommerville: Separación de responsabilidades)
+        $ordenes = $this->ordenCompraRepository->filtrar(
+            criterios: $request->only(['numero_oc', 'proveedor_id', 'estado_id', 'fecha_desde', 'fecha_hasta', 'producto_id']),
+            perPage: 15
+        );
 
-        // Filtro por número de OC
-        if ($request->filled('numero_oc')) {
-            $query->where('numero_oc', 'like', '%' . $request->numero_oc . '%');
-        }
-
-        // Filtro por proveedor
-        if ($request->filled('proveedor_id')) {
-            $query->where('proveedor_id', $request->proveedor_id);
-        }
-
-        // Filtro por estado
-        if ($request->filled('estado_id')) {
-            $query->where('estado_id', $request->estado_id);
-        }
-
-        // Filtro por rango de fechas
-        if ($request->filled('fecha_desde')) {
-            $query->whereDate('fecha_emision', '>=', $request->fecha_desde);
-        }
-        if ($request->filled('fecha_hasta')) {
-            $query->whereDate('fecha_emision', '<=', $request->fecha_hasta);
-        }
-
-        $ordenes = $query->paginate(15)->withQueryString();
-
-        // Obtener listas para filtros
-        $estados = EstadoOrdenCompra::where('activo', true)->orderBy('orden')->get();
+        // Obtener datos auxiliares desde repository
+        $estados = $this->ordenCompraRepository->obtenerEstadosActivos();
 
         return Inertia::render('Compras/Ordenes/Index', [
             'ordenes' => $ordenes,

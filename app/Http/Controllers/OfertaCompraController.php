@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Compras\StoreOfertaRequest;
 use App\Services\Compras\RegistrarOfertaService;
+use App\Repositories\OfertaCompraRepository;
 use App\Models\OfertaCompra;
 use App\Models\Proveedor;
 use App\Models\Producto;
@@ -20,39 +21,23 @@ use Illuminate\Support\Facades\Log;
 
 class OfertaCompraController extends Controller
 {
+    public function __construct(
+        protected OfertaCompraRepository $ofertaCompraRepository
+    ) {}
     /**
      * CU-21 (Paso 1): Listar ofertas para gestión
+     * MEJORA: Usa Repository para consultas complejas
      */
     public function index(Request $request): Response
     {
-        // Usamos query scope (asumiendo que implementarás scopeSearch en el modelo OfertaCompra)
-        // Si no, usa where simple por ahora.
-        $query = OfertaCompra::with(['proveedor', 'estado', 'user'])
-            ->latest('fecha_recepcion');
+        // Delegar al repository (Patrón Repository - Sommerville)
+        $ofertas = $this->ofertaCompraRepository->filtrar(
+            criterios: $request->only(['search', 'estado_id', 'proveedor_id']),
+            perPage: 10
+        );
 
-        if ($request->filled('search')) {
-            $term = $request->search;
-            $query->where(function($q) use ($term) {
-                $q->where('codigo_oferta', 'like', "%{$term}%")
-                  ->orWhereHas('proveedor', fn($p) => $p->where('razon_social', 'like', "%{$term}%"));
-            });
-        }
-
-        $ofertas = $query->paginate(10)->withQueryString();
-
-        // Productos que tienen múltiples ofertas pendientes/pre-aprobadas (para comparar)
-        $estadosPendientes = EstadoOferta::whereIn('nombre', ['Pendiente', 'Pre-aprobada'])->pluck('id');
-        
-        $productosConOfertas = Producto::select('productos.id', 'productos.nombre')
-            ->join('detalle_ofertas_compra', 'productos.id', '=', 'detalle_ofertas_compra.producto_id')
-            ->join('ofertas_compra', 'detalle_ofertas_compra.oferta_id', '=', 'ofertas_compra.id')
-            ->whereIn('ofertas_compra.estado_id', $estadosPendientes)
-            ->groupBy('productos.id', 'productos.nombre')
-            ->havingRaw('COUNT(DISTINCT ofertas_compra.id) > 1')
-            ->selectRaw('COUNT(DISTINCT ofertas_compra.id) as ofertas_count')
-            ->orderBy('ofertas_count', 'desc')
-            ->limit(10)
-            ->get();
+        // Productos con múltiples ofertas para comparar
+        $productosConOfertas = $this->ofertaCompraRepository->productosConMultiplesOfertas(limite: 10);
 
         return Inertia::render('Compras/Ofertas/Index', [
             'ofertas' => $ofertas,
@@ -118,8 +103,7 @@ class OfertaCompraController extends Controller
 
     /**
      * CU-21 (Paso 10): Vista de comparación de ofertas
-     * Muestra un cuadro comparativo de ofertas para un mismo producto
-     * Ordenadas por precio y, a igualdad, por plazo (según especificación)
+     * MEJORA: Usa Repository para query de comparación
      */
     public function comparar(Request $request): Response
     {
@@ -132,32 +116,10 @@ class OfertaCompraController extends Controller
 
         $producto = Producto::findOrFail($productoId);
 
-        // Obtener todas las ofertas que contienen este producto y están pendientes o pre-aprobadas
-        $estadosPendientes = EstadoOferta::whereIn('nombre', ['Pendiente', 'Pre-aprobada', 'Elegida'])
-            ->pluck('id');
+        // CU-21 Paso 10: Obtener ofertas ordenadas por precio y plazo
+        $ofertas = $this->ofertaCompraRepository->ofertasParaComparar($productoId);
 
-        $ofertas = OfertaCompra::with(['proveedor', 'detalles.producto', 'estado'])
-            ->whereIn('estado_id', $estadosPendientes)
-            ->whereHas('detalles', function ($q) use ($productoId) {
-                $q->where('producto_id', $productoId);
-            })
-            ->get();
-
-        // CU-21 Paso 10: Ordenar por precio y, a igualdad de precio, por plazo de entrega
-        // Usamos el método calcularScore() del modelo (Larman: Patrón Experto)
-        $ofertas = $ofertas->map(function ($oferta) use ($productoId) {
-            // Calcular score específico para este producto
-            $detalle = $oferta->detalles->firstWhere('producto_id', $productoId);
-            $oferta->score = $oferta->calcularScore();
-            $oferta->precio_producto = $detalle ? $detalle->precio_unitario : PHP_INT_MAX;
-            $oferta->plazo_producto = $detalle ? ($detalle->disponibilidad_inmediata ? 0 : $detalle->dias_entrega) : PHP_INT_MAX;
-            return $oferta;
-        })->sortBy([
-            ['precio_producto', 'asc'],  // Primero por precio ascendente
-            ['plazo_producto', 'asc'],   // Luego por plazo ascendente
-        ])->values();
-
-        // Flag para indicar si hay suficientes ofertas para comparar (Excepción 10a)
+        // Excepción 10a: Comparación no significativa si hay <= 1 oferta
         $comparacionSignificativa = $ofertas->count() > 1;
 
         return Inertia::render('Compras/Ofertas/Comparar', [
