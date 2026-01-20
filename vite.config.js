@@ -16,5 +16,17 @@ export default defineConfig({
                 },
             },
         }),
-    ]
+    ],
+    server: {
+        hmr: {
+            host: 'localhost',
+        },
+        cors: {
+            origin: [
+                'http://localhost:65080',
+                'https://ghast-threateningly-natashia.ngrok-free.dev'
+            ],
+            credentials: true,
+        },
+    },
 });

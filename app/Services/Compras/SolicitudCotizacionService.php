@@ -9,6 +9,7 @@ use App\Models\RespuestaCotizacion;
 use App\Models\EstadoSolicitud;
 use App\Models\Proveedor;
 use App\Jobs\EnviarSolicitudCotizacionWhatsApp;
+use App\Jobs\EnviarSolicitudCotizacionEmail;
 use App\Notifications\SolicitudCotizacionProveedor;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -146,8 +147,8 @@ class SolicitudCotizacionService
                 }
 
                 if ($canal === 'email' || $canal === 'ambos') {
-                    // Enviar notificación por email
-                    $cotizacion->proveedor->notify(new SolicitudCotizacionProveedor($cotizacion));
+                    // Despachar Job de Email (reemplaza la antigua notificación)
+                    EnviarSolicitudCotizacionEmail::dispatch($cotizacion);
                 }
 
                 // No marcamos como enviado aquí, lo hace el Job al ejecutarse
@@ -215,11 +216,34 @@ class SolicitudCotizacionService
 
             DB::commit();
 
+            // Notificar a usuarios con permiso de compras
+            $this->notificarRespuestaCotizacion($cotizacion);
+
             return $cotizacion->load('respuestas.producto');
 
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
+        }
+    }
+
+    /**
+     * Notifica a los usuarios de compras sobre la nueva respuesta
+     */
+    protected function notificarRespuestaCotizacion(CotizacionProveedor $cotizacion): void
+    {
+        try {
+            // Obtener usuarios con permisos de compras
+            $usuariosCompras = \App\Models\User::whereHas('rol', function ($query) {
+                $query->whereIn('nombre', ['Administrador', 'Compras', 'Gerente']);
+            })->get();
+
+            if ($usuariosCompras->isNotEmpty()) {
+                \Notification::send($usuariosCompras, new \App\Notifications\ProveedorRespondioCotizacion($cotizacion));
+            }
+        } catch (\Exception $e) {
+            // Log error pero no fallar la operación principal
+            \Log::warning("No se pudo enviar notificación de respuesta de cotización: " . $e->getMessage());
         }
     }
 

@@ -28,13 +28,10 @@ const formGenerarOC = useForm({
     observaciones: '',
 });
 
-// Elegir oferta (CU-21 Paso 12)
-const elegirOferta = () => {
-    if (confirm('¿Confirma elegir esta oferta? Podrá generar la Orden de Compra después.')) {
-        router.post(route('ofertas.elegir', props.oferta.id), {}, {
-            preserveScroll: true,
-        });
-    }
+// Vista de Resultado/Estado (CU-21 Paso 14 / Kendall: Vista de consulta, NO de acción)
+// Elegir oferta se hace en ConfirmarSeleccion.vue (Vista de Control separada)
+const irAConfirmarSeleccion = () => {
+    router.get(route('ofertas.confirmar-seleccion', props.oferta.id));
 };
 
 // Rechazar oferta
@@ -118,7 +115,7 @@ const estadoClass = (estado) => {
 
                     <div class="mt-6 border-t pt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <span class="block text-xs font-medium text-gray-500 uppercase">Observaciones</span>
+                            <span class="block text-xs font-medium text-gray-500 uppercase">Motivo del Registro (CU-21 Paso 7)</span>
                             <p class="mt-1 text-sm text-gray-900">{{ oferta.observaciones || 'Sin observaciones.' }}</p>
                         </div>
                         <div>
@@ -193,25 +190,25 @@ const estadoClass = (estado) => {
                         Rechazar Oferta
                     </DangerButton>
 
-                    <!-- Botón Elegir (Solo para Pendiente o Pre-aprobada) -->
+                    <!-- CU-21: Botón para ir a Vista de Confirmación (Kendall: Separación de vistas) -->
                     <PrimaryButton 
                         v-if="oferta.estado.nombre === 'Pendiente' || oferta.estado.nombre === 'Pre-aprobada'"
-                        @click="elegirOferta"
+                        @click="irAConfirmarSeleccion"
                         class="bg-green-600 hover:bg-green-700">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        Elegir Oferta
+                        Seleccionar esta Oferta
                     </PrimaryButton>
                     
-                    <!-- Botón Generar OC (Solo si ya está Elegida) -->
+                    <!-- CU-21 Paso 14: Botón Generar OC (Solo si ya está Elegida) -->
                     <PrimaryButton 
                         v-if="oferta.estado.nombre === 'Elegida'"
                         @click="showGenerarOCModal = true">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
                         </svg>
-                        Generar Orden de Compra
+                        Generar Orden de Compra (CU-22)
                     </PrimaryButton>
                 </div>
 

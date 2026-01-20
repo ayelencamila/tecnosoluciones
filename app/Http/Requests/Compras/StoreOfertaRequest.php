@@ -17,6 +17,7 @@ class StoreOfertaRequest extends FormRequest
             // Cabecera
             'proveedor_id' => ['required', 'exists:proveedores,id'],
             'solicitud_id' => ['nullable', 'exists:solicitudes_cotizacion,id'],
+            'cotizacion_id' => ['nullable', 'exists:cotizaciones_proveedores,id'],
             'fecha_recepcion' => ['required', 'date', 'before_or_equal:now'],
             'validez_hasta' => ['nullable', 'date', 'after_or_equal:fecha_recepcion'],
             'observaciones' => ['required', 'string', 'max:1000'], // CU-21 Paso 7a: Motivo obligatorio

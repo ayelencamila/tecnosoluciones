@@ -107,7 +107,7 @@ class PortalProveedorController extends Controller
      * 
      * POST /portal/cotizacion/{token}/responder
      */
-    public function responderCotizacion(Request $request, string $token): RedirectResponse
+    public function responderCotizacion(Request $request, string $token): \Inertia\Response|\Illuminate\Http\RedirectResponse
     {
         $cotizacion = CotizacionProveedor::buscarPorToken($token);
 
@@ -140,7 +140,15 @@ class PortalProveedorController extends Controller
                 $validated['respuestas']
             );
 
-            return redirect()->route('portal.cotizacion', $token);
+            // Recargar para obtener fecha_respuesta actualizada
+            $cotizacion->refresh();
+
+            // Retornar directamente la vista de agradecimiento
+            return Inertia::render('Portal/Agradecimiento', [
+                'proveedor' => $cotizacion->proveedor->razon_social,
+                'fechaRespuesta' => $cotizacion->fecha_respuesta->format('d/m/Y H:i'),
+                'solicitud' => $cotizacion->solicitud->codigo_solicitud,
+            ]);
 
         } catch (\Exception $e) {
             return redirect()->route('portal.cotizacion', $token)

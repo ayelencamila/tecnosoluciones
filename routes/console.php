@@ -34,8 +34,33 @@ Schedule::command('reparaciones:monitorear-sla')
         \Log::error('Error al ejecutar monitoreo de SLA de reparaciones.');
     });
 
+// --- SCHEDULER PARA CU-20: Gestión Automática de Cotizaciones ---
+// Cierra cotizaciones vencidas diariamente a las 00:00
+Schedule::command('cotizaciones:cerrar-vencidas --force')
+    ->dailyAt('00:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('Cierre automático de cotizaciones vencidas ejecutado con éxito.');
+    })
+    ->onFailure(function () {
+        \Log::error('Error al ejecutar cierre de cotizaciones vencidas.');
+    });
+
+// Envía recordatorios automáticos diariamente a las 09:00
+Schedule::command('cotizaciones:enviar-recordatorios --canal=ambos')
+    ->dailyAt('09:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('Envío de recordatorios de cotización ejecutado con éxito.');
+    })
+    ->onFailure(function () {
+        \Log::error('Error al ejecutar envío de recordatorios de cotización.');
+    });
+
 // ============================================================================
-// SCHEDULER PARA CU-20: Monitoreo Automático de Stock y Cotizaciones
+// SCHEDULER PARA CU-20: Monitoreo Automático de Stock
 // ============================================================================
 
 // --- 1. Monitoreo de Stock (diario a las 8:00 AM) ---
@@ -49,30 +74,4 @@ Schedule::command('stock:monitorear --generar --enviar')
     })
     ->onFailure(function () {
         \Log::error('❌ Error al ejecutar monitoreo de stock.');
-    });
-
-// --- 2. Cerrar Solicitudes Vencidas (cada hora) ---
-// Marca como vencidas las solicitudes que superaron su fecha límite
-Schedule::command('cotizaciones:cerrar-vencidas')
-    ->hourly()
-    ->timezone('America/Argentina/Buenos_Aires')
-    ->withoutOverlapping()
-    ->onSuccess(function () {
-        \Log::info('✅ Verificación de solicitudes vencidas ejecutada con éxito.');
-    })
-    ->onFailure(function () {
-        \Log::error('❌ Error al verificar solicitudes vencidas.');
-    });
-
-// --- 3. Enviar Recordatorios a Proveedores (diario a las 9:00 AM) ---
-// Recuerda a proveedores que no han respondido (después de 2 días, máximo 3 recordatorios)
-Schedule::command('cotizaciones:enviar-recordatorios --dias=2 --canal=ambos')
-    ->dailyAt('09:00')
-    ->timezone('America/Argentina/Buenos_Aires')
-    ->withoutOverlapping()
-    ->onSuccess(function () {
-        \Log::info('✅ Recordatorios de cotización enviados con éxito.');
-    })
-    ->onFailure(function () {
-        \Log::error('❌ Error al enviar recordatorios de cotización.');
     });

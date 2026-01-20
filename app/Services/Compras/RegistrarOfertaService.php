@@ -42,6 +42,7 @@ class RegistrarOfertaService
                 'codigo_oferta' => $codigo,
                 'proveedor_id' => $datos['proveedor_id'],
                 'solicitud_id' => $datos['solicitud_id'] ?? null,
+                'cotizacion_proveedor_id' => $datos['cotizacion_id'] ?? null, // Vincula con respuesta del proveedor
                 'user_id' => $usuarioId,
                 'fecha_recepcion' => $datos['fecha_recepcion'],
                 'validez_hasta' => $datos['validez_hasta'] ?? null,

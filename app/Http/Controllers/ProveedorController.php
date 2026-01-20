@@ -21,12 +21,37 @@ class ProveedorController extends Controller
         $query = Proveedor::with(['direccion.localidad.provincia'])
             ->when($request->search, function ($q, $search) {
                 $q->where('razon_social', 'like', "%{$search}%")
-                  ->orWhere('cuit', 'like', "%{$search}%");
+                  ->orWhere('cuit', 'like', "%{$search}%")
+                  ->orWhere('email', 'like', "%{$search}%");
+            })
+            ->when($request->provincia_id, function ($q, $provinciaId) {
+                $q->whereHas('direccion.localidad', function ($query) use ($provinciaId) {
+                    $query->where('provinciaID', $provinciaId);
+                });
+            })
+            ->when($request->estado !== null && $request->estado !== '', function ($q) use ($request) {
+                $q->where('activo', $request->estado === 'activo');
+            })
+            ->when($request->calificacion_min, function ($q, $calMin) {
+                $q->where('calificacion', '>=', $calMin);
+            })
+            ->when($request->sort_column, function ($q) use ($request) {
+                $q->orderBy($request->sort_column, $request->sort_direction ?? 'asc');
+            }, function ($q) {
+                $q->orderBy('razon_social', 'asc');
             });
+
+        $stats = [
+            'total' => Proveedor::count(),
+            'activos' => Proveedor::where('activo', true)->count(),
+            'mejorCalificacion' => Proveedor::max('calificacion'),
+        ];
 
         return Inertia::render('Proveedores/Index', [
             'proveedores' => $query->paginate(10)->withQueryString(),
-            'filters' => $request->only(['search'])
+            'provincias' => \App\Models\Provincia::orderBy('nombre')->get(),
+            'filters' => $request->only(['search', 'provincia_id', 'estado', 'calificacion_min', 'sort_column', 'sort_direction']),
+            'stats' => $stats,
         ]);
     }
 
@@ -38,12 +63,24 @@ class ProveedorController extends Controller
         ]);
     }
 
+    public function show(Proveedor $proveedor)
+    {
+        $proveedor->load('direccion.localidad.provincia');
+        return Inertia::render('Proveedores/Show', [
+            'proveedor' => $proveedor,
+        ]);
+    }
+
     // CU-16: Registrar Proveedor
     public function store(StoreProveedorRequest $request)
     {
         DB::transaction(function () use ($request) {
             // 1. Crear Dirección
-            $direccion = Direccion::create($request->only(['calle', 'altura', 'localidad_id'])); // Simplificado
+            $direccion = Direccion::create([
+                'calle' => $request->calle,
+                'altura' => $request->altura,
+                'localidadID' => $request->localidad_id,
+            ]);
 
             // 2. Crear Proveedor
             $proveedor = Proveedor::create([
@@ -86,10 +123,14 @@ class ProveedorController extends Controller
             $datosAnteriores = $proveedor->load('direccion')->toArray();
 
             // 1. Actualizar Dirección
-            $proveedor->direccion->update($request->only(['calle', 'altura', 'localidad_id']));
+            $proveedor->direccion->update([
+                'calle' => $request->calle,
+                'altura' => $request->altura,
+                'localidadID' => $request->localidad_id,
+            ]);
 
             // 2. Actualizar Proveedor
-            $proveedor->update($request->except(['motivo', 'calle', 'altura', 'localidad_id']));
+            $proveedor->update($request->except(['motivo', 'calle', 'altura', 'localidad_id', 'provincia_id']));
 
             // 3. Auditoría con MOTIVO (Lineamiento Kendall)
             Auditoria::registrar(
@@ -104,6 +145,20 @@ class ProveedorController extends Controller
         });
 
         return redirect()->route('proveedores.index')->with('success', 'Proveedor actualizado correctamente.');
+    }
+
+    // CU-21: Actualizar Calificación de Proveedor
+    public function actualizarCalificacion(Request $request, Proveedor $proveedor)
+    {
+        $request->validate([
+            'calificacion' => 'required|numeric|min:0|max:5'
+        ]);
+
+        $proveedor->update([
+            'calificacion' => $request->calificacion
+        ]);
+
+        return redirect()->back()->with('success', 'Calificación actualizada correctamente.');
     }
 
     // CU-19: Dar de baja Proveedor

@@ -56,6 +56,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Force HTTPS
+    |--------------------------------------------------------------------------
+    |
+    | When true, all URLs will be generated with HTTPS scheme. Useful when
+    | using proxies like ngrok that terminate SSL.
+    |
+    */
+
+    'force_https' => env('APP_FORCE_HTTPS', false),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ngrok URL (Development)
+    |--------------------------------------------------------------------------
+    |
+    | When using ngrok for external access during development, this URL
+    | will be used for generating public links (e.g., Magic Links in emails).
+    |
+    */
+
+    'ngrok_url' => env('NGROK_URL'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |

@@ -298,7 +298,13 @@ Route::middleware(['auth'])->group(function () {
 
     // --- MÓDULO DE PROVEEDORES (CU-16 a CU-19) ---
     // Ubicado aquí para acceso operativo (Admin/Compras)
-    Route::resource('proveedores', ProveedorController::class);
+    Route::resource('proveedores', ProveedorController::class)->parameters([
+        'proveedores' => 'proveedor'
+    ]);
+    
+    // Ruta adicional para actualizar calificación (CU-21)
+    Route::patch('proveedores/{proveedor}/calificacion', [ProveedorController::class, 'actualizarCalificacion'])
+        ->name('proveedores.actualizar-calificacion');
     
     // API Interna para buscar clientes (Buscador Asíncrono)
     Route::get('/api/clientes/buscar', [App\Http\Controllers\ClienteController::class, 'buscar'])
@@ -412,6 +418,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cancelar-evaluacion', [\App\Http\Controllers\OfertaCompraController::class, 'cancelarEvaluacion'])->name('cancelar-evaluacion');
         Route::post('/', [\App\Http\Controllers\OfertaCompraController::class, 'store'])->name('store');
         Route::get('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'show'])->name('show');
+        Route::get('/{oferta}/confirmar-seleccion', [\App\Http\Controllers\OfertaCompraController::class, 'confirmarSeleccion'])->name('confirmar-seleccion');
         Route::post('/{oferta}/elegir', [\App\Http\Controllers\OfertaCompraController::class, 'elegir'])->name('elegir');
         Route::post('/{oferta}/rechazar', [\App\Http\Controllers\OfertaCompraController::class, 'rechazar'])->name('rechazar');
     });

@@ -28,6 +28,7 @@ class MonitorearStockCommand extends Command
     protected $signature = 'stock:monitorear 
                             {--generar : Generar solicitudes de cotización automáticas}
                             {--enviar : Enviar solicitudes generadas a proveedores}
+                            {--canal=email : Canal de envío (email|whatsapp)}
                             {--dias=7 : Días de vencimiento para las solicitudes}';
 
     /**
@@ -55,25 +56,32 @@ class MonitorearStockCommand extends Command
         $this->info('🔍 Iniciando monitoreo de stock...');
         Log::info('Comando stock:monitorear ejecutado');
 
-        // 1. Detectar productos bajo stock
+        // 1. Detectar productos bajo stock + alta rotación
         $productosBajoStock = $this->monitoreoService->detectarProductosBajoStock();
+        $productosAltaRotacion = $this->monitoreoService->detectarProductosAltaRotacion();
+        $todosProductos = $this->monitoreoService->detectarProductosNecesitanReposicion();
         
-        if ($productosBajoStock->isEmpty()) {
-            $this->info('✅ No hay productos bajo stock mínimo. Todo está bien.');
+        if ($todosProductos->isEmpty()) {
+            $this->info('✅ No hay productos que necesiten reposición.');
+            $this->line('   • Stock bajo: 0');
+            $this->line('   • Alta rotación: 0');
             return Command::SUCCESS;
         }
 
-        $this->warn("⚠️ Se detectaron {$productosBajoStock->count()} producto(s) bajo stock mínimo:");
+        $this->warn("⚠️ Se detectaron {$todosProductos->count()} producto(s) que necesitan reposición:");
+        $this->line("   • Stock bajo: {$productosBajoStock->count()}");
+        $this->line("   • Alta rotación con baja cobertura: {$productosAltaRotacion->count()}");
         
         // Mostrar tabla de productos
-        $headers = ['Producto', 'Depósito', 'Stock Actual', 'Mínimo', 'Faltante'];
-        $rows = $productosBajoStock->map(function ($item) {
+        $headers = ['Producto', 'Depósito', 'Stock Actual', 'Mínimo', 'Motivo', 'Ventas/mes'];
+        $rows = $todosProductos->map(function ($item) {
             return [
                 $item['producto']?->nombre ?? 'N/A',
                 $item['deposito']?->nombre ?? 'Principal',
                 $item['cantidad_actual'],
-                $item['stock_minimo'],
-                $item['faltante'],
+                $item['stock_minimo'] ?: '-',
+                $item['motivo'] === 'stock_bajo' ? '🔴 Stock bajo' : '📈 Alta rotación',
+                $item['ventas_mes'] ?? '-',
             ];
         })->toArray();
         
@@ -96,13 +104,14 @@ class MonitorearStockCommand extends Command
                     
                     // 3. Enviar si se solicitó
                     if ($this->option('enviar') && isset($resultado['solicitudes'])) {
-                        $this->info('📤 Enviando solicitudes a proveedores por WhatsApp...');
+                        $canal = $this->option('canal') ?? 'email'; // Email por defecto para evitar restricciones horarias
+                        $this->info("📤 Enviando solicitudes a proveedores por {$canal}...");
                         
                         foreach ($resultado['solicitudes'] as $solicitud) {
                             try {
                                 $envio = $this->solicitudService->enviarSolicitudAProveedores(
                                     $solicitud,
-                                    'whatsapp'
+                                    $canal
                                 );
                                 $this->info("  → Solicitud {$solicitud->codigo_solicitud}: {$envio['mensaje']}");
                             } catch (\Exception $e) {

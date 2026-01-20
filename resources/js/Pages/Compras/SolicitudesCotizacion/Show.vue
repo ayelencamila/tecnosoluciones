@@ -100,210 +100,266 @@ function formatCurrency(value) {
 
 <template>
     <AppLayout :title="`Solicitud ${solicitud.codigo_solicitud}`">
-        <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                        {{ solicitud.codigo_solicitud }}
-                    </h2>
-                    <div class="flex items-center gap-3 mt-1">
+        <div class="py-12">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                
+                <!-- Header con navegación y acciones principales -->
+                <div class="mb-6 flex justify-between items-center">
+                    <Link :href="route('solicitudes-cotizacion.index')" class="text-gray-600 hover:text-gray-900 flex items-center">
+                        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
+                        Volver
+                    </Link>
+                    <div class="flex items-center gap-2">
                         <span
                             :class="getEstadoClass(solicitud.estado?.nombre)"
-                            class="px-2 py-1 text-xs font-medium rounded-full"
+                            class="px-3 py-1 text-sm font-semibold rounded-full"
                         >
                             {{ solicitud.estado?.nombre }}
                         </span>
-                        <span class="text-sm text-gray-500">
-                            Creada el {{ formatDate(solicitud.fecha_emision) }}
-                        </span>
-                    </div>
-                </div>
-                <div class="flex gap-3">
-                    <button
-                        v-if="puedeEnviar"
-                        @click="mostrarModalEnvio = true"
-                        class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                    >
-                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                        </svg>
-                        Enviar a Proveedores
-                    </button>
-                    <button
-                        v-if="solicitud.estado?.nombre === 'Enviada'"
-                        @click="cerrarSolicitud"
-                        class="inline-flex items-center px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                    >
-                        Cerrar Solicitud
-                    </button>
-                    <button
-                        v-if="['Abierta', 'Enviada'].includes(solicitud.estado?.nombre)"
-                        @click="cancelarSolicitud"
-                        class="inline-flex items-center px-4 py-2 border border-red-300 text-red-600 rounded-lg hover:bg-red-50"
-                    >
-                        Cancelar
-                    </button>
-                    <Link
-                        :href="route('solicitudes-cotizacion.index')"
-                        class="text-gray-600 hover:text-gray-800"
-                    >
-                        ← Volver
-                    </Link>
-                </div>
-            </div>
-        </template>
-
-        <div class="py-6">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-                <!-- Info general -->
-                <div class="bg-white rounded-xl shadow-sm p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div>
-                            <p class="text-sm text-gray-500">Fecha Emisión</p>
-                            <p class="font-medium">{{ formatDate(solicitud.fecha_emision) }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-500">Fecha Vencimiento</p>
-                            <p class="font-medium" :class="new Date(solicitud.fecha_vencimiento) < new Date() ? 'text-red-600' : ''">
-                                {{ formatDate(solicitud.fecha_vencimiento) }}
-                            </p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-500">Creada por</p>
-                            <p class="font-medium">{{ solicitud.usuario?.name || 'Sistema (automático)' }}</p>
-                        </div>
-                        <div>
-                            <p class="text-sm text-gray-500">Respuestas</p>
-                            <p class="font-medium">
-                                <span class="text-green-600">
-                                    {{ solicitud.cotizaciones_proveedores?.filter(c => c.fecha_respuesta).length || 0 }}
-                                </span>
-                                de {{ solicitud.cotizaciones_proveedores?.length || 0 }} proveedores
-                            </p>
-                        </div>
-                    </div>
-                    <div v-if="solicitud.observaciones" class="mt-4 p-3 bg-gray-50 rounded-lg">
-                        <p class="text-sm text-gray-600">
-                            <span class="font-medium">Observaciones:</span> {{ solicitud.observaciones }}
-                        </p>
                     </div>
                 </div>
 
-                <!-- Productos solicitados -->
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b bg-gray-50">
-                        <h3 class="font-semibold text-gray-900">Productos Solicitados</h3>
-                    </div>
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Producto</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Observaciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            <tr v-for="detalle in solicitud.detalles" :key="detalle.id">
-                                <td class="px-6 py-4">
-                                    <p class="font-medium text-gray-900">{{ detalle.producto?.nombre }}</p>
-                                    <p class="text-sm text-gray-500">{{ detalle.producto?.codigo }}</p>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">
-                                    {{ detalle.producto?.categoria?.nombre || '-' }}
-                                </td>
-                                <td class="px-6 py-4 text-center font-medium">
-                                    {{ detalle.cantidad_sugerida }}
-                                </td>
-                                <td class="px-6 py-4 text-sm text-gray-500">
-                                    {{ detalle.observaciones || '-' }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Proveedores invitados -->
-                <div class="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b bg-gray-50">
-                        <h3 class="font-semibold text-gray-900">Proveedores Invitados</h3>
-                    </div>
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Proveedor</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado Envío</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Fecha Envío</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Respuesta</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            <tr v-for="cotizacion in solicitud.cotizaciones_proveedores" :key="cotizacion.id">
-                                <td class="px-6 py-4">
-                                    <p class="font-medium text-gray-900">{{ cotizacion.proveedor?.razon_social }}</p>
-                                    <p class="text-sm text-gray-500">
-                                        {{ cotizacion.proveedor?.email || cotizacion.proveedor?.whatsapp }}
-                                    </p>
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    <span
-                                        :class="getEstadoEnvioClass(cotizacion.estado_envio)"
-                                        class="px-2 py-1 text-xs font-medium rounded-full"
-                                    >
-                                        {{ cotizacion.estado_envio }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-center text-sm text-gray-500">
-                                    {{ cotizacion.fecha_envio ? formatDate(cotizacion.fecha_envio) : '-' }}
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    <span v-if="cotizacion.fecha_respuesta" class="text-green-600">
-                                        {{ formatDate(cotizacion.fecha_respuesta) }}
-                                    </span>
-                                    <span v-else-if="cotizacion.motivo_rechazo" class="text-red-600">
-                                        Rechazó
-                                    </span>
-                                    <span v-else class="text-gray-400">
-                                        Pendiente
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-center">
-                                    <div class="flex items-center justify-center gap-2">
-                                        <a
-                                            v-if="cotizacion.token_unico"
-                                            :href="route('portal.cotizacion', cotizacion.token_unico)"
-                                            target="_blank"
-                                            class="text-indigo-600 hover:text-indigo-800 text-sm"
-                                        >
-                                            Ver Portal
-                                        </a>
-                                        <button
-                                            v-if="puedeReenviar(cotizacion)"
-                                            @click="abrirModalReenvio(cotizacion)"
-                                            class="text-orange-600 hover:text-orange-800 text-sm font-medium"
-                                            title="Enviar recordatorio"
-                                        >
-                                            🔔 Recordar
-                                        </button>
-                                        <span 
-                                            v-if="cotizacion.recordatorios_enviados > 0"
-                                            class="text-xs text-gray-400"
-                                            :title="`Último: ${cotizacion.ultimo_recordatorio ? formatDate(cotizacion.ultimo_recordatorio) : 'N/A'}`"
-                                        >
-                                            ({{ cotizacion.recordatorios_enviados }} enviado{{ cotizacion.recordatorios_enviados > 1 ? 's' : '' }})
+                <!-- Contenedor principal en grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Columna izquierda: Información principal -->
+                    <div class="lg:col-span-2 space-y-6">
+                        
+                        <!-- Información General -->
+                        <div class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-5 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">{{ solicitud.codigo_solicitud }}</h3>
+                                <p class="text-sm text-gray-500 mt-1">Solicitud de Cotización</p>
+                            </div>
+                            <div class="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-4">
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Fecha Emisión</dt>
+                                    <dd class="mt-1 text-md text-gray-900">{{ formatDate(solicitud.fecha_emision) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Fecha Vencimiento</dt>
+                                    <dd class="mt-1 text-md" :class="new Date(solicitud.fecha_vencimiento) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-900'">
+                                        {{ formatDate(solicitud.fecha_vencimiento) }}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Creada por</dt>
+                                    <dd class="mt-1 text-md text-gray-900">{{ solicitud.usuario?.name || 'Sistema (automático)' }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-sm font-medium text-gray-500">Respuestas Recibidas</dt>
+                                    <dd class="mt-1 text-md font-semibold">
+                                        <span class="text-green-600">
+                                            {{ solicitud.cotizaciones_proveedores?.filter(c => c.fecha_respuesta).length || 0 }}
                                         </span>
+                                        <span class="text-gray-500"> / {{ solicitud.cotizaciones_proveedores?.length || 0 }}</span>
+                                    </dd>
+                                </div>
+                                <div v-if="solicitud.observaciones" class="col-span-2">
+                                    <dt class="text-sm font-medium text-gray-500">Observaciones</dt>
+                                    <dd class="mt-1 text-md text-gray-900 bg-gray-50 p-3 rounded">{{ solicitud.observaciones }}</dd>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Productos Solicitados -->
+                        <div class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-bold text-gray-700 uppercase">Productos Solicitados</h3>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr v-for="detalle in solicitud.detalles" :key="detalle.id" class="hover:bg-gray-50">
+                                            <td class="px-6 py-4">
+                                                <p class="font-medium text-gray-900">{{ detalle.producto?.nombre }}</p>
+                                                <p class="text-sm text-gray-500 font-mono">{{ detalle.producto?.codigo }}</p>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-500">
+                                                {{ detalle.producto?.categoria?.nombre || '-' }}
+                                            </td>
+                                            <td class="px-6 py-4 text-center">
+                                                <span class="font-bold text-gray-900">{{ detalle.cantidad_sugerida }}</span>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-gray-600">
+                                                {{ detalle.observaciones || '-' }}
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Proveedores Invitados -->
+                        <div class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-bold text-gray-700 uppercase">Proveedores Invitados</h3>
+                            </div>
+                            <div class="overflow-x-auto">
+                                <table class="min-w-full divide-y divide-gray-200">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Enviado</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Respuesta</th>
+                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="bg-white divide-y divide-gray-200">
+                                        <tr v-for="cotizacion in solicitud.cotizaciones_proveedores" :key="cotizacion.id" class="hover:bg-gray-50">
+                                            <td class="px-6 py-4">
+                                                <p class="font-medium text-gray-900">{{ cotizacion.proveedor?.razon_social }}</p>
+                                                <p class="text-sm text-gray-500">{{ cotizacion.proveedor?.email || cotizacion.proveedor?.whatsapp }}</p>
+                                            </td>
+                                            <td class="px-6 py-4 text-center">
+                                                <span :class="getEstadoEnvioClass(cotizacion.estado_envio)" class="px-2 py-1 text-xs font-medium rounded-full">
+                                                    {{ cotizacion.estado_envio }}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4 text-center text-sm text-gray-600">
+                                                {{ cotizacion.fecha_envio ? formatDate(cotizacion.fecha_envio) : '-' }}
+                                            </td>
+                                            <td class="px-6 py-4 text-center text-sm">
+                                                <span v-if="cotizacion.fecha_respuesta" class="text-green-600 font-medium">
+                                                    ✓ {{ formatDate(cotizacion.fecha_respuesta) }}
+                                                </span>
+                                                <span v-else-if="cotizacion.motivo_rechazo" class="text-red-600 font-medium">
+                                                    ✗ Rechazó
+                                                </span>
+                                                <span v-else class="text-gray-400">
+                                                    Pendiente
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <a
+                                                        v-if="cotizacion.token_unico"
+                                                        :href="route('portal.cotizacion', cotizacion.token_unico)"
+                                                        target="_blank"
+                                                        class="text-indigo-600 hover:text-indigo-800 text-xs font-medium underline"
+                                                    >
+                                                        Portal
+                                                    </a>
+                                                    <button
+                                                        v-if="puedeReenviar(cotizacion)"
+                                                        @click="abrirModalReenvio(cotizacion)"
+                                                        class="text-orange-600 hover:text-orange-800 text-xs font-medium"
+                                                        title="Enviar recordatorio"
+                                                    >
+                                                        🔔
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Columna derecha: Acciones y estadísticas -->
+                    <div class="space-y-6">
+                        
+                        <!-- Acciones disponibles -->
+                        <div class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-bold text-gray-700 uppercase">Acciones</h3>
+                            </div>
+                            <div class="p-6 space-y-3">
+                                <button
+                                    v-if="puedeEnviar"
+                                    @click="mostrarModalEnvio = true"
+                                    class="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm flex items-center justify-center"
+                                >
+                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                    </svg>
+                                    Enviar a Proveedores
+                                </button>
+                                <button
+                                    v-if="solicitud.estado?.nombre === 'Enviada'"
+                                    @click="cerrarSolicitud"
+                                    class="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm"
+                                >
+                                    Cerrar Solicitud
+                                </button>
+                                <button
+                                    v-if="['Abierta', 'Enviada'].includes(solicitud.estado?.nombre)"
+                                    @click="cancelarSolicitud"
+                                    class="w-full px-4 py-3 border-2 border-red-300 text-red-600 rounded-lg hover:bg-red-50 font-medium text-sm"
+                                >
+                                    Cancelar Solicitud
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Ranking de ofertas (lateral) -->
+                        <div v-if="ranking.length > 0" class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-green-200 bg-green-50">
+                                <h3 class="text-sm font-bold text-green-800 uppercase">🏆 Ranking de Respuestas</h3>
+                                <p class="text-xs text-green-600 mt-1">
+                                    {{ ranking.length }} {{ ranking.length === 1 ? 'proveedor respondió' : 'proveedores respondieron' }}
+                                </p>
+                            </div>
+                            <div class="p-4 space-y-3 max-h-[600px] overflow-y-auto">
+                                <div
+                                    v-for="(oferta, index) in ranking"
+                                    :key="oferta.cotizacion_id"
+                                    class="border rounded-lg p-3"
+                                    :class="index === 0 ? 'border-green-400 bg-green-50' : 'border-gray-200'"
+                                >
+                                    <div class="flex items-start gap-2">
+                                        <span
+                                            class="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
+                                            :class="index === 0 ? 'bg-green-500' : index === 1 ? 'bg-gray-400' : 'bg-gray-300'"
+                                        >
+                                            {{ index + 1 }}
+                                        </span>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="font-semibold text-sm text-gray-900 truncate">{{ oferta.proveedor?.razon_social }}</p>
+                                            <p class="text-lg font-bold text-gray-900 mt-1">{{ formatCurrency(oferta.total) }}</p>
+                                            <p class="text-xs text-gray-500 mt-1">
+                                                {{ oferta.productos_cotizados }}/{{ oferta.productos_requeridos }} productos
+                                                <span v-if="oferta.cotizo_completo" class="text-green-600 ml-1">✓</span>
+                                            </p>
+                                            <p class="text-xs text-gray-400 mt-1">
+                                                {{ formatDate(oferta.fecha_respuesta) }}
+                                            </p>
+                                        </div>
                                     </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Mensaje cuando no hay respuestas -->
+                        <div v-else class="bg-white shadow rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                                <h3 class="text-sm font-bold text-gray-800 uppercase">📋 Respuestas</h3>
+                            </div>
+                            <div class="p-6 text-center text-gray-500">
+                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                </svg>
+                                <p class="mt-2 text-sm">Sin respuestas aún</p>
+                                <p class="text-xs mt-1">Las respuestas aparecerán aquí cuando los proveedores coticen</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <!-- Ranking de ofertas -->
-                <div v-if="ranking.length > 0" class="bg-white rounded-xl shadow-sm overflow-hidden">
+                <!-- Ranking completo (debajo, si hay más de 3) -->
+                <div v-if="ranking.length > 3" id="ranking-completo" class="bg-white rounded-xl shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b bg-green-50">
-                        <h3 class="font-semibold text-green-800">🏆 Ranking de Ofertas</h3>
+                        <h3 class="font-semibold text-green-800">🏆 Ranking Completo de Ofertas</h3>
                         <p class="text-sm text-green-600">Ordenado por menor precio total</p>
                     </div>
                     <div class="p-6 space-y-4">

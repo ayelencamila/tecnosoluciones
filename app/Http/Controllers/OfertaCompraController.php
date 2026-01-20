@@ -39,43 +39,127 @@ class OfertaCompraController extends Controller
         // Productos con múltiples ofertas para comparar
         $productosConOfertas = $this->ofertaCompraRepository->productosConMultiplesOfertas(limite: 10);
 
+        // CU-21 Paso 2: Solicitudes de cotización con respuestas pendientes de conversión a oferta
+        // FIX: Agregado ->unique('id') para evitar duplicados
+        $solicitudesConRespuestas = \App\Models\SolicitudCotizacion::with([
+            'cotizacionesProveedores' => function($q) {
+                $q->whereNotNull('fecha_respuesta')
+                  ->whereDoesntHave('ofertasCompra') // Sin oferta formal creada aún
+                  ->with(['proveedor:id,razon_social', 'respuestas.producto:id,nombre']);
+            }
+        ])
+        ->whereHas('cotizacionesProveedores', function($q) {
+            $q->whereNotNull('fecha_respuesta')
+              ->whereDoesntHave('ofertasCompra');
+        })
+        ->whereHas('estado', function($q) {
+            $q->where('nombre', 'Enviada');
+        })
+        ->latest()
+        ->limit(10)
+        ->get(['id', 'codigo_solicitud', 'fecha_emision'])
+        ->unique('id'); // ELIMINA DUPLICADOS por ID de solicitud
+
+        // CONTADORES PARA TARJETAS DE RESUMEN (vista profesional)
+        $counts = [
+            'total' => OfertaCompra::count(),
+            'pendientes' => OfertaCompra::whereHas('estado', fn($q) => $q->where('nombre', 'Pendiente'))->count(),
+            'elegidas' => OfertaCompra::whereHas('estado', fn($q) => $q->where('nombre', 'Elegida'))->count(),
+        ];
+
         return Inertia::render('Compras/Ofertas/Index', [
             'ofertas' => $ofertas,
             'filters' => $request->only(['search']),
             'productosConOfertas' => $productosConOfertas,
+            'solicitudesConRespuestas' => $solicitudesConRespuestas,
+            'counts' => $counts,
         ]);
     }
 
     /**
      * CU-21 (Paso 2): Formulario de registro de oferta
+     * CORRECCIÓN: Si viene de solicitud, PRE-CARGA los datos de la cotización
      */
     public function create(Request $request): Response
     {
-        // Si viene de una solicitud (CU-20), precargamos datos
         $solicitudId = $request->query('solicitud_id');
+        $cotizacionId = $request->query('cotizacion_id');
         
         // Obtenemos el ID del estado "Activo" para productos
         $estadoActivo = \App\Models\EstadoProducto::where('nombre', 'Activo')->first();
         
+        $datosPrecargados = null;
+        
+        // SI VIENE DE COTIZACIÓN → PRE-CARGAR DATOS (Kendall: reutilizar info existente)
+        if ($cotizacionId) {
+            $cotizacion = \App\Models\CotizacionProveedor::with([
+                'proveedor:id,razon_social,email',
+                'respuestas.producto:id,nombre,codigo',
+                'solicitud:id,codigo_solicitud,fecha_emision'
+            ])->findOrFail($cotizacionId);
+            
+            $datosPrecargados = [
+                'proveedor_id' => $cotizacion->proveedor_id,
+                'proveedor' => $cotizacion->proveedor,
+                'fecha_recepcion' => $cotizacion->fecha_respuesta ? \Carbon\Carbon::parse($cotizacion->fecha_respuesta)->format('Y-m-d') : now()->format('Y-m-d'),
+                'items' => $cotizacion->respuestas->map(function($respuesta) {
+                    return [
+                        'producto_id' => $respuesta->producto_id,
+                        'producto' => $respuesta->producto,
+                        'cantidad' => $respuesta->cantidad_solicitada ?? 1,
+                        'precio_unitario' => $respuesta->precio_unitario ?? 0,
+                        'disponibilidad_inmediata' => $respuesta->disponibilidad_inmediata ?? true,
+                        'dias_entrega' => $respuesta->dias_entrega ?? 0,
+                    ];
+                })->toArray(),
+                'observaciones' => "Oferta basada en cotización " . ($cotizacion->solicitud->codigo_solicitud ?? ''),
+            ];
+        }
+        
         return Inertia::render('Compras/Ofertas/Create', [
             'proveedores' => Proveedor::where('activo', true)->orderBy('razon_social')->get(['id', 'razon_social']),
-            // Enviamos productos activos para el selector del array dinámico
             'productos' => Producto::when($estadoActivo, fn($q) => $q->where('estadoProductoID', $estadoActivo->id))
                 ->select('id', 'nombre', 'codigo')
                 ->orderBy('nombre')
                 ->get(),
             'solicitud_id' => $solicitudId,
+            'cotizacion_id' => $cotizacionId,
+            'datosPrecargados' => $datosPrecargados,
         ]);
     }
 
     /**
-     * CU-21 (Paso 14): Procesar y guardar la oferta
+     * CU-21 (Pasos 8 → 10): Procesar, guardar y redirigir según DSS
+     * Contrato DSS: registrarOferta() debe devolver comparativaOfertas si hay múltiples
      */
     public function store(StoreOfertaRequest $request, RegistrarOfertaService $service): RedirectResponse
     {
         try {
             $oferta = $service->ejecutar($request->validated(), $request->user()->id);
 
+            // DSS: Después de registrar, verificar si hay múltiples ofertas para comparar
+            $primerDetalle = $oferta->detalles->first();
+            
+            if ($primerDetalle) {
+                $productoId = $primerDetalle->producto_id;
+                
+                // Contar ofertas pendientes/pre-aprobadas para este producto
+                $estadosPendientes = EstadoOferta::whereIn('nombre', ['Pendiente', 'Pre-aprobada'])->pluck('id');
+                
+                $cantidadOfertas = OfertaCompra::whereHas('detalles', function($q) use ($productoId) {
+                    $q->where('producto_id', $productoId);
+                })
+                ->whereIn('estado_id', $estadosPendientes)
+                ->count();
+                
+                // CU-21 Paso 10: Si hay múltiples ofertas, mostrar comparativa (cumple DSS)
+                if ($cantidadOfertas > 1) {
+                    return redirect()->route('ofertas.comparar', ['producto_id' => $productoId])
+                        ->with('success', "Oferta {$oferta->codigo_oferta} registrada. Comparando con otras ofertas del mismo producto...");
+                }
+            }
+            
+            // Excepción 10a: Si es la única oferta, ir directo al detalle (sin comparativa formal)
             return redirect()->route('ofertas.show', $oferta->id)
                 ->with('success', "Oferta {$oferta->codigo_oferta} registrada correctamente.");
 
@@ -97,6 +181,26 @@ class OfertaCompraController extends Controller
             ->findOrFail($id);
 
         return Inertia::render('Compras/Ofertas/Show', [
+            'oferta' => $oferta
+        ]);
+    }
+
+    /**
+     * CU-21 (Paso 12): Vista de Confirmación de Selección (Kendall: Vista de Control)
+     * Separada de Show para cumplir principio de separación de responsabilidades
+     */
+    public function confirmarSeleccion($id): Response
+    {
+        $oferta = OfertaCompra::with(['proveedor', 'detalles.producto', 'estado', 'user'])
+            ->findOrFail($id);
+
+        // Validar que la oferta puede ser elegida
+        if (!in_array($oferta->estado->nombre, ['Pendiente', 'Pre-aprobada'])) {
+            return redirect()->route('ofertas.show', $id)
+                ->with('error', 'Esta oferta no puede ser seleccionada en su estado actual.');
+        }
+
+        return Inertia::render('Compras/Ofertas/ConfirmarSeleccion', [
             'oferta' => $oferta
         ]);
     }

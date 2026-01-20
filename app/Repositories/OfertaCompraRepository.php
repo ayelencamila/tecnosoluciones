@@ -29,11 +29,12 @@ class OfertaCompraRepository
     public function filtrar(array $criterios, int $perPage = 10): LengthAwarePaginator
     {
         $query = OfertaCompra::with([
-            'proveedor:id,razon_social,cuit',
-            'estado:id,nombre,color',
+            'proveedor:id,razon_social,cuit,email',
+            'estado:id,nombre',
             'user:id,name',
             'solicitud:id,codigo_solicitud',
         ])
+            ->withCount('detalles')
             ->latest('fecha_recepcion');
 
         // Búsqueda general (código o proveedor)

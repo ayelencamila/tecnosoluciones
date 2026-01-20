@@ -44,6 +44,14 @@ class Proveedor extends Model
 
     protected $table = 'proveedores';
 
+    /**
+     * Get the route key name for Laravel route model binding
+     */
+    public function getRouteKeyName()
+    {
+        return 'id';
+    }
+
     protected $fillable = [
         'razon_social',
         'cuit',

@@ -217,13 +217,21 @@ function formatDate(date) {
                                         {{ solicitud.detalles?.length || 0 }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-center text-sm">
-                                        <span class="text-green-600 font-medium">
-                                            {{ solicitud.cotizaciones_proveedores?.filter(c => c.fecha_respuesta).length || 0 }}
-                                        </span>
-                                        <span class="text-gray-400">/</span>
-                                        <span class="text-gray-600">
-                                            {{ solicitud.cotizaciones_proveedores?.length || 0 }}
-                                        </span>
+                                        <div class="flex items-center justify-center gap-1.5">
+                                            <span 
+                                                v-if="solicitud.cotizaciones_proveedores?.filter(c => c.fecha_respuesta).length > 0"
+                                                class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800"
+                                            >
+                                                <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                                                </svg>
+                                                {{ solicitud.cotizaciones_proveedores.filter(c => c.fecha_respuesta).length }}
+                                            </span>
+                                            <span class="text-gray-400">/</span>
+                                            <span class="text-gray-600 font-medium">
+                                                {{ solicitud.cotizaciones_proveedores?.length || 0 }}
+                                            </span>
+                                        </div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-center">
                                         <span

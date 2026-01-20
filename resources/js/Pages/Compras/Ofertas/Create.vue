@@ -14,17 +14,26 @@ const props = defineProps({
     solicitud_id: {
         type: [Number, String],
         default: null
+    },
+    cotizacion_id: {
+        type: [Number, String],
+        default: null
+    },
+    datosPrecargados: {
+        type: Object,
+        default: null
     }
 });
 
 const form = useForm({
-    proveedor_id: '',
+    proveedor_id: props.datosPrecargados?.proveedor_id || '',
     solicitud_id: props.solicitud_id,
-    fecha_recepcion: new Date().toISOString().split('T')[0],
+    cotizacion_id: props.cotizacion_id,
+    fecha_recepcion: props.datosPrecargados?.fecha_recepcion || new Date().toISOString().split('T')[0],
     validez_hasta: '',
-    observaciones: '',
+    observaciones: props.datosPrecargados?.observaciones || '',
     archivo_adjunto: null,
-    items: [
+    items: props.datosPrecargados?.items || [
         { 
             producto_id: '', 
             cantidad: 1, 
@@ -75,10 +84,28 @@ const submit = () => {
 
     <AppLayout>
         <template #header>
-            Registrar Oferta de Proveedor
+            {{ props.datosPrecargados ? 'Completar Oferta desde Cotización' : 'Registrar Oferta de Proveedor' }}
         </template>
 
         <div class="max-w-6xl mx-auto">
+            
+            <!-- ALERTA: Datos Pre-cargados desde Cotización -->
+            <div v-if="props.datosPrecargados" class="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 text-blue-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium text-blue-800">
+                            Datos cargados desde la respuesta del proveedor <strong>{{ props.datosPrecargados.proveedor?.razon_social }}</strong>
+                        </p>
+                        <p class="text-xs text-blue-600 mt-1">
+                            Verifique los precios, ajuste si es necesario y complete los campos faltantes
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
             <form @submit.prevent="submit" class="space-y-6">
                 
                 <!-- Cabecera con resumen -->
@@ -120,7 +147,16 @@ const submit = () => {
                             <!-- Proveedor -->
                             <div>
                                 <InputLabel for="proveedor_id" value="Proveedor" class="text-gray-700 font-medium" />
+                                
+                                <!-- Si viene pre-cargado: mostrar como texto bloqueado -->
+                                <div v-if="props.datosPrecargados" class="mt-1.5 block w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-medium">
+                                    {{ props.datosPrecargados.proveedor?.razon_social }}
+                                    <span class="ml-2 text-xs text-gray-500">(desde cotización)</span>
+                                </div>
+                                
+                                <!-- Si NO viene pre-cargado: selector normal -->
                                 <select 
+                                    v-else
                                     id="proveedor_id" 
                                     v-model="form.proveedor_id"
                                     class="mt-1.5 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-gray-900"
@@ -157,15 +193,22 @@ const submit = () => {
                                 </div>
                             </div>
 
-                            <!-- Observaciones -->
+                            <!-- Motivo/Observaciones (CU-21 Paso 6-7: OBLIGATORIO) -->
                             <div>
-                                <InputLabel for="observaciones" value="Observaciones" class="text-gray-700 font-medium" />
+                                <InputLabel for="observaciones" class="text-gray-700 font-medium">
+                                    <span>Motivo u Observación</span>
+                                    <span class="text-red-500 ml-1">*</span>
+                                </InputLabel>
+                                <p class="text-xs text-gray-500 mt-1 mb-2">
+                                    CU-21: Indique el motivo del registro o evaluación de esta oferta (obligatorio)
+                                </p>
                                 <textarea 
                                     id="observaciones"
                                     v-model="form.observaciones" 
                                     rows="3"
+                                    required
                                     class="mt-1.5 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm resize-none" 
-                                    placeholder="Condiciones especiales, notas del proveedor..."
+                                    placeholder="Ej: Oferta recibida por email ante necesidad urgente de reposición de stock crítico..."
                                 ></textarea>
                                 <InputError :message="form.errors.observaciones" class="mt-1" />
                             </div>

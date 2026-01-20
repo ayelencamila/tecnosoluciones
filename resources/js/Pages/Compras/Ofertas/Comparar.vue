@@ -1,44 +1,26 @@
 <script setup>
-import { ref, computed } from 'vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
+import { Head, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
-import SecondaryButton from '@/Components/SecondaryButton.vue';
-import DangerButton from '@/Components/DangerButton.vue';
-import Modal from '@/Components/Modal.vue';
-import InputLabel from '@/Components/InputLabel.vue';
 
 const props = defineProps({
     producto: Object,
     ofertas: Array,
     filters: Object,
-    comparacionSignificativa: {
-        type: Boolean,
-        default: true
-    },
+    comparacionSignificativa: { type: Boolean, default: true },
 });
 
-// Modal de cancelación (Excepción 12a)
-const showCancelarModal = ref(false);
-const formCancelar = useForm({
-    producto_id: props.producto.id,
-    motivo: '',
-});
-
-// Ofertas seleccionadas para comparar
-const seleccionadas = ref(props.ofertas.map(o => o.id));
-
-// Encontrar mejor precio y mejor plazo
+// Mejor precio
 const mejorPrecio = computed(() => {
     const precios = props.ofertas.map(o => {
         const detalle = o.detalles.find(d => d.producto_id === props.producto.id);
         return detalle ? { ofertaId: o.id, precio: parseFloat(detalle.precio_unitario) } : null;
     }).filter(Boolean);
-    
     if (precios.length === 0) return null;
     return precios.reduce((min, p) => p.precio < min.precio ? p : min, precios[0]);
 });
 
+// Mejor plazo
 const mejorPlazo = computed(() => {
     const plazos = props.ofertas.map(o => {
         const detalle = o.detalles.find(d => d.producto_id === props.producto.id);
@@ -46,12 +28,11 @@ const mejorPlazo = computed(() => {
         const dias = detalle.disponibilidad_inmediata ? 0 : (detalle.dias_entrega || 999);
         return { ofertaId: o.id, dias };
     }).filter(Boolean);
-    
     if (plazos.length === 0) return null;
     return plazos.reduce((min, p) => p.dias < min.dias ? p : min, plazos[0]);
 });
 
-// Mejor opción global (mejor precio Y mejor plazo)
+// Mejor opción global
 const mejorOpcionGlobal = computed(() => {
     if (mejorPrecio.value && mejorPlazo.value && mejorPrecio.value.ofertaId === mejorPlazo.value.ofertaId) {
         return mejorPrecio.value.ofertaId;
@@ -59,26 +40,16 @@ const mejorOpcionGlobal = computed(() => {
     return null;
 });
 
-// Obtener detalle del producto para una oferta
-const getDetalle = (oferta) => {
-    return oferta.detalles.find(d => d.producto_id === props.producto.id);
-};
+const getDetalle = (oferta) => oferta.detalles.find(d => d.producto_id === props.producto.id);
 
-// Calcular ahorro porcentual respecto al precio más alto
 const calcularAhorro = (precioActual) => {
-    const precios = props.ofertas
-        .map(o => getDetalle(o)?.precio_unitario)
-        .filter(Boolean)
-        .map(p => parseFloat(p));
-    
+    const precios = props.ofertas.map(o => getDetalle(o)?.precio_unitario).filter(Boolean).map(p => parseFloat(p));
     if (precios.length < 2) return 0;
     const maxPrecio = Math.max(...precios);
     if (maxPrecio === 0) return 0;
-    
     return ((maxPrecio - precioActual) / maxPrecio * 100).toFixed(1);
 };
 
-// Estado de la oferta
 const estadoClass = (estado) => {
     switch (estado) {
         case 'Pendiente': return 'bg-yellow-100 text-yellow-800';
@@ -90,31 +61,8 @@ const estadoClass = (estado) => {
     }
 };
 
-// Elegir oferta ganadora
-const elegirOferta = (oferta) => {
-    if (confirm(`¿Confirma elegir la oferta ${oferta.codigo_oferta} de ${oferta.proveedor.razon_social}?`)) {
-        router.post(route('ofertas.elegir', oferta.id), {}, {
-            preserveScroll: true,
-        });
-    }
-};
-
-// Cancelar evaluación (Excepción 12a)
-const cancelarEvaluacion = () => {
-    formCancelar.post(route('ofertas.cancelar-evaluacion'), {
-        onSuccess: () => {
-            showCancelarModal.value = false;
-        },
-    });
-};
-
-// Formateo de moneda
 const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-AR', { 
-        style: 'currency', 
-        currency: 'ARS',
-        minimumFractionDigits: 2 
-    }).format(value);
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', minimumFractionDigits: 2 }).format(value);
 };
 </script>
 
@@ -123,342 +71,202 @@ const formatCurrency = (value) => {
 
     <AppLayout>
         <template #header>
-            Comparación de Ofertas
+            <div class="flex items-center justify-between">
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">Comparación de Ofertas</h2>
+                <Link :href="route('ofertas.index')" class="text-sm text-gray-600 hover:text-gray-900">
+                    ← Volver
+                </Link>
+            </div>
         </template>
 
-        <div class="max-w-7xl mx-auto">
-            <!-- Información del Producto -->
-            <div class="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl shadow-lg p-6 mb-6 text-white">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-indigo-200 text-sm uppercase tracking-wider">Producto a Comparar</p>
-                        <h2 class="text-2xl font-bold mt-1">{{ producto.nombre }}</h2>
-                        <p class="text-indigo-200 mt-1">Código: {{ producto.codigo }}</p>
+        <div class="py-12">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                
+                <!-- ENCABEZADO -->
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-gray-900 mb-2">Comparar Ofertas</h2>
+                    <p class="text-gray-600">Selecciona la mejor oferta para el producto.</p>
+                </div>
+
+                <!-- PRODUCTO -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8 flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <div class="bg-gray-100 p-4 rounded-lg">
+                            <svg class="w-10 h-10 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="text-2xl font-bold text-gray-900">{{ producto.nombre }}</h3>
+                            <p class="text-sm text-gray-600 mt-1">Código: {{ producto.codigo }}</p>
+                        </div>
                     </div>
                     <div class="text-right">
-                        <p class="text-indigo-200 text-sm">Ofertas Comparadas</p>
-                        <p class="text-4xl font-bold">{{ ofertas.length }}</p>
-                        <p v-if="!comparacionSignificativa" class="text-yellow-300 text-xs mt-1">
-                            ⚠️ Solo hay una oferta
-                        </p>
+                        <p class="text-sm font-medium text-gray-500 mb-1">Ofertas disponibles</p>
+                        <p class="text-4xl font-bold text-indigo-600">{{ ofertas.length }}</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- Excepción 10a: Mensaje cuando solo hay una oferta -->
-            <div v-if="!comparacionSignificativa" class="bg-amber-50 border-l-4 border-amber-400 p-4 mb-6 rounded-r-lg">
-                <div class="flex items-start">
-                    <svg class="w-6 h-6 text-amber-400 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
-                    </svg>
-                    <div>
-                        <h3 class="text-amber-800 font-semibold">Comparación no disponible</h3>
-                        <p class="text-amber-700 text-sm mt-1">
-                            Solo existe <strong>una oferta</strong> para este producto. No es posible realizar una comparación significativa.
-                            Puede aprobar o rechazar esta oferta directamente.
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Leyenda de indicadores (solo si hay comparación significativa) -->
-            <div v-if="comparacionSignificativa" class="bg-white rounded-lg shadow-sm p-4 mb-6">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center space-x-6 text-sm">
-                        <span class="flex items-center">
-                            <span class="w-3 h-3 bg-green-500 rounded-full mr-2"></span>
-                            Mejor precio
-                        </span>
-                        <span class="flex items-center">
-                            <span class="w-3 h-3 bg-blue-500 rounded-full mr-2"></span>
-                            Mejor plazo de entrega
-                        </span>
-                        <span v-if="mejorOpcionGlobal" class="flex items-center">
-                            <span class="w-3 h-3 bg-purple-500 rounded-full mr-2"></span>
-                            Mejor opción global
-                        </span>
-                    </div>
-                    <p class="text-xs text-gray-500">
-                        📊 Ordenado por precio (menor primero), luego por plazo
+                <!-- ALERTA: Una sola oferta -->
+                <div v-if="!comparacionSignificativa" class="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4 mb-8">
+                    <p class="text-sm text-amber-800">
+                        <strong>Atención:</strong> Solo existe una oferta para este producto.
                     </p>
                 </div>
-            </div>
 
-            <!-- Tabla Comparativa -->
-            <div class="bg-white rounded-xl shadow-lg overflow-hidden">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead>
-                            <tr class="bg-gray-50 border-b border-gray-200">
-                                <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider w-48">
-                                    Criterio
-                                </th>
-                                <th v-for="(oferta, index) in ofertas" :key="oferta.id" 
-                                    class="px-6 py-4 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider min-w-[200px]"
-                                    :class="{ 
-                                        'bg-purple-50 border-t-4 border-purple-500': mejorOpcionGlobal === oferta.id,
-                                        'bg-green-50': mejorPrecio?.ofertaId === oferta.id && mejorOpcionGlobal !== oferta.id
-                                    }">
-                                    <div class="space-y-1">
-                                        <!-- Ranking (CU-21 Paso 10) -->
-                                        <div v-if="comparacionSignificativa" class="mb-2">
-                                            <span v-if="index === 0" class="inline-flex items-center px-2 py-1 text-xs font-bold bg-yellow-400 text-yellow-900 rounded-full">
-                                                🥇 #1
-                                            </span>
-                                            <span v-else-if="index === 1" class="inline-flex items-center px-2 py-1 text-xs font-bold bg-gray-300 text-gray-800 rounded-full">
-                                                🥈 #2
-                                            </span>
-                                            <span v-else-if="index === 2" class="inline-flex items-center px-2 py-1 text-xs font-bold bg-amber-600 text-white rounded-full">
-                                                🥉 #3
-                                            </span>
-                                            <span v-else class="inline-flex items-center px-2 py-1 text-xs font-medium bg-gray-200 text-gray-600 rounded-full">
-                                                #{{ index + 1 }}
-                                            </span>
-                                        </div>
-                                        <Link :href="route('ofertas.show', oferta.id)" class="text-indigo-600 hover:text-indigo-800 font-bold">
-                                            {{ oferta.codigo_oferta }}
-                                        </Link>
-                                        <p class="text-gray-500 font-normal normal-case">{{ oferta.proveedor.razon_social }}</p>
-                                        <span :class="estadoClass(oferta.estado.nombre)" class="px-2 py-0.5 text-xs rounded-full">
-                                            {{ oferta.estado.nombre }}
-                                        </span>
-                                        <!-- Indicador de mejor opción global -->
-                                        <div v-if="mejorOpcionGlobal === oferta.id" class="mt-2">
-                                            <span class="inline-flex items-center px-2 py-1 text-xs font-semibold bg-purple-100 text-purple-800 rounded-full">
-                                                ⭐ Mejor opción
-                                            </span>
-                                        </div>
-                                    </div>
-                                </th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100">
-                            <!-- Precio Unitario -->
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                    💰 Precio Unitario
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`precio-${oferta.id}`" 
-                                    class="px-6 py-4 text-center"
-                                    :class="{ 'bg-green-50': mejorPrecio?.ofertaId === oferta.id }">
-                                    <div v-if="getDetalle(oferta)">
-                                        <span class="text-lg font-bold" :class="mejorPrecio?.ofertaId === oferta.id ? 'text-green-600' : 'text-gray-900'">
-                                            {{ formatCurrency(getDetalle(oferta).precio_unitario) }}
-                                        </span>
-                                        <div v-if="mejorPrecio?.ofertaId === oferta.id" class="flex items-center justify-center mt-1">
-                                            <span class="text-green-600 text-xs font-semibold bg-green-100 px-2 py-0.5 rounded-full">
-                                                ✓ Mejor precio
-                                            </span>
-                                        </div>
-                                        <div v-else-if="calcularAhorro(getDetalle(oferta).precio_unitario) > 0" class="text-xs text-red-500 mt-1">
-                                            +{{ calcularAhorro(getDetalle(oferta).precio_unitario) }}% más caro
-                                        </div>
-                                    </div>
-                                    <span v-else class="text-gray-400 text-sm">N/A</span>
-                                </td>
-                            </tr>
+                <!-- CARDS DE OFERTAS -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                    <div v-for="(oferta, index) in ofertas" :key="oferta.id" 
+                         class="bg-white rounded-lg shadow-md overflow-hidden border-2 transition-all duration-200 hover:shadow-xl"
+                         :class="{
+                             'border-indigo-500': mejorOpcionGlobal === oferta.id,
+                             'border-green-500': mejorPrecio?.ofertaId === oferta.id && mejorOpcionGlobal !== oferta.id,
+                             'border-gray-200': mejorPrecio?.ofertaId !== oferta.id && mejorOpcionGlobal !== oferta.id
+                         }">
+                        
+                        <!-- Header con badge -->
+                        <div class="px-4 py-3 text-center relative"
+                             :class="{
+                                 'bg-gradient-to-r from-indigo-500 to-indigo-600': mejorOpcionGlobal === oferta.id,
+                                 'bg-gradient-to-r from-green-500 to-green-600': mejorPrecio?.ofertaId === oferta.id && mejorOpcionGlobal !== oferta.id,
+                                 'bg-gradient-to-r from-gray-600 to-gray-700': mejorPrecio?.ofertaId !== oferta.id && mejorOpcionGlobal !== oferta.id
+                             }">
+                            
+                            <!-- Badge posición -->
+                            <div class="absolute top-2 left-2">
+                                <span v-if="mejorOpcionGlobal === oferta.id" 
+                                      class="inline-block px-3 py-1 text-xs font-bold bg-white text-indigo-600 rounded-full shadow">
+                                    MEJOR OPCIÓN
+                                </span>
+                                <span v-else-if="mejorPrecio?.ofertaId === oferta.id" 
+                                      class="inline-block px-3 py-1 text-xs font-bold bg-white text-green-600 rounded-full shadow">
+                                    MEJOR PRECIO
+                                </span>
+                                <span v-else-if="mejorPlazo?.ofertaId === oferta.id" 
+                                      class="inline-block px-3 py-1 text-xs font-bold bg-white text-blue-600 rounded-full shadow">
+                                    MEJOR PLAZO
+                                </span>
+                            </div>
 
-                            <!-- Cantidad Ofrecida -->
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                    📦 Cantidad Ofrecida
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`cantidad-${oferta.id}`" class="px-6 py-4 text-center">
-                                    <span v-if="getDetalle(oferta)" class="text-gray-900 font-semibold">
-                                        {{ getDetalle(oferta).cantidad_ofrecida }} unidades
+                            <div class="pt-6">
+                                <Link :href="route('ofertas.show', oferta.id)" 
+                                      class="text-lg font-bold text-white hover:underline">
+                                    {{ oferta.codigo_oferta }}
+                                </Link>
+                                <p class="text-sm text-white opacity-90 mt-1">{{ oferta.proveedor.razon_social }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Precio destacado -->
+                        <div class="px-6 py-6 bg-gray-50 text-center border-b border-gray-200">
+                            <div v-if="getDetalle(oferta)">
+                                <div class="text-4xl font-bold"
+                                     :class="{
+                                         'text-green-600': mejorPrecio?.ofertaId === oferta.id,
+                                         'text-indigo-600': mejorOpcionGlobal === oferta.id && mejorPrecio?.ofertaId !== oferta.id,
+                                         'text-gray-900': mejorPrecio?.ofertaId !== oferta.id && mejorOpcionGlobal !== oferta.id
+                                     }">
+                                    {{ formatCurrency(getDetalle(oferta).precio_unitario) }}
+                                </div>
+                                <p class="text-xs text-gray-500 uppercase tracking-wider mt-1">Precio Unitario</p>
+                                <div v-if="parseFloat(calcularAhorro(getDetalle(oferta).precio_unitario)) > 0" 
+                                     class="mt-2 inline-block px-3 py-1 text-xs font-semibold bg-red-100 text-red-700 rounded-full">
+                                    +{{ calcularAhorro(getDetalle(oferta).precio_unitario) }}% más caro
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Detalles -->
+                        <div class="px-6 py-5 space-y-3">
+                            <!-- Cantidad -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                    </svg>
+                                    Cantidad:
+                                </div>
+                                <span v-if="getDetalle(oferta)" class="text-sm font-semibold text-gray-900">
+                                    {{ getDetalle(oferta).cantidad_ofrecida }} unidades
+                                </span>
+                            </div>
+
+                            <!-- Entrega -->
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                                    </svg>
+                                    Entrega:
+                                </div>
+                                <span v-if="getDetalle(oferta)">
+                                    <span v-if="getDetalle(oferta).disponibilidad_inmediata" 
+                                          class="inline-flex items-center px-2 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded">
+                                        Inmediata
                                     </span>
-                                    <span v-else class="text-gray-400 text-sm">N/A</span>
-                                </td>
-                            </tr>
-
-                            <!-- Disponibilidad -->
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                    🚚 Disponibilidad
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`disp-${oferta.id}`" 
-                                    class="px-6 py-4 text-center"
-                                    :class="{ 'bg-blue-50': mejorPlazo?.ofertaId === oferta.id }">
-                                    <div v-if="getDetalle(oferta)">
-                                        <span v-if="getDetalle(oferta).disponibilidad_inmediata" 
-                                              class="inline-flex items-center text-green-600 font-semibold">
-                                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                            </svg>
-                                            Inmediata
-                                        </span>
-                                        <span v-else class="text-orange-600 font-medium">
-                                            {{ getDetalle(oferta).dias_entrega }} días
-                                        </span>
-                                        <div v-if="mejorPlazo?.ofertaId === oferta.id" class="flex items-center justify-center mt-1">
-                                            <span class="text-blue-600 text-xs font-semibold bg-blue-100 px-2 py-0.5 rounded-full">
-                                                ✓ Mejor plazo
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <span v-else class="text-gray-400 text-sm">N/A</span>
-                                </td>
-                            </tr>
-
-                            <!-- Subtotal -->
-                            <tr class="hover:bg-gray-50 bg-gray-25">
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                    🧮 Subtotal (Producto)
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`subtotal-${oferta.id}`" class="px-6 py-4 text-center">
-                                    <span v-if="getDetalle(oferta)" class="text-lg font-bold text-gray-900">
-                                        {{ formatCurrency(getDetalle(oferta).cantidad_ofrecida * getDetalle(oferta).precio_unitario) }}
+                                    <span v-else class="inline-flex items-center px-2 py-1 text-xs font-semibold bg-orange-100 text-orange-700 rounded">
+                                        {{ getDetalle(oferta).dias_entrega }} días
                                     </span>
-                                    <span v-else class="text-gray-400 text-sm">N/A</span>
-                                </td>
-                            </tr>
+                                </span>
+                            </div>
 
                             <!-- Validez -->
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                    📅 Válida hasta
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`validez-${oferta.id}`" class="px-6 py-4 text-center">
-                                    <span v-if="oferta.validez_hasta" class="text-gray-700">
-                                        {{ new Date(oferta.validez_hasta).toLocaleDateString('es-AR') }}
-                                    </span>
-                                    <span v-else class="text-gray-400 text-sm">Sin límite</span>
-                                </td>
-                            </tr>
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center text-sm text-gray-600">
+                                    <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                    </svg>
+                                    Validez:
+                                </div>
+                                <span v-if="oferta.validez_hasta" class="text-sm font-medium text-gray-900">
+                                    {{ new Date(oferta.validez_hasta).toLocaleDateString('es-AR') }}
+                                </span>
+                                <span v-else class="text-xs text-gray-500">Sin límite</span>
+                            </div>
 
-                            <!-- Total Oferta Completa -->
-                            <tr class="bg-gray-100">
-                                <td class="px-6 py-4 text-sm font-bold text-gray-900">
-                                    💵 Total Oferta Completa
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`total-${oferta.id}`" class="px-6 py-4 text-center">
-                                    <span class="text-xl font-bold text-indigo-600">
-                                        {{ formatCurrency(oferta.total_estimado) }}
-                                    </span>
-                                </td>
-                            </tr>
+                            <!-- Divider -->
+                            <hr class="border-gray-200">
 
-                            <!-- Observaciones -->
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-6 py-4 text-sm font-medium text-gray-900">
-                                    📝 Observaciones
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`obs-${oferta.id}`" class="px-6 py-4 text-center">
-                                    <p v-if="oferta.observaciones" class="text-sm text-gray-600 max-w-xs mx-auto">
-                                        {{ oferta.observaciones }}
-                                    </p>
-                                    <span v-else class="text-gray-400 text-sm">-</span>
-                                </td>
-                            </tr>
+                            <!-- Total -->
+                            <div class="flex items-center justify-between pt-2">
+                                <span class="text-sm font-semibold text-gray-700">Total Oferta:</span>
+                                <span class="text-xl font-bold text-indigo-600">
+                                    {{ formatCurrency(oferta.total_estimado) }}
+                                </span>
+                            </div>
 
-                            <!-- Acciones -->
-                            <tr class="bg-gray-50">
-                                <td class="px-6 py-4 text-sm font-bold text-gray-900">
-                                    Acciones
-                                </td>
-                                <td v-for="oferta in ofertas" :key="`action-${oferta.id}`" class="px-6 py-4 text-center">
-                                    <div class="space-y-2">
-                                        <PrimaryButton 
-                                            v-if="oferta.estado.nombre === 'Pendiente' || oferta.estado.nombre === 'Pre-aprobada'"
-                                            @click="elegirOferta(oferta)"
-                                            class="w-full justify-center"
-                                            :class="{ 
-                                                'bg-green-600 hover:bg-green-700': mejorPrecio?.ofertaId === oferta.id && mejorPlazo?.ofertaId === oferta.id 
-                                            }">
-                                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                                            </svg>
-                                            Elegir
-                                        </PrimaryButton>
-                                        
-                                        <span v-else-if="oferta.estado.nombre === 'Elegida'" 
-                                              class="inline-flex items-center px-3 py-2 text-sm font-semibold text-green-700 bg-green-100 rounded-lg">
-                                            <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
-                                            </svg>
-                                            Elegida
-                                        </span>
+                            <!-- Estado -->
+                            <div class="pt-2">
+                                <span :class="estadoClass(oferta.estado.nombre)" 
+                                      class="block text-center px-3 py-2 text-xs font-semibold rounded">
+                                    {{ oferta.estado.nombre }}
+                                </span>
+                            </div>
+                        </div>
 
-                                        <span v-else-if="oferta.estado.nombre === 'Procesada'" 
-                                              class="inline-flex items-center px-3 py-2 text-sm font-semibold text-indigo-700 bg-indigo-100 rounded-lg">
-                                            Procesada
-                                        </span>
-
-                                        <span v-else class="text-gray-400 text-sm">
-                                            {{ oferta.estado.nombre }}
-                                        </span>
-
-                                        <Link :href="route('ofertas.show', oferta.id)" 
-                                              class="block text-indigo-600 hover:text-indigo-800 text-sm">
-                                            Ver detalle →
-                                        </Link>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- Volver -->
-            <div class="mt-6 flex justify-between items-center">
-                <Link :href="route('ofertas.index')" class="text-gray-600 hover:text-gray-800 flex items-center">
-                    <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                    </svg>
-                    Volver al listado
-                </Link>
-
-                <div class="flex items-center space-x-4">
-                    <!-- Botón Cancelar Evaluación (Excepción 12a) -->
-                    <SecondaryButton @click="showCancelarModal = true" class="text-gray-600">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                        </svg>
-                        Cancelar Evaluación
-                    </SecondaryButton>
-                    
-                    <div class="text-sm text-gray-500">
-                        CU-21 Paso 10: Comparación de ofertas
+                        <!-- Footer con acción -->
+                        <div class="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                            <Link :href="route('ofertas.show', oferta.id)" 
+                                  class="block w-full text-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors"
+                                  :class="{
+                                      'bg-indigo-600 text-white hover:bg-indigo-700': mejorOpcionGlobal === oferta.id,
+                                      'bg-green-600 text-white hover:bg-green-700': mejorPrecio?.ofertaId === oferta.id && mejorOpcionGlobal !== oferta.id,
+                                      'bg-gray-600 text-white hover:bg-gray-700': mejorPrecio?.ofertaId !== oferta.id && mejorOpcionGlobal !== oferta.id
+                                  }">
+                                Ver Detalles
+                            </Link>
+                        </div>
                     </div>
                 </div>
+
+                <!-- Mensaje final -->
+                <div class="text-center">
+                    <p class="text-sm text-gray-600">
+                        Compare las ofertas y seleccione la mejor opción para su compra.
+                    </p>
+                </div>
+
             </div>
         </div>
-
-        <!-- Modal de Cancelar Evaluación (Excepción 12a) -->
-        <Modal :show="showCancelarModal" @close="showCancelarModal = false">
-            <div class="p-6">
-                <h2 class="text-lg font-semibold text-gray-900 mb-4">
-                    Cancelar Evaluación de Ofertas
-                </h2>
-                <p class="text-sm text-gray-600 mb-4">
-                    ¿Está seguro que desea cancelar la evaluación? Las ofertas permanecerán en estado 
-                    <span class="font-semibold text-yellow-600">"Pendiente"</span> para futuras gestiones.
-                </p>
-                
-                <div class="mb-4">
-                    <InputLabel for="motivo" value="Motivo (opcional)" />
-                    <textarea
-                        id="motivo"
-                        v-model="formCancelar.motivo"
-                        class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
-                        rows="2"
-                        placeholder="Ej: Se requiere más información, esperando otras cotizaciones..."
-                    ></textarea>
-                </div>
-
-                <div class="flex justify-end space-x-3">
-                    <PrimaryButton @click="showCancelarModal = false">
-                        Continuar Evaluando
-                    </PrimaryButton>
-                    <SecondaryButton 
-                        @click="cancelarEvaluacion"
-                        :disabled="formCancelar.processing">
-                        <span v-if="formCancelar.processing">Procesando...</span>
-                        <span v-else>Sí, Cancelar</span>
-                    </SecondaryButton>
-                </div>
-            </div>
-        </Modal>
     </AppLayout>
 </template>

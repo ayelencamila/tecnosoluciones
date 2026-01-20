@@ -100,6 +100,14 @@ class CotizacionProveedor extends Model
         return $this->hasMany(RespuestaCotizacion::class, 'cotizacion_proveedor_id');
     }
 
+    /**
+     * Ofertas formales generadas a partir de esta respuesta (CU-21)
+     */
+    public function ofertasCompra(): HasMany
+    {
+        return $this->hasMany(\App\Models\OfertaCompra::class, 'cotizacion_proveedor_id');
+    }
+
     // --- SCOPES ---
 
     /**
@@ -134,7 +142,9 @@ class CotizacionProveedor extends Model
      */
     public function generarMagicLink(): string
     {
-        return route('portal.cotizacion', ['token' => $this->token_unico]);
+        // Usar NGROK_URL si está disponible (para desarrollo) o APP_URL en producción
+        $baseUrl = config('app.ngrok_url') ?: config('app.url');
+        return $baseUrl . route('portal.cotizacion', ['token' => $this->token_unico], false);
     }
 
     /**

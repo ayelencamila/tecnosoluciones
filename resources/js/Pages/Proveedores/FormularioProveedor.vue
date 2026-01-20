@@ -48,7 +48,7 @@ watch(() => props.form.provincia_id, async (newProvinciaId) => {
     if (newProvinciaId) {
         cargandoLocalidades.value = true;
         try {
-            const response = await axios.get(`/api/localidades?provincia_id=${newProvinciaId}`);
+            const response = await axios.get(route('api.localidades.por-provincia', newProvinciaId));
             localidadesList.value = response.data;
         } catch (error) {
             console.error('Error al cargar localidades:', error);
@@ -73,7 +73,7 @@ const refreshLocalidades = async () => {
     
     cargandoLocalidades.value = true;
     try {
-        const response = await axios.get(`/api/localidades?provincia_id=${props.form.provincia_id}`);
+        const response = await axios.get(route('api.localidades.por-provincia', props.form.provincia_id));
         localidadesList.value = response.data;
     } catch (error) {
         console.error('Error al refrescar localidades:', error);

@@ -24,6 +24,7 @@ const form = ref({
     search: props.filters.search || '',
     provincia_id: props.filters.provincia_id || '',
     estado: props.filters.estado || '',
+    calificacion_min: props.filters.calificacion_min || '',
     sort_column: props.filters.sort_column || 'razon_social',
     sort_direction: props.filters.sort_direction || 'asc',
 });
@@ -38,6 +39,14 @@ const estadosOptions = computed(() => [
     { value: '', label: 'Todos los Estados' },
     { value: 'activo', label: 'Activos' },
     { value: 'inactivo', label: 'Inactivos' }
+]);
+
+const calificacionOptions = computed(() => [
+    { value: '', label: 'Todas las Calificaciones' },
+    { value: '4', label: '⭐ 4 o más' },
+    { value: '3', label: '⭐ 3 o más' },
+    { value: '2', label: '⭐ 2 o más' },
+    { value: '1', label: '⭐ 1 o más' }
 ]);
 
 // --- WATCHERS & FILTROS ---
@@ -55,6 +64,7 @@ const resetFilters = () => {
         search: '', 
         provincia_id: '', 
         estado: '', 
+        calificacion_min: '',
         sort_column: 'razon_social', 
         sort_direction: 'asc' 
     };
@@ -138,8 +148,9 @@ const getCalificacionStars = (calificacion) => {
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
                         <SelectInput v-model="form.provincia_id" class="w-full" :options="provinciasOptions" />
                         <SelectInput v-model="form.estado" class="w-full" :options="estadosOptions" />
+                        <SelectInput v-model="form.calificacion_min" class="w-full" :options="calificacionOptions" />
 
-                        <div class="md:col-span-2 flex justify-end items-center h-[42px]">
+                        <div class="flex justify-end items-center h-[42px]">
                             <button @click="resetFilters" class="text-sm text-gray-600 hover:text-gray-900 underline">
                                 Limpiar Filtros
                             </button>

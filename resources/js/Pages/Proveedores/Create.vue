@@ -27,10 +27,10 @@ const submit = () => {
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <FormularioProveedor :form="form" :provincias="provincias" :localidades="localidades">
+                    <FormularioProveedor :form="form" :provincias="provincias" :localidades="localidades" @submit="submit">
                         <template #actions>
                             <Link :href="route('proveedores.index')" class="mr-3"><SecondaryButton>Cancelar</SecondaryButton></Link>
-                            <PrimaryButton :disabled="form.processing">Guardar Proveedor</PrimaryButton>
+                            <PrimaryButton type="submit" :disabled="form.processing">Guardar Proveedor</PrimaryButton>
                         </template>
                     </FormularioProveedor>
                 </div>
