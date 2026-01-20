@@ -194,13 +194,13 @@ const stats = computed(() => {
                             </div>
                         </div>
 
-                        <!-- Link a ofertas -->
+                        <!-- CU-22: Link a generar nueva OC -->
                         <div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
                             <p class="text-sm text-gray-600 dark:text-gray-400">
-                                Las órdenes de compra se generan al elegir una oferta de proveedor.
+                                Genere órdenes a partir de ofertas marcadas como "Elegida" o "Pre-aprobada".
                             </p>
-                            <Link :href="route('ofertas.index')">
-                                <PrimaryButton>Ver Ofertas de Compra</PrimaryButton>
+                            <Link :href="route('ordenes.seleccionar')">
+                                <PrimaryButton>+ Generar Nueva Orden</PrimaryButton>
                             </Link>
                         </div>
                     </div>

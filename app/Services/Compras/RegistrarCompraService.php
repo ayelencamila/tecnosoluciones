@@ -31,54 +31,94 @@ class RegistrarCompraService
     /**
      * Ejecuta el flujo CU-22: Genera OC desde oferta elegida.
      * 
-     * Flujo Principal:
-     * 1. Validar oferta elegida
-     * 2. Generar cabecera y detalles de OC
-     * 3. Generar PDF
-     * 4. Enviar WhatsApp al proveedor (async)
-     * 5. Notificar por email al administrador (async)
-     * 6. Registrar auditoría
+     * Flujo Principal (pasos CU-22):
+     * 1-2. Validar oferta elegida
+     * 3-4. Generar cabecera y detalles de OC
+     * 5. Generar PDF (Excepción 8a)
+     * 6. Enviar WhatsApp al proveedor (Excepción 9a)
+     * 7. Notificar por email al administrador
+     * 8. Marcar oferta como procesada (Excepción 10a)
+     * 9. Registrar auditoría (Excepción 11a)
      *
      * @param int $ofertaId ID de la oferta elegida
      * @param int $usuarioId ID del administrador que genera la OC
      * @param string $observaciones Instrucciones o notas para el proveedor
-     * @return OrdenCompra
-     * @throws Exception Si la oferta no está elegida o ya tiene OC
+     * @return array ['orden' => OrdenCompra, 'advertencias' => array]
+     * @throws Exception Si la oferta no está elegida o ya tiene OC (Excepción 7a)
      */
-    public function ejecutar(int $ofertaId, int $usuarioId, string $observaciones): OrdenCompra
+    public function ejecutar(int $ofertaId, int $usuarioId, string $observaciones): array
     {
-        return DB::transaction(function () use ($ofertaId, $usuarioId, $observaciones) {
+        $advertencias = [];
+
+        $orden = DB::transaction(function () use ($ofertaId, $usuarioId, $observaciones, &$advertencias) {
             
-            // 1. VALIDAR OFERTA (Paso 1-2 CU-22)
+            // Paso 1-2: VALIDAR OFERTA (Excepción 7a - lanza Exception si falla)
             $oferta = $this->validarOferta($ofertaId);
             
-            // 2. GENERAR ORDEN DE COMPRA (Paso 3-4 CU-22)
+            // Paso 3-4: GENERAR ORDEN DE COMPRA (estado inicial "Enviada")
             $orden = $this->crearOrdenDesdeOferta($oferta, $usuarioId, $observaciones);
             
-            // 3. GENERAR PDF (Paso 5 CU-22)
-            $this->generarPdf($orden);
+            // Paso 5: GENERAR PDF (Excepción 8a - no bloquea)
+            $pdfGenerado = $this->generarPdf($orden);
+            if (!$pdfGenerado) {
+                $advertencias[] = [
+                    'tipo' => 'warning',
+                    'mensaje' => 'El PDF no pudo generarse. La orden se registró con estado "Pendiente de Documento".',
+                    'excepcion' => '8a'
+                ];
+            }
             
-            // 4. MARCAR OFERTA COMO PROCESADA
-            $oferta->marcarProcesada();
+            // Paso 6: MARCAR OFERTA COMO PROCESADA (Excepción 10a - no bloquea)
+            try {
+                $oferta->marcarProcesada();
+            } catch (Exception $e) {
+                $advertencias[] = [
+                    'tipo' => 'warning',
+                    'mensaje' => 'No se pudo marcar la oferta como procesada. Revisar manualmente.',
+                    'excepcion' => '10a',
+                    'detalle' => $e->getMessage()
+                ];
+            }
             
-            // 5. ENVIAR WHATSAPP AL PROVEEDOR (Paso 6 CU-22 - Asíncrono)
-            $this->enviarWhatsApp($orden);
+            // Paso 7: ENVIAR WHATSAPP AL PROVEEDOR (Excepción 9a - no bloquea)
+            $whatsappEnviado = $this->enviarWhatsApp($orden);
+            if (!$whatsappEnviado) {
+                $advertencias[] = [
+                    'tipo' => 'warning',
+                    'mensaje' => 'El envío por WhatsApp falló. La orden se marcó como "Envío Fallido". Puede reenviar manualmente.',
+                    'excepcion' => '9a'
+                ];
+            }
             
-            // 6. NOTIFICAR POR EMAIL AL ADMIN (Mailpit en desarrollo)
+            // Paso 8: NOTIFICAR POR EMAIL (opcional, no bloquea)
             $this->enviarEmail($orden, $usuarioId);
             
-            // 7. AUDITORÍA (Kendall)
-            Auditoria::registrar(
-                accion: Auditoria::ACCION_GENERAR_ORDEN_COMPRA,
-                tabla: 'ordenes_compra',
-                registroId: $orden->id,
-                motivo: $observaciones,
-                detalles: "OC {$orden->numero_oc} generada. Proveedor: {$oferta->proveedor->razon_social}. Total: \${$orden->total_final}",
-                usuarioId: $usuarioId
-            );
+            // Paso 9: AUDITORÍA (Excepción 11a - no bloquea)
+            try {
+                Auditoria::registrar(
+                    accion: Auditoria::ACCION_GENERAR_ORDEN_COMPRA,
+                    tabla: 'ordenes_compra',
+                    registroId: $orden->id,
+                    motivo: $observaciones,
+                    detalles: "OC {$orden->numero_oc} generada. Proveedor: {$oferta->proveedor->razon_social}. Total: \${$orden->total_final}",
+                    usuarioId: $usuarioId
+                );
+            } catch (Exception $e) {
+                $advertencias[] = [
+                    'tipo' => 'info',
+                    'mensaje' => 'La auditoría no pudo registrarse, pero la orden fue generada correctamente.',
+                    'excepcion' => '11a',
+                    'detalle' => $e->getMessage()
+                ];
+            }
 
             return $orden->fresh(['proveedor', 'oferta', 'detalles', 'estado']);
         });
+
+        return [
+            'orden' => $orden,
+            'advertencias' => $advertencias,
+        ];
     }
 
     /**
@@ -171,12 +211,12 @@ class RegistrarCompraService
     }
 
     /**
-     * Genera el PDF de la orden de compra (CU-22 Paso 5)
+     * Genera el PDF de la orden de compra (CU-22 Paso 8)
+     * Excepción 8a: Si falla, marca orden como "Pendiente de Documento"
      * 
-     * El PDF se almacena en storage/app/public/ordenes_compra/
-     * y la ruta se guarda en el campo archivo_pdf
+     * @return bool True si se generó correctamente, False si falló
      */
-    protected function generarPdf(OrdenCompra $orden): void
+    protected function generarPdf(OrdenCompra $orden): bool
     {
         try {
             // Cargar relaciones necesarias para el PDF
@@ -202,30 +242,45 @@ class RegistrarCompraService
             $orden->update(['archivo_pdf' => $rutaRelativa]);
 
             Log::info("📄 PDF generado: {$orden->numero_oc}", ['ruta' => $rutaRelativa]);
+            return true;
             
         } catch (Exception $e) {
-            Log::error("❌ Error generando PDF para OC {$orden->numero_oc}: " . $e->getMessage());
-            // No lanzamos excepción para no abortar toda la transacción
-            // El PDF puede regenerarse manualmente
+            // Excepción 8a: Error al crear documento
+            Log::error("❌ Excepción 8a - Error generando PDF para OC {$orden->numero_oc}: " . $e->getMessage());
+            
+            // Cambiar estado a "Pendiente de Documento"
+            $estadoPendiente = EstadoOrdenCompra::where('nombre', 'Pendiente de Documento')->first();
+            if ($estadoPendiente) {
+                $orden->update(['estado_id' => $estadoPendiente->id]);
+            }
+            
+            $this->registrarAlertaInterna($orden, 'Error al generar PDF: ' . $e->getMessage());
+            return false;
         }
     }
 
     /**
-     * Envía WhatsApp al proveedor con la OC (CU-22 Paso 6)
+     * Envía WhatsApp al proveedor con la OC (CU-22 Paso 9)
+     * Excepción 9a: Si falla, marca como "Envío Fallido"
      * 
-     * Usa Twilio para WhatsApp Business API
-     * El envío es asíncrono via Job para no bloquear la respuesta
+     * @return bool True si se encoló correctamente, False si falló
      */
-    protected function enviarWhatsApp(OrdenCompra $orden): void
+    protected function enviarWhatsApp(OrdenCompra $orden): bool
     {
         try {
             $proveedor = $orden->proveedor;
             
             // Validar que el proveedor tenga WhatsApp
             if (!$proveedor->whatsapp && !$proveedor->telefono) {
-                Log::warning("⚠️ Proveedor {$proveedor->razon_social} sin WhatsApp/teléfono. OC no enviada automáticamente.");
+                Log::warning("⚠️ Excepción 9a - Proveedor {$proveedor->razon_social} sin WhatsApp/teléfono.");
+                
+                $estadoFallido = EstadoOrdenCompra::where('nombre', 'Envío Fallido')->first();
+                if ($estadoFallido) {
+                    $orden->update(['estado_id' => $estadoFallido->id]);
+                }
+                
                 $this->registrarAlertaInterna($orden, 'Proveedor sin teléfono registrado');
-                return;
+                return false;
             }
 
             // Dispatch del Job (envío asíncrono con reintentos)
@@ -233,11 +288,19 @@ class RegistrarCompraService
                 ->onQueue('whatsapp');
 
             Log::info("📱 Job WhatsApp encolado para OC {$orden->numero_oc}");
+            return true;
             
         } catch (Exception $e) {
-            Log::error("❌ Error encolando WhatsApp: " . $e->getMessage());
-            $orden->marcarEnvioFallido();
+            // Excepción 9a: Falla en el envío por WhatsApp
+            Log::error("❌ Excepción 9a - Error encolando WhatsApp: " . $e->getMessage());
+            
+            $estadoFallido = EstadoOrdenCompra::where('nombre', 'Envío Fallido')->first();
+            if ($estadoFallido) {
+                $orden->update(['estado_id' => $estadoFallido->id]);
+            }
+            
             $this->registrarAlertaInterna($orden, 'Error al enviar WhatsApp: ' . $e->getMessage());
+            return false;
         }
     }
 

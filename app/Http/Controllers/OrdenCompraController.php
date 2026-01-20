@@ -53,34 +53,123 @@ class OrdenCompraController extends Controller
     }
 
     /**
-     * Genera una nueva Orden de Compra desde una oferta elegida
-     * 
-     * CU-22 Flujo Principal:
-     * 1. Admin accede a oferta elegida
-     * 2. Admin presiona "Generar OC"
-     * 3. Sistema valida oferta
-     * 4. Sistema genera OC con detalles
-     * 5. Sistema genera PDF
-     * 6. Sistema envía WhatsApp al proveedor
-     * 7. Sistema notifica por email
+     * CU-22 Pantalla 1 (Kendall): Lista de Ofertas Elegidas para convertir en OC
+     * Vista de Selección - Cap. 11 Salida
      */
-    public function store(StoreOrdenCompraRequest $request): RedirectResponse
+    public function seleccionar(): Response
+    {
+        // Solo ofertas con estado 'Elegida' o 'Pre-aprobada'
+        $ofertas = OfertaCompra::with([
+            'proveedor:id,razon_social,cuit',
+            'estado:id,nombre'
+        ])
+        ->whereHas('estado', function($query) {
+            $query->whereIn('nombre', ['Elegida', 'Pre-aprobada']);
+        })
+        ->orderBy('fecha_recepcion', 'desc')
+        ->get();
+
+        return Inertia::render('Compras/Ordenes/Seleccionar', [
+            'ofertas' => $ofertas,
+        ]);
+    }
+
+    /**
+     * CU-22: Muestra formulario para generar OC desde oferta elegida
+     * Kendall P2+P3: Resumen + Ingreso de Motivo
+     */
+    public function create(Request $request): Response
+    {
+        $ofertaId = $request->query('oferta_id');
+        
+        if (!$ofertaId) {
+            return redirect()->route('ofertas.index')
+                ->with('error', 'Debe seleccionar una oferta para generar la Orden de Compra.');
+        }
+
+        $oferta = OfertaCompra::with([
+            'proveedor:id,razon_social,cuit,email,telefono,direccion',
+            'detalles.producto:id,nombre,codigo',
+            'estado:id,nombre',
+        ])->findOrFail($ofertaId);
+
+        // Validar que la oferta esté en estado correcto
+        if (!in_array($oferta->estado->nombre, ['Elegida', 'Pre-aprobada'])) {
+            return redirect()->route('ofertas.show', $oferta->id)
+                ->with('error', 'Solo se pueden generar órdenes desde ofertas Elegidas o Pre-aprobadas.');
+        }
+
+        return Inertia::render('Compras/Ordenes/Create', [
+            'oferta' => $oferta,
+        ]);
+    }
+
+    /**
+     * CU-22: Genera una nueva Orden de Compra desde una oferta elegida
+     * 
+     * Implementa operación DSS: confirmarGeneracionYEnvio(motivo)
+     * 
+     * Flujo Principal (pasos CU-22):
+     * 1-6. Usuario confirma generación con motivo
+     * 7-11. Sistema ejecuta proceso (RegistrarCompraService)
+     * 12. Sistema muestra resultado EN LA MISMA VISTA (no redirect)
+     * 
+     * @return Response Devuelve Create.vue con resultado (éxito/advertencias/error)
+     */
+    public function store(StoreOrdenCompraRequest $request): Response
     {
         try {
-            $orden = $this->registrarCompraService->ejecutar(
+            // Ejecutar CU-22 (pasos 7-11)
+            $resultado = $this->registrarCompraService->ejecutar(
                 ofertaId: $request->validated('oferta_id'),
                 usuarioId: $request->user()->id,
                 observaciones: $request->validated('observaciones')
             );
 
-            return redirect()
-                ->route('ordenes.show', $orden->id)
-                ->with('success', "Orden de Compra {$orden->numero_oc} generada exitosamente. Se envió WhatsApp al proveedor.");
+            $orden = $resultado['orden'];
+            $advertencias = $resultado['advertencias'];
+
+            // Determinar tipo de resultado según CU-22
+            if (empty($advertencias)) {
+                // Éxito completo: OC generada y enviada sin problemas
+                $tipoResultado = 'success';
+                $mensaje = "Orden de Compra {$orden->numero_oc} generada y enviada exitosamente al proveedor.";
+            } else {
+                // Éxito con advertencias: OC generada pero con excepciones 8a, 9a, 10a u 11a
+                $tipoResultado = 'success_with_warnings';
+                $mensaje = "Orden de Compra {$orden->numero_oc} generada, pero requiere atención:";
+            }
+
+            // CU-22 Paso 12: Confirmar resultado EN LA MISMA VISTA (Kendall: retroalimentación inmediata)
+            return Inertia::render('Compras/Ordenes/Create', [
+                'oferta' => $request->oferta, // Re-pasar para mostrar resumen
+                'resultado' => [
+                    'tipo' => $tipoResultado,
+                    'mensaje' => $mensaje,
+                    'orden' => [
+                        'id' => $orden->id,
+                        'numero_oc' => $orden->numero_oc,
+                        'estado' => $orden->estado->nombre,
+                        'total' => $orden->total_final,
+                        'proveedor' => $orden->proveedor->razon_social,
+                    ],
+                    'advertencias' => $advertencias,
+                ],
+            ]);
 
         } catch (Exception $e) {
-            return back()
-                ->withInput()
-                ->with('error', 'Error al generar la Orden de Compra: ' . $e->getMessage());
+            // Excepción 7a: Error crítico al generar número OC o validar oferta
+            Log::error("❌ CU-22 Excepción 7a: " . $e->getMessage());
+
+            return Inertia::render('Compras/Ordenes/Create', [
+                'oferta' => OfertaCompra::with(['proveedor', 'detalles.producto', 'estado'])
+                    ->find($request->validated('oferta_id')),
+                'resultado' => [
+                    'tipo' => 'error',
+                    'mensaje' => 'No se pudo generar la Orden de Compra',
+                    'error' => $e->getMessage(),
+                ],
+            ]);
         }
     }
 

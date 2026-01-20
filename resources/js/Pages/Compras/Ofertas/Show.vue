@@ -201,15 +201,17 @@ const estadoClass = (estado) => {
                         Seleccionar esta Oferta
                     </PrimaryButton>
                     
-                    <!-- CU-21 Paso 14: Botón Generar OC (Solo si ya está Elegida) -->
-                    <PrimaryButton 
-                        v-if="oferta.estado.nombre === 'Elegida'"
-                        @click="showGenerarOCModal = true">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                        </svg>
-                        Generar Orden de Compra (CU-22)
-                    </PrimaryButton>
+                    <!-- CU-22: Botón Generar OC (Solo si ya está Elegida) -->
+                    <Link 
+                        v-if="oferta.estado.nombre === 'Elegida' || oferta.estado.nombre === 'Pre-aprobada'"
+                        :href="route('ordenes.create', { oferta_id: oferta.id })">
+                        <PrimaryButton>
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                            </svg>
+                            Generar Orden de Compra
+                        </PrimaryButton>
+                    </Link>
                 </div>
 
                 <!-- Estado informativo si ya procesada o rechazada -->

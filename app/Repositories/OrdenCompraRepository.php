@@ -97,7 +97,7 @@ class OrdenCompraRepository
     {
         return EstadoOrdenCompra::where('activo', true)
             ->orderBy('orden')
-            ->get(['id', 'nombre', 'color']);
+            ->get(['id', 'nombre']);
     }
 
     /**

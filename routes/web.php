@@ -426,7 +426,9 @@ Route::middleware(['auth'])->group(function () {
     // CU-22: Órdenes de Compra
     Route::prefix('ordenes')->name('ordenes.')->middleware('role:admin')->group(function () {
         Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index');
-        Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store');
+        Route::get('/seleccionar', [\App\Http\Controllers\OrdenCompraController::class, 'seleccionar'])->name('seleccionar'); // P1: Lista ofertas elegidas
+        Route::get('/create', [\App\Http\Controllers\OrdenCompraController::class, 'create'])->name('create'); // P2+P3+P4: Resumen + Motivo + Confirmación
+        Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store'); // P5: Resultado
         Route::get('/{orden}', [\App\Http\Controllers\OrdenCompraController::class, 'show'])->name('show');
         Route::get('/{orden}/descargar-pdf', [\App\Http\Controllers\OrdenCompraController::class, 'descargarPdf'])->name('descargar-pdf');
         Route::post('/{orden}/reenviar-whatsapp', [\App\Http\Controllers\OrdenCompraController::class, 'reenviarWhatsApp'])->name('reenviar-whatsapp');
