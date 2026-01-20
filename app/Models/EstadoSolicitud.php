@@ -43,11 +43,13 @@ class EstadoSolicitud extends Model
         'nombre',
         'descripcion',
         'activo',
+        'requiere_gestion_ofertas',
         'orden',
     ];
 
     protected $casts = [
         'activo' => 'boolean',
+        'requiere_gestion_ofertas' => 'boolean',
         'orden' => 'integer',
     ];
 
@@ -77,6 +79,15 @@ class EstadoSolicitud extends Model
     public function scopeOrdenados($query)
     {
         return $query->orderBy('orden');
+    }
+
+    /**
+     * Estados que requieren gestión de ofertas (CU-21)
+     * Parametrizable desde la BD sin hardcodeo
+     */
+    public function scopeRequierenGestionOfertas($query)
+    {
+        return $query->where('requiere_gestion_ofertas', true);
     }
 
     // --- MÉTODOS DE CONSULTA ---

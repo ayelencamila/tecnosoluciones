@@ -310,6 +310,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/clientes/buscar', [App\Http\Controllers\ClienteController::class, 'buscar'])
         ->name('api.clientes.buscar');
 
+    // API: Buscar productos (para autocomplete)
+    Route::get('/api/productos/buscar', [ProductoController::class, 'buscar'])
+        ->name('api.productos.buscar');
+
     //--- MÓDULO DE PRODUCTOS ---
     Route::prefix('productos')->name('productos.')->group(function () {
         // CU-29: Consultar Stock   

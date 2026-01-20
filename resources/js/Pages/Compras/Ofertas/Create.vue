@@ -1,18 +1,27 @@
 <script setup>
+/**
+ * CU-21 Pantalla 2: Formulario de Registro de Oferta
+ * 
+ * Diseño basado en Kendall & Kendall (8va Ed.) Cap. 12 - Diseño de Entrada Efectiva:
+ * - Agrupación Lógica: 4 secciones claramente numeradas
+ * - Controles Adecuados: Listas desplegables y selectores de fecha
+ * - Campos Obligatorios: Marcados con asterisco (*)
+ * - Manejo de Excepciones: Enlaces para administrar proveedores
+ */
 import { ref, computed } from 'vue';
 import { Head, useForm, Link } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
-import InputLabel from '@/Components/InputLabel.vue';
-import TextInput from '@/Components/TextInput.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
 import InputError from '@/Components/InputError.vue';
-import Checkbox from '@/Components/Checkbox.vue';
 
 const props = defineProps({
     proveedores: Array,
     productos: Array,
     solicitud_id: {
         type: [Number, String],
+        default: null
+    },
+    solicitud: {
+        type: Object,
         default: null
     },
     cotizacion_id: {
@@ -25,405 +34,486 @@ const props = defineProps({
     }
 });
 
+// Formulario con estructura para CU-21
 const form = useForm({
     proveedor_id: props.datosPrecargados?.proveedor_id || '',
     solicitud_id: props.solicitud_id,
     cotizacion_id: props.cotizacion_id,
-    fecha_recepcion: props.datosPrecargados?.fecha_recepcion || new Date().toISOString().split('T')[0],
+    
+    // Producto (solo editable si NO hay solicitud)
+    producto_id: props.solicitud?.detalles?.[0]?.producto_id || '',
+    
+    // Sección 2: Detalles de la Oferta
+    moneda: 'ARS',
+    precio_unitario: props.datosPrecargados?.precio_unitario || 0,
+    cantidad: props.solicitud?.detalles?.[0]?.cantidad_sugerida || 1,
+    disponibilidad: 'inmediata',
+    dias_entrega: 0,
     validez_hasta: '',
-    observaciones: props.datosPrecargados?.observaciones || '',
+    condiciones_proveedor: '',
+    
+    // Sección 3: Archivo adjunto
     archivo_adjunto: null,
-    items: props.datosPrecargados?.items || [
-        { 
-            producto_id: '', 
-            cantidad: 1, 
-            precio_unitario: 0, 
-            disponibilidad_inmediata: true, 
-            dias_entrega: 0
-        }
-    ]
+    
+    // Sección 4: Justificación (OBLIGATORIO según CU-21 Paso 7)
+    motivo_registro: props.datosPrecargados?.observaciones || '',
 });
 
-const addItem = () => {
-    form.items.push({
-        producto_id: '',
-        cantidad: 1,
-        precio_unitario: 0,
-        disponibilidad_inmediata: true,
-        dias_entrega: 0
-    });
-};
+// Determinar si viene de una solicitud (producto precargado)
+const tieneSolicitud = computed(() => {
+    return props.solicitud !== null && props.solicitud !== undefined;
+});
 
-const removeItem = (index) => {
-    if (form.items.length > 1) {
-        form.items.splice(index, 1);
-    } else {
-        form.items[0] = { producto_id: '', cantidad: 1, precio_unitario: 0, disponibilidad_inmediata: true, dias_entrega: 0 };
+// Producto precargado de la solicitud
+const productoPrecargado = computed(() => {
+    if (tieneSolicitud.value && props.solicitud?.detalles?.[0]?.producto) {
+        return props.solicitud.detalles[0].producto;
     }
-};
-
-const totalEstimado = computed(() => {
-    return form.items.reduce((acc, item) => {
-        return acc + ((parseFloat(item.cantidad) || 0) * (parseFloat(item.precio_unitario) || 0));
-    }, 0);
+    return null;
 });
 
-const cantidadItems = computed(() => form.items.filter(i => i.producto_id).length);
+// Cantidad requerida de la solicitud (para mostrar referencia)
+const cantidadRequerida = computed(() => {
+    if (tieneSolicitud.value && props.solicitud?.detalles?.[0]) {
+        return props.solicitud.detalles[0].cantidad_sugerida;
+    }
+    return null;
+});
 
+// Opciones de disponibilidad
+const opcionesDisponibilidad = [
+    { value: 'inmediata', label: 'Inmediata' },
+    { value: 'a_pedido', label: 'A pedido' },
+    { value: 'sin_stock', label: 'Sin stock' },
+];
+
+// Opciones de moneda
+const opcionesMoneda = [
+    { value: 'ARS', label: 'ARS' },
+    { value: 'USD', label: 'USD' },
+];
+
+// Subtotal estimado
+const subtotalEstimado = computed(() => {
+    return (parseFloat(form.cantidad) || 0) * (parseFloat(form.precio_unitario) || 0);
+});
+
+// Contexto de la solicitud (si existe)
+const contextoSolicitud = computed(() => {
+    if (props.solicitud) {
+        const detalles = props.solicitud.detalles || [];
+        const producto = detalles[0]?.producto?.nombre || 'Producto no especificado';
+        const cantidad = detalles.reduce((acc, d) => acc + (d.cantidad_sugerida || 0), 0);
+        return {
+            codigo: props.solicitud.codigo_solicitud,
+            producto: producto,
+            cantidad: cantidad
+        };
+    }
+    return null;
+});
+
+// Formatear moneda
+const formatCurrency = (value) => {
+    return '$ ' + Number(value || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 });
+};
+
+// Validar motivo mínimo
+const motivoValido = computed(() => {
+    return form.motivo_registro.trim().length >= 10;
+});
+
+// Manejar selección de archivo
+const fileInput = ref(null);
+const handleFileSelect = (event) => {
+    form.archivo_adjunto = event.target.files[0];
+};
+
+// Enviar formulario
 const submit = () => {
     form.post(route('ofertas.store'), {
         forceFormData: true,
         preserveScroll: true,
-        onSuccess: () => form.reset(),
+    });
+};
+
+// Guardar y registrar otra
+const submitYOtra = () => {
+    form.post(route('ofertas.store'), {
+        forceFormData: true,
+        preserveScroll: true,
+        onSuccess: () => {
+            form.reset('precio_unitario', 'cantidad', 'disponibilidad', 'dias_entrega', 'archivo_adjunto', 'motivo_registro', 'condiciones_proveedor');
+        },
     });
 };
 </script>
 
 <template>
-    <Head title="Registrar Oferta de Compra" />
+    <Head :title="contextoSolicitud ? `Registrar Oferta - ${contextoSolicitud.codigo}` : 'Registrar Nueva Oferta'" />
 
     <AppLayout>
+        <!-- HEADER en el slot del layout -->
         <template #header>
-            {{ props.datosPrecargados ? 'Completar Oferta desde Cotización' : 'Registrar Oferta de Proveedor' }}
+            <div class="flex items-center justify-between gap-4">
+                <div class="min-w-0 flex-1">
+                    <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight truncate">
+                        Registrar Nueva Oferta
+                    </h2>
+                    <p v-if="contextoSolicitud" class="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                        Solicitud #{{ contextoSolicitud.codigo }} · {{ contextoSolicitud.producto }} · {{ contextoSolicitud.cantidad }} Unid.
+                    </p>
+                    <p v-else class="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+                        Sin Solicitud Previa
+                    </p>
+                </div>
+                <Link 
+                    :href="route('ofertas.index')" 
+                    class="flex-shrink-0 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors whitespace-nowrap"
+                >
+                    Volver
+                </Link>
+            </div>
         </template>
 
-        <div class="max-w-6xl mx-auto">
-            
-            <!-- ALERTA: Datos Pre-cargados desde Cotización -->
-            <div v-if="props.datosPrecargados" class="mb-6 bg-blue-50 border-l-4 border-blue-500 p-4 rounded-lg">
-                <div class="flex items-center">
-                    <svg class="w-5 h-5 text-blue-600 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
-                    </svg>
-                    <div class="flex-1">
-                        <p class="text-sm font-medium text-blue-800">
-                            Datos cargados desde la respuesta del proveedor <strong>{{ props.datosPrecargados.proveedor?.razon_social }}</strong>
-                        </p>
-                        <p class="text-xs text-blue-600 mt-1">
-                            Verifique los precios, ajuste si es necesario y complete los campos faltantes
-                        </p>
-                    </div>
-                </div>
-            </div>
-            
-            <form @submit.prevent="submit" class="space-y-6">
-                
-                <!-- Cabecera con resumen -->
-                <div class="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-lg shadow-lg p-6 text-white">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-4">
-                            <div class="bg-white/20 p-3 rounded-lg">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                            </div>
-                            <div>
-                                <h2 class="text-xl font-semibold">Nueva Oferta de Compra</h2>
-                                <p class="text-indigo-200 text-sm">Complete los datos del presupuesto recibido</p>
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <p class="text-indigo-200 text-xs uppercase tracking-wide">Total Estimado</p>
-                            <p class="text-3xl font-bold">${{ totalEstimado.toLocaleString('es-AR', {minimumFractionDigits: 2}) }}</p>
-                            <p class="text-indigo-200 text-sm">{{ cantidadItems }} producto(s)</p>
-                        </div>
-                    </div>
-                </div>
+        <div class="py-6">
+            <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
 
-                <!-- Grid Principal: Datos + Archivo -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <form @submit.prevent="submit" class="space-y-6">
                     
-                    <!-- Datos del Documento (2 columnas) -->
-                    <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200">
-                        <div class="px-6 py-4 border-b border-gray-100">
-                            <h3 class="font-semibold text-gray-900 flex items-center">
-                                <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
-                                Datos del Documento
+                    <!-- ============================================== -->
+                    <!-- SECCIÓN 1: SELECCIÓN DE PROVEEDOR              -->
+                    <!-- ============================================== -->
+                    <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                        <div class="bg-indigo-600 px-6 py-3">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                1. Selección de Proveedor
                             </h3>
                         </div>
-                        <div class="p-6 space-y-5">
-                            <!-- Proveedor -->
-                            <div>
-                                <InputLabel for="proveedor_id" value="Proveedor" class="text-gray-700 font-medium" />
+                        
+                        <div class="p-6 space-y-4">
+                            <div class="flex items-center gap-4">
+                                <label class="text-sm font-medium text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                                    <span class="text-red-500">*</span> Proveedor:
+                                </label>
                                 
-                                <!-- Si viene pre-cargado: mostrar como texto bloqueado -->
-                                <div v-if="props.datosPrecargados" class="mt-1.5 block w-full px-4 py-2.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 font-medium">
-                                    {{ props.datosPrecargados.proveedor?.razon_social }}
-                                    <span class="ml-2 text-xs text-gray-500">(desde cotización)</span>
+                                <!-- Si viene precargado -->
+                                <div v-if="props.datosPrecargados?.proveedor" 
+                                     class="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded text-sm">
+                                    {{ props.datosPrecargados.proveedor.razon_social }}
+                                    <span class="text-xs text-gray-500 ml-2">(desde cotización)</span>
                                 </div>
                                 
-                                <!-- Si NO viene pre-cargado: selector normal -->
+                                <!-- Selector normal -->
                                 <select 
                                     v-else
-                                    id="proveedor_id" 
                                     v-model="form.proveedor_id"
-                                    class="mt-1.5 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm text-gray-900"
+                                    required
+                                    class="flex-1 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
                                 >
-                                    <option value="">Seleccionar proveedor...</option>
+                                    <option value="">Seleccionar Proveedor de la lista</option>
                                     <option v-for="prov in proveedores" :key="prov.id" :value="prov.id">
                                         {{ prov.razon_social }}
                                     </option>
                                 </select>
-                                <InputError :message="form.errors.proveedor_id" class="mt-1" />
+                            </div>
+                            <InputError :message="form.errors.proveedor_id" />
+                            
+                            <p class="text-sm text-gray-500 dark:text-gray-400">
+                                ¿El proveedor no aparece? 
+                                <Link :href="route('proveedores.index')" class="text-indigo-600 dark:text-indigo-400 hover:underline">
+                                    Administrar Proveedores Activos
+                                </Link>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- ============================================== -->
+                    <!-- SECCIÓN 2: DETALLES DE LA OFERTA              -->
+                    <!-- ============================================== -->
+                    <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                        <div class="bg-indigo-600 px-6 py-3">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                2. Detalles de la Oferta
+                            </h3>
+                        </div>
+                        
+                        <div class="p-6 space-y-5">
+                            <!-- Producto (selector si no hay solicitud, solo lectura si hay) -->
+                            <div class="border-b border-gray-200 dark:border-gray-700 pb-5">
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    <span class="text-red-500">*</span> Producto:
+                                </label>
+                                
+                                <!-- Sin solicitud: dropdown para seleccionar producto -->
+                                <template v-if="!tieneSolicitud">
+                                    <select 
+                                        v-model="form.producto_id"
+                                        required
+                                        class="w-full md:w-2/3 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
+                                    >
+                                        <option value="">Seleccionar producto...</option>
+                                        <option v-for="producto in productos" :key="producto.id" :value="producto.id">
+                                            {{ producto.codigo }} - {{ producto.nombre }}
+                                        </option>
+                                    </select>
+                                    <InputError :message="form.errors.producto_id" class="mt-1" />
+                                </template>
+                                
+                                <!-- Con solicitud: mostrar producto precargado (solo lectura) -->
+                                <template v-else-if="productoPrecargado">
+                                    <div class="flex items-center gap-3 py-2 px-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-md border border-indigo-200 dark:border-indigo-700">
+                                        <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                        </svg>
+                                        <div>
+                                            <span class="text-sm font-semibold text-gray-900 dark:text-white">
+                                                {{ productoPrecargado.codigo }} - {{ productoPrecargado.nombre }}
+                                            </span>
+                                            <span v-if="cantidadRequerida" class="ml-3 text-xs text-gray-500 dark:text-gray-400">
+                                                (Cantidad solicitada: {{ cantidadRequerida }} unidades)
+                                            </span>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
 
-                            <!-- Fechas -->
-                            <div class="grid grid-cols-2 gap-4">
+                            <!-- Grid para campos principales -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- Moneda -->
                                 <div>
-                                    <InputLabel for="fecha_recepcion" value="Fecha de Recepción" class="text-gray-700 font-medium" />
-                                    <TextInput 
-                                        id="fecha_recepcion" 
-                                        type="date" 
-                                        v-model="form.fecha_recepcion" 
-                                        class="mt-1.5 block w-full" 
-                                    />
-                                    <InputError :message="form.errors.fecha_recepcion" class="mt-1" />
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <span class="text-red-500">*</span> Moneda:
+                                    </label>
+                                    <select 
+                                        v-model="form.moneda"
+                                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
+                                    >
+                                        <option v-for="mon in opcionesMoneda" :key="mon.value" :value="mon.value">
+                                            {{ mon.label }}
+                                        </option>
+                                    </select>
                                 </div>
+                                
+                                <!-- Precio Unitario -->
                                 <div>
-                                    <InputLabel for="validez_hasta" value="Válida hasta" class="text-gray-700 font-medium" />
-                                    <TextInput 
-                                        id="validez_hasta" 
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <span class="text-red-500">*</span> Precio Unitario:
+                                    </label>
+                                    <div class="flex">
+                                        <span class="inline-flex items-center px-3 bg-gray-100 dark:bg-gray-600 border border-r-0 border-gray-300 dark:border-gray-600 rounded-l-md text-sm text-gray-600 dark:text-gray-300">$</span>
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            min="0"
+                                            v-model="form.precio_unitario"
+                                            required
+                                            class="flex-1 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-r-md shadow-sm text-sm"
+                                        />
+                                    </div>
+                                    <InputError :message="form.errors.precio_unitario" class="mt-1" />
+                                </div>
+                                
+                                <!-- Cantidad Ofertada -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <span class="text-red-500">*</span> Cantidad Ofertada:
+                                    </label>
+                                    <input 
+                                        type="number" 
+                                        min="1"
+                                        v-model="form.cantidad"
+                                        required
+                                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
+                                    />
+                                    <InputError :message="form.errors.cantidad" class="mt-1" />
+                                </div>
+                            </div>
+                            
+                            <!-- Subtotal Estimado -->
+                            <div class="flex items-center gap-2 py-2 px-4 bg-gray-50 dark:bg-gray-700 rounded-md">
+                                <span class="text-sm font-medium text-gray-700 dark:text-gray-300">Subtotal Estimado:</span>
+                                <span class="text-lg font-bold text-indigo-600 dark:text-indigo-400">
+                                    {{ formatCurrency(subtotalEstimado) }}
+                                </span>
+                            </div>
+                            
+                            <!-- Grid para disponibilidad y plazo -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <!-- Disponibilidad -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <span class="text-red-500">*</span> Disponibilidad:
+                                    </label>
+                                    <select 
+                                        v-model="form.disponibilidad"
+                                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
+                                    >
+                                        <option v-for="op in opcionesDisponibilidad" :key="op.value" :value="op.value">
+                                            {{ op.label }}
+                                        </option>
+                                    </select>
+                                </div>
+                                
+                                <!-- Plazo Entrega -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        <span class="text-red-500">*</span> Plazo Entrega:
+                                    </label>
+                                    <div class="flex items-center gap-2">
+                                        <input 
+                                            type="number" 
+                                            min="0"
+                                            v-model="form.dias_entrega"
+                                            class="w-20 border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm text-center"
+                                        />
+                                        <span class="text-sm text-gray-600 dark:text-gray-400">días hábiles a partir de la OC.</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Validez Oferta -->
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                        Validez Oferta:
+                                    </label>
+                                    <input 
                                         type="date" 
-                                        v-model="form.validez_hasta" 
-                                        class="mt-1.5 block w-full" 
+                                        v-model="form.validez_hasta"
+                                        class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm"
                                     />
                                     <InputError :message="form.errors.validez_hasta" class="mt-1" />
                                 </div>
                             </div>
-
-                            <!-- Motivo/Observaciones (CU-21 Paso 6-7: OBLIGATORIO) -->
+                            
+                            <!-- Condiciones/Observaciones del Proveedor -->
                             <div>
-                                <InputLabel for="observaciones" class="text-gray-700 font-medium">
-                                    <span>Motivo u Observación</span>
-                                    <span class="text-red-500 ml-1">*</span>
-                                </InputLabel>
-                                <p class="text-xs text-gray-500 mt-1 mb-2">
-                                    CU-21: Indique el motivo del registro o evaluación de esta oferta (obligatorio)
-                                </p>
+                                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                    Condiciones/Observaciones del Proveedor:
+                                </label>
                                 <textarea 
-                                    id="observaciones"
-                                    v-model="form.observaciones" 
+                                    v-model="form.condiciones_proveedor"
                                     rows="3"
-                                    required
-                                    class="mt-1.5 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg shadow-sm resize-none" 
-                                    placeholder="Ej: Oferta recibida por email ante necesidad urgente de reposición de stock crítico..."
+                                    class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm resize-none"
+                                    placeholder="Precio incluye envío a oficinas centrales. Garantía de 2 años."
                                 ></textarea>
-                                <InputError :message="form.errors.observaciones" class="mt-1" />
                             </div>
                         </div>
                     </div>
 
-                    <!-- Archivo Adjunto (1 columna) -->
-                    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                        <div class="px-6 py-4 border-b border-gray-100">
-                            <h3 class="font-semibold text-gray-900 flex items-center">
-                                <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                                </svg>
-                                Comprobante
+                    <!-- ============================================== -->
+                    <!-- SECCIÓN 3: EVIDENCIA ADJUNTA                  -->
+                    <!-- ============================================== -->
+                    <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                        <div class="bg-indigo-600 px-6 py-3">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                3. Evidencia Adjunta
                             </h3>
                         </div>
+                        
                         <div class="p-6">
-                            <div 
-                                class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-indigo-400 transition-colors cursor-pointer"
-                                @click="$refs.fileInput.click()"
-                            >
+                            <p class="text-sm text-gray-700 dark:text-gray-300 mb-4">
+                                Adjuntar Cotización Original (PDF, Imagen, Audio, Texto - Máx 10MB):
+                            </p>
+                            
+                            <div class="flex items-center gap-4">
                                 <input 
                                     ref="fileInput"
                                     type="file" 
-                                    @input="form.archivo_adjunto = $event.target.files[0]"
-                                    accept=".pdf,.jpg,.jpeg,.png"
+                                    @change="handleFileSelect"
+                                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.mp3,.wav,.ogg,.m4a,.txt,.doc,.docx"
                                     class="hidden"
                                 />
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                                </svg>
-                                <p class="mt-2 text-sm text-gray-600">
-                                    <span class="font-medium text-indigo-600">Click para subir</span>
-                                </p>
-                                <p class="text-xs text-gray-500 mt-1">PDF, JPG o PNG</p>
-                            </div>
-                            
-                            <div v-if="form.archivo_adjunto" class="mt-4 p-3 bg-indigo-50 rounded-lg flex items-center justify-between">
-                                <div class="flex items-center space-x-2 text-sm">
-                                    <svg class="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
-                                    </svg>
-                                    <span class="text-gray-700 truncate max-w-[150px]">{{ form.archivo_adjunto.name }}</span>
-                                </div>
-                                <button type="button" @click="form.archivo_adjunto = null" class="text-gray-400 hover:text-red-500">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+                                <button 
+                                    type="button"
+                                    @click="$refs.fileInput.click()"
+                                    class="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 text-sm font-medium rounded-md hover:bg-indigo-200 dark:hover:bg-indigo-900 transition-colors"
+                                >
+                                    Seleccionar Archivo
+                                </button>
+                                <span class="text-sm text-gray-500 dark:text-gray-400">
+                                    {{ form.archivo_adjunto ? form.archivo_adjunto.name : 'Ningún archivo seleccionado' }}
+                                </span>
+                                <button 
+                                    v-if="form.archivo_adjunto"
+                                    type="button" 
+                                    @click="form.archivo_adjunto = null" 
+                                    class="text-gray-400 hover:text-red-500"
+                                >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                     </svg>
                                 </button>
                             </div>
                             
-                            <progress v-if="form.progress" :value="form.progress.percentage" max="100" class="w-full h-1.5 mt-3 rounded">
-                                {{ form.progress.percentage }}%
-                            </progress>
                             <InputError :message="form.errors.archivo_adjunto" class="mt-2" />
                         </div>
                     </div>
-                </div>
 
-                <!-- Tabla de Ítems -->
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <h3 class="font-semibold text-gray-900 flex items-center">
-                            <svg class="w-5 h-5 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                            Detalle de Productos
-                        </h3>
-                        <button 
-                            type="button" 
-                            @click="addItem"
-                            class="inline-flex items-center px-3 py-1.5 border border-indigo-600 text-indigo-600 text-sm font-medium rounded-lg hover:bg-indigo-50 transition-colors"
-                        >
-                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            Agregar
-                        </button>
+                    <!-- ============================================== -->
+                    <!-- SECCIÓN 4: JUSTIFICACIÓN DEL REGISTRO         -->
+                    <!-- ============================================== -->
+                    <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                        <div class="bg-indigo-600 px-6 py-3">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                4. Justificación del Registro
+                            </h3>
+                        </div>
+                        
+                        <div class="p-6">
+                            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                <span class="text-red-500">*</span> Motivo/Observación Interna:
+                            </label>
+                            <textarea 
+                                v-model="form.motivo_registro"
+                                rows="3"
+                                required
+                                minlength="10"
+                                class="w-full border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm text-sm resize-none"
+                                placeholder="Oferta recibida por email tras solicitud telefónica."
+                            ></textarea>
+                            
+                            <InputError :message="form.errors.motivo_registro" class="mt-2" />
+                        </div>
+                    </div>
+
+                    <!-- ============================================== -->
+                    <!-- BOTONES DE ACCIÓN                             -->
+                    <!-- ============================================== -->
+                    <div class="flex items-center justify-between pt-2">
+                        <Link :href="route('ofertas.index')">
+                            <button 
+                                type="button"
+                                class="px-6 py-2.5 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                        </Link>
+                        
+                        <div class="flex items-center gap-3">
+                            <button 
+                                type="button"
+                                @click="submitYOtra"
+                                :disabled="form.processing || !motivoValido"
+                                class="px-5 py-2.5 bg-indigo-500 hover:bg-indigo-600 disabled:bg-indigo-300 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md shadow-sm transition-colors"
+                            >
+                                Guardar y Registrar Otra
+                            </button>
+                            
+                            <button 
+                                type="submit"
+                                :disabled="form.processing || !motivoValido"
+                                class="px-5 py-2.5 bg-indigo-700 hover:bg-indigo-800 disabled:bg-indigo-400 disabled:cursor-not-allowed text-white text-sm font-medium rounded-md shadow-sm transition-colors inline-flex items-center"
+                            >
+                                {{ form.processing ? 'Guardando...' : 'Guardar Oferta' }}
+                                <svg class="w-4 h-4 ml-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     
-                    <InputError :message="form.errors.items" class="px-6 pt-4" />
-
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead>
-                                <tr class="bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    <th class="px-6 py-3">Producto</th>
-                                    <th class="px-4 py-3 w-28">Cantidad</th>
-                                    <th class="px-4 py-3 w-36">Precio Unit.</th>
-                                    <th class="px-4 py-3 w-32 text-right">Subtotal</th>
-                                    <th class="px-4 py-3 w-44">Disponibilidad</th>
-                                    <th class="px-4 py-3 w-12"></th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <tr v-for="(item, index) in form.items" :key="index" class="hover:bg-gray-50/50">
-                                    <!-- Producto -->
-                                    <td class="px-6 py-4">
-                                        <select 
-                                            v-model="item.producto_id"
-                                            class="block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-lg text-sm"
-                                        >
-                                            <option value="">Seleccionar producto...</option>
-                                            <option v-for="prod in productos" :key="prod.id" :value="prod.id">
-                                                {{ prod.codigo }} - {{ prod.nombre }}
-                                            </option>
-                                        </select>
-                                        <InputError :message="form.errors[`items.${index}.producto_id`]" class="mt-1" />
-                                    </td>
-
-                                    <!-- Cantidad -->
-                                    <td class="px-4 py-4">
-                                        <TextInput 
-                                            type="number" 
-                                            v-model="item.cantidad" 
-                                            class="block w-full text-sm text-center" 
-                                            min="1"
-                                        />
-                                        <InputError :message="form.errors[`items.${index}.cantidad`]" class="mt-1" />
-                                    </td>
-
-                                    <!-- Precio Unitario -->
-                                    <td class="px-4 py-4">
-                                        <div class="relative">
-                                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
-                                            <input 
-                                                type="number" 
-                                                step="0.01"
-                                                min="0"
-                                                v-model="item.precio_unitario"
-                                                class="block w-full rounded-lg border-gray-300 pl-7 text-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                            />
-                                        </div>
-                                        <InputError :message="form.errors[`items.${index}.precio_unitario`]" class="mt-1" />
-                                    </td>
-
-                                    <!-- Subtotal -->
-                                    <td class="px-4 py-4 text-right">
-                                        <span class="text-sm font-semibold text-gray-900">
-                                            ${{ ((item.cantidad * item.precio_unitario) || 0).toLocaleString('es-AR', {minimumFractionDigits: 2}) }}
-                                        </span>
-                                    </td>
-
-                                    <!-- Disponibilidad -->
-                                    <td class="px-4 py-4">
-                                        <div class="flex items-center space-x-3">
-                                            <label class="relative inline-flex items-center cursor-pointer">
-                                                <input type="checkbox" v-model="item.disponibilidad_inmediata" class="sr-only peer">
-                                                <div class="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-indigo-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-green-500"></div>
-                                            </label>
-                                            <span v-if="item.disponibilidad_inmediata" class="text-xs text-green-600 font-medium">Inmediato</span>
-                                            <div v-else class="flex items-center space-x-1">
-                                                <input 
-                                                    type="number" 
-                                                    v-model="item.dias_entrega" 
-                                                    class="w-12 text-xs text-center rounded border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 py-1" 
-                                                    min="1"
-                                                />
-                                                <span class="text-xs text-gray-500">días</span>
-                                            </div>
-                                        </div>
-                                    </td>
-
-                                    <!-- Eliminar -->
-                                    <td class="px-4 py-4 text-center">
-                                        <button 
-                                            type="button" 
-                                            @click="removeItem(index)"
-                                            class="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                            title="Eliminar"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                            </svg>
-                                        </button>
-                                    </td>
-                                </tr>
-                            </tbody>
-                            <!-- Footer con total -->
-                            <tfoot class="bg-gray-50">
-                                <tr>
-                                    <td colspan="3" class="px-6 py-4 text-right text-sm font-medium text-gray-500">
-                                        Total de la Oferta:
-                                    </td>
-                                    <td class="px-4 py-4 text-right">
-                                        <span class="text-lg font-bold text-indigo-600">
-                                            ${{ totalEstimado.toLocaleString('es-AR', {minimumFractionDigits: 2}) }}
-                                        </span>
-                                    </td>
-                                    <td colspan="2"></td>
-                                </tr>
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-
-                <!-- Acciones -->
-                <div class="flex items-center justify-between pt-4 border-t border-gray-200">
-                    <Link :href="route('ofertas.index')" class="text-gray-500 hover:text-gray-700 text-sm font-medium">
-                        ← Volver al listado
-                    </Link>
-                    
-                    <PrimaryButton 
-                        :class="{ 'opacity-50 cursor-not-allowed': form.processing }" 
-                        :disabled="form.processing"
-                        class="px-6 py-2.5"
-                    >
-                        <svg v-if="form.processing" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        {{ form.processing ? 'Guardando...' : 'Guardar Oferta' }}
-                    </PrimaryButton>
-                </div>
-            </form>
+                </form>
+            </div>
         </div>
     </AppLayout>
 </template>

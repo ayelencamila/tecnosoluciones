@@ -90,8 +90,15 @@ class RegistrarCompraService
                 ];
             }
             
-            // Paso 8: NOTIFICAR POR EMAIL (opcional, no bloquea)
-            $this->enviarEmail($orden, $usuarioId);
+            // Paso 8: NOTIFICAR POR EMAIL (Excepción 9b - no bloquea)
+            $emailEnviado = $this->enviarEmail($orden, $usuarioId);
+            if (!$emailEnviado) {
+                $advertencias[] = [
+                    'tipo' => 'warning',
+                    'mensaje' => 'El envío por Email falló. El proveedor no recibirá copia por correo. Puede reenviar manualmente.',
+                    'excepcion' => '9b'
+                ];
+            }
             
             // Paso 9: AUDITORÍA (Excepción 11a - no bloquea)
             try {
@@ -305,15 +312,19 @@ class RegistrarCompraService
     }
 
     /**
-     * Envía emails de la OC (CU-22 Paso 7)
+     * Envía emails de la OC (CU-22 Paso 8)
      * 
      * - Al proveedor: con PDF adjunto para confirmar la orden
      * - Al administrador: notificación de la OC generada
      * 
      * En desarrollo usa Mailpit (localhost:1025)
+     * 
+     * @return bool True si se envió correctamente al proveedor, False si falló
      */
-    protected function enviarEmail(OrdenCompra $orden, int $usuarioId): void
+    protected function enviarEmail(OrdenCompra $orden, int $usuarioId): bool
     {
+        $emailProveedorEnviado = false;
+        
         // 1. Email al PROVEEDOR (con PDF adjunto)
         try {
             $proveedor = $orden->proveedor;
@@ -321,15 +332,16 @@ class RegistrarCompraService
             if ($proveedor && $proveedor->email) {
                 $proveedor->notify(new OrdenCompraProveedor($orden));
                 Log::info("📧 Email de OC enviado al proveedor {$proveedor->email}");
+                $emailProveedorEnviado = true;
             } else {
                 Log::warning("⚠️ Proveedor {$proveedor->razon_social} sin email. OC no enviada por correo.");
             }
             
         } catch (Exception $e) {
-            Log::warning("⚠️ No se pudo enviar email al proveedor: " . $e->getMessage());
+            Log::warning("⚠️ Excepción 9b - No se pudo enviar email al proveedor: " . $e->getMessage());
         }
 
-        // 2. Email al ADMINISTRADOR (notificación interna)
+        // 2. Email al ADMINISTRADOR (notificación interna, no afecta el resultado)
         try {
             $usuario = User::find($usuarioId);
             
@@ -341,6 +353,8 @@ class RegistrarCompraService
         } catch (Exception $e) {
             Log::warning("⚠️ No se pudo enviar email al administrador: " . $e->getMessage());
         }
+        
+        return $emailProveedorEnviado;
     }
 
     /**

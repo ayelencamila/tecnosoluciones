@@ -25,53 +25,70 @@ class OfertaCompraController extends Controller
         protected OfertaCompraRepository $ofertaCompraRepository
     ) {}
     /**
-     * CU-21 (Paso 1): Listar ofertas para gestión
-     * MEJORA: Usa Repository para consultas complejas
+     * CU-21 (Paso 1 y 2): Panel Principal - Listado de Solicitudes Pendientes
+     * 
+     * Diseño K&K: "Tablero de control" - Lista de tareas pendientes
+     * Muestra solicitudes de cotización que necesitan gestión de ofertas
      */
     public function index(Request $request): Response
     {
-        // Delegar al repository (Patrón Repository - Sommerville)
-        $ofertas = $this->ofertaCompraRepository->filtrar(
-            criterios: $request->only(['search', 'estado_id', 'proveedor_id']),
-            perPage: 10
-        );
+        // CU-21 Paso 2: Solicitudes de cotización pendientes de gestión
+        // Incluye las que tienen respuestas de proveedores sin convertir a ofertas formales
+        $query = SolicitudCotizacion::with([
+            'estado:id,nombre',
+            'detalles.producto:id,nombre,codigo',
+        ])
+        ->withCount(['cotizacionesProveedores as ofertas_count' => function($q) {
+            $q->whereNotNull('fecha_respuesta');
+        }]);
 
-        // Productos con múltiples ofertas para comparar
+        // Filtrar por estado
+        if ($request->filled('estado')) {
+            if ($request->estado === 'pendientes') {
+                // Filtro especial: solo estados que requieren gestión de ofertas
+                $query->whereHas('estado', fn($q) => $q->where('requiere_gestion_ofertas', true));
+            } else {
+                // Filtro por estado específico
+                $query->whereHas('estado', fn($q) => $q->where('nombre', $request->estado));
+            }
+        }
+        // Si no hay filtro (Todos los Estados), no aplica filtro → muestra todas
+
+        // Filtrar por búsqueda de producto
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('codigo_solicitud', 'like', "%{$search}%")
+                  ->orWhereHas('detalles.producto', function($q2) use ($search) {
+                      $q2->where('nombre', 'like', "%{$search}%")
+                         ->orWhere('codigo', 'like', "%{$search}%");
+                  });
+            });
+        }
+
+        $solicitudesPendientes = $query->latest()->paginate(10)->withQueryString();
+
+        // CU-21 Paso 10: Productos con múltiples ofertas para comparar
         $productosConOfertas = $this->ofertaCompraRepository->productosConMultiplesOfertas(limite: 10);
 
-        // CU-21 Paso 2: Solicitudes de cotización con respuestas pendientes de conversión a oferta
-        // FIX: Agregado ->unique('id') para evitar duplicados
-        $solicitudesConRespuestas = \App\Models\SolicitudCotizacion::with([
-            'cotizacionesProveedores' => function($q) {
-                $q->whereNotNull('fecha_respuesta')
-                  ->whereDoesntHave('ofertasCompra') // Sin oferta formal creada aún
-                  ->with(['proveedor:id,razon_social', 'respuestas.producto:id,nombre']);
-            }
-        ])
-        ->whereHas('cotizacionesProveedores', function($q) {
-            $q->whereNotNull('fecha_respuesta')
-              ->whereDoesntHave('ofertasCompra');
-        })
-        ->whereHas('estado', function($q) {
-            $q->where('nombre', 'Enviada');
-        })
-        ->latest()
-        ->limit(10)
-        ->get(['id', 'codigo_solicitud', 'fecha_emision'])
-        ->unique('id'); // ELIMINA DUPLICADOS por ID de solicitud
+        // Estados de solicitud para el filtro dropdown (todos los activos, ordenados)
+        $estadosSolicitud = \App\Models\EstadoSolicitud::activos()
+            ->ordenados()
+            ->select('id', 'nombre')
+            ->get();
 
-        // CONTADORES PARA TARJETAS DE RESUMEN (vista profesional)
+        // Contadores para resumen (usando campo parametrizable)
         $counts = [
-            'total' => OfertaCompra::count(),
-            'pendientes' => OfertaCompra::whereHas('estado', fn($q) => $q->where('nombre', 'Pendiente'))->count(),
-            'elegidas' => OfertaCompra::whereHas('estado', fn($q) => $q->where('nombre', 'Elegida'))->count(),
+            'solicitudes_pendientes' => SolicitudCotizacion::whereHas('estado', fn($q) => $q->where('requiere_gestion_ofertas', true))->count(),
+            'ofertas_registradas' => OfertaCompra::count(),
+            'ofertas_elegidas' => OfertaCompra::whereHas('estado', fn($q) => $q->where('nombre', 'Elegida'))->count(),
         ];
 
         return Inertia::render('Compras/Ofertas/Index', [
-            'ofertas' => $ofertas,
-            'filters' => $request->only(['search']),
+            'solicitudesPendientes' => $solicitudesPendientes,
+            'estadosSolicitud' => $estadosSolicitud,
             'productosConOfertas' => $productosConOfertas,
-            'solicitudesConRespuestas' => $solicitudesConRespuestas,
+            'filters' => $request->only(['search', 'estado']),
             'counts' => $counts,
         ]);
     }
@@ -89,6 +106,15 @@ class OfertaCompraController extends Controller
         $estadoActivo = \App\Models\EstadoProducto::where('nombre', 'Activo')->first();
         
         $datosPrecargados = null;
+        $solicitud = null;
+        
+        // SI VIENE DE SOLICITUD → CARGAR datos de la solicitud (Producto + Cantidad precargados)
+        if ($solicitudId) {
+            $solicitud = SolicitudCotizacion::with([
+                'detalles.producto:id,nombre,codigo',
+                'estado:id,nombre',
+            ])->find($solicitudId);
+        }
         
         // SI VIENE DE COTIZACIÓN → PRE-CARGAR DATOS (Kendall: reutilizar info existente)
         if ($cotizacionId) {
@@ -123,6 +149,7 @@ class OfertaCompraController extends Controller
                 ->orderBy('nombre')
                 ->get(),
             'solicitud_id' => $solicitudId,
+            'solicitud' => $solicitud,
             'cotizacion_id' => $cotizacionId,
             'datosPrecargados' => $datosPrecargados,
         ]);
@@ -189,7 +216,7 @@ class OfertaCompraController extends Controller
      * CU-21 (Paso 12): Vista de Confirmación de Selección (Kendall: Vista de Control)
      * Separada de Show para cumplir principio de separación de responsabilidades
      */
-    public function confirmarSeleccion($id): Response
+    public function confirmarSeleccion($id): Response|RedirectResponse
     {
         $oferta = OfertaCompra::with(['proveedor', 'detalles.producto', 'estado', 'user'])
             ->findOrFail($id);
