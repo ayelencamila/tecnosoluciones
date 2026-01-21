@@ -206,31 +206,40 @@ const getNombreCorto = (nombre) => {
     <Head :title="`Comparativa de Ofertas - ${producto?.nombre || 'Producto'}`" />
 
     <AppLayout>
-        <!-- HEADER (estilo mockup indigo) -->
+        <!-- HEADER consistente -->
         <template #header>
-            <div class="flex items-center justify-between">
-                <div class="min-w-0 flex-1">
-                    <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                        COMPARATIVA DE OFERTAS: 
-                        <span class="font-normal">
-                            {{ solicitud?.codigo_solicitud ? `Solicitud #${solicitud.codigo_solicitud}` : producto?.nombre }}
-                        </span>
-                        <span v-if="producto" class="text-base font-normal text-gray-500 dark:text-gray-400">
-                            ({{ producto.nombre }} - {{ getCantidad(ofertas[0]) }} Unid.)
-                        </span>
-                    </h2>
-                </div>
-                <Link 
-                    :href="route('ofertas.index')" 
-                    class="flex-shrink-0 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors whitespace-nowrap"
-                >
-                    Volver
-                </Link>
-            </div>
+            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                Gestión de Compras
+            </h2>
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+
+                <!-- Breadcrumb, título y botón volver -->
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
+                            GESTIÓN DE COMPRAS &gt; OFERTAS &gt; COMPARATIVA
+                        </p>
+                        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                            COMPARATIVA DE OFERTAS
+                        </h1>
+                        <div v-if="producto" class="mt-1 flex items-center gap-2">
+                            <span class="text-sm text-gray-600 dark:text-gray-400">{{ producto.nombre }}</span>
+                            <span class="text-xs text-gray-500 dark:text-gray-500">•</span>
+                            <span class="text-sm font-medium text-indigo-600 dark:text-indigo-400">{{ getCantidad(ofertas[0]) }} Unidades</span>
+                            <span v-if="solicitud" class="text-xs text-gray-500 dark:text-gray-500">•</span>
+                            <span v-if="solicitud" class="text-sm text-gray-600 dark:text-gray-400">Solicitud #{{ solicitud.codigo_solicitud }}</span>
+                        </div>
+                    </div>
+                    <Link 
+                        :href="route('ofertas.index')" 
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+                    >
+                        Volver
+                    </Link>
+                </div>
 
                 <!-- Info de contexto -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-4">

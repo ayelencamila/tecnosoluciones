@@ -16,7 +16,7 @@ use Inertia\Response;
 use Exception;
 
 /**
- * Controlador de Órdenes de Compra (CU-22 y CU-24)
+ * Controlador de Órdenes de Compra (CU-22)
  * 
  * Responsabilidades:
  * - Coordinar casos de uso (GRASP: Controller)
@@ -31,46 +31,58 @@ class OrdenCompraController extends Controller
     ) {}
 
     /**
-     * CU-24: Lista todas las órdenes de compra con filtros
-     * MEJORA: Usa Repository para encapsular queries complejas
+     * CU-22 Pantalla 1: Punto de Partida - Listado de Ofertas Elegidas
+     * 
+     * Contexto: El administrador necesita encontrar las ofertas que ya han sido
+     * negociadas y seleccionadas (CU-21) y que están listas para convertirse en OC.
+     * 
+     * Principio K&K (Salida de Navegación): Lista filtrada "To-do list"
      */
     public function index(Request $request): Response
     {
-        // Delegar filtrado al repository (Sommerville: Separación de responsabilidades)
-        $ordenes = $this->ordenCompraRepository->filtrar(
-            criterios: $request->only(['numero_oc', 'proveedor_id', 'estado_id', 'fecha_desde', 'fecha_hasta', 'producto_id']),
-            perPage: 15
-        );
+        // Query base: ofertas con estado 'Elegida' o 'Pre-aprobada'
+        $query = OfertaCompra::with([
+            'proveedor:id,razon_social,cuit',
+            'estado:id,nombre',
+            'detalles.producto:id,nombre,codigo',
+        ])
+        ->whereHas('estado', function($q) {
+            $q->whereIn('nombre', ['Elegida', 'Pre-aprobada']);
+        });
 
-        // Obtener datos auxiliares desde repository
-        $estados = $this->ordenCompraRepository->obtenerEstadosActivos();
+        // Filtro por proveedor
+        if ($request->filled('proveedor_id')) {
+            $query->where('proveedor_id', $request->proveedor_id);
+        }
+
+        // Búsqueda por código de oferta o solicitud
+        if ($request->filled('busqueda')) {
+            $busqueda = $request->busqueda;
+            $query->where(function($q) use ($busqueda) {
+                $q->where('codigo_oferta', 'LIKE', "%{$busqueda}%")
+                  ->orWhere('id', 'LIKE', "%{$busqueda}%")
+                  ->orWhereHas('solicitud', function($sq) use ($busqueda) {
+                      $sq->where('codigo_solicitud', 'LIKE', "%{$busqueda}%");
+                  });
+            });
+        }
+
+        // Ordenar y paginar
+        $ofertas = $query->orderBy('created_at', 'desc')
+                        ->paginate(10)
+                        ->withQueryString();
+
+        // Obtener proveedores con ofertas elegidas para el filtro
+        $proveedores = \App\Models\Proveedor::whereHas('ofertas', function($q) {
+            $q->whereHas('estado', function($sq) {
+                $sq->whereIn('nombre', ['Elegida', 'Pre-aprobada']);
+            });
+        })->select('id', 'razon_social')->orderBy('razon_social')->get();
 
         return Inertia::render('Compras/Ordenes/Index', [
-            'ordenes' => $ordenes,
-            'estados' => $estados,
-            'filters' => $request->only(['numero_oc', 'proveedor_id', 'estado_id', 'fecha_desde', 'fecha_hasta']),
-        ]);
-    }
-
-    /**
-     * CU-22 Pantalla 1 (Kendall): Lista de Ofertas Elegidas para convertir en OC
-     * Vista de Selección - Cap. 11 Salida
-     */
-    public function seleccionar(): Response
-    {
-        // Solo ofertas con estado 'Elegida' o 'Pre-aprobada'
-        $ofertas = OfertaCompra::with([
-            'proveedor:id,razon_social,cuit',
-            'estado:id,nombre'
-        ])
-        ->whereHas('estado', function($query) {
-            $query->whereIn('nombre', ['Elegida', 'Pre-aprobada']);
-        })
-        ->orderBy('fecha_recepcion', 'desc')
-        ->get();
-
-        return Inertia::render('Compras/Ordenes/Seleccionar', [
             'ofertas' => $ofertas,
+            'proveedores' => $proveedores,
+            'filters' => $request->only(['proveedor_id', 'busqueda']),
         ]);
     }
 
@@ -83,12 +95,13 @@ class OrdenCompraController extends Controller
         $ofertaId = $request->query('oferta_id');
         
         if (!$ofertaId) {
-            return redirect()->route('ofertas.index')
+            return redirect()->route('ordenes.index')
                 ->with('error', 'Debe seleccionar una oferta para generar la Orden de Compra.');
         }
 
         $oferta = OfertaCompra::with([
-            'proveedor:id,razon_social,cuit,email,telefono,direccion',
+            'proveedor:id,razon_social,cuit,telefono,email,direccion_id',
+            'proveedor.direccion',
             'detalles.producto:id,nombre,codigo',
             'estado:id,nombre',
         ])->findOrFail($ofertaId);
@@ -123,7 +136,7 @@ class OrdenCompraController extends Controller
             $resultado = $this->registrarCompraService->ejecutar(
                 ofertaId: $request->validated('oferta_id'),
                 usuarioId: $request->user()->id,
-                observaciones: $request->validated('observaciones')
+                observaciones: $request->validated('motivo')
             );
 
             $orden = $resultado['orden'];

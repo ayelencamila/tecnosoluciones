@@ -74,40 +74,58 @@ const estadoClass = (estado) => {
 
     <AppLayout>
         <template #header>
-            <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Detalle de Oferta: {{ oferta.codigo_oferta }}
-                </h2>
-                <div class="space-x-2">
-                    <Link :href="route('ofertas.index')" class="text-gray-600 hover:text-gray-900 text-sm font-medium">
-                        &larr; Volver al listado
-                    </Link>
-                </div>
-            </div>
+            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                Gestión de Compras
+            </h2>
         </template>
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+        <div class="py-6">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                
+                <!-- Breadcrumb y botón volver -->
+                <div class="mb-6 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
+                            GESTIÓN DE COMPRAS &gt; OFERTAS &gt; DETALLE
+                        </p>
+                        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                            DETALLE DE OFERTA: {{ oferta.codigo_oferta }}
+                        </h1>
+                    </div>
+                    <Link :href="route('ofertas.index')" 
+                          class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                        Volver
+                    </Link>
+                </div>
                 
                 <AlertMessage v-if="$page.props.flash.success" :message="$page.props.flash.success" type="success" />
 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <div class="flex justify-between items-start">
-                        <div>
-                            <h3 class="text-lg font-bold text-gray-900">{{ oferta.proveedor.razon_social }}</h3>
-                            <p class="text-sm text-gray-500">CUIT: {{ oferta.proveedor.cuit }}</p>
-                            <div class="mt-2 flex items-center space-x-4">
-                                <span class="px-2 py-1 text-xs font-semibold rounded-full" :class="estadoClass(oferta.estado.nombre)">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
+                    <div class="flex justify-between items-start mb-6">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-2">
+                                <div class="flex-shrink-0 h-12 w-12 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <h3 class="text-xl font-bold text-gray-900 dark:text-white">{{ oferta.proveedor.razon_social }}</h3>
+                                    <p class="text-sm text-gray-500 dark:text-gray-400">CUIT: {{ oferta.proveedor.cuit }}</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <span class="px-3 py-1 text-xs font-semibold rounded-full" :class="estadoClass(oferta.estado.nombre)">
                                     {{ oferta.estado.nombre }}
                                 </span>
-                                <span class="text-sm text-gray-600">
-                                    Fecha: {{ new Date(oferta.fecha_recepcion).toLocaleDateString() }}
+                                <span class="text-sm text-gray-600 dark:text-gray-400">
+                                    Fecha: {{ new Date(oferta.fecha_recepcion).toLocaleDateString('es-AR') }}
                                 </span>
                             </div>
                         </div>
                         <div class="text-right">
-                            <p class="text-sm text-gray-500">Total Estimado</p>
-                            <p class="text-2xl font-bold text-gray-800">
+                            <p class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Total Estimado</p>
+                            <p class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
                                 ${{ Number(oferta.total_estimado).toLocaleString('es-AR', {minimumFractionDigits: 2}) }}
                             </p>
                         </div>
@@ -136,24 +154,29 @@ const estadoClass = (estado) => {
                     </div>
                 </div>
 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <h3 class="text-lg font-medium text-gray-900 mb-4">Productos Cotizados</h3>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
+                    <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                        </svg>
+                        Productos Cotizados
+                    </h3>
+                    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-indigo-600">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Unit.</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Disponibilidad</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Producto</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Cantidad</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Precio Unit.</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Subtotal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Disponibilidad</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-for="detalle in oferta.detalles" :key="detalle.id">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                        {{ detalle.producto.nombre }}
-                                        <span class="text-gray-500 text-xs block">{{ detalle.producto.codigo }}</span>
+                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tr v-for="detalle in oferta.detalles" :key="detalle.id" class="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900 dark:text-white">{{ detalle.producto.nombre }}</div>
+                                        <span class="text-gray-500 dark:text-gray-400 text-xs block">{{ detalle.producto.codigo }}</span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                                         {{ detalle.cantidad_ofrecida }}

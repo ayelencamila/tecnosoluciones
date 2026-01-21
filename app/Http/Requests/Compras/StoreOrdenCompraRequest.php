@@ -10,7 +10,7 @@ use App\Models\OfertaCompra;
  * 
  * Valida:
  * - oferta_id: debe existir y estar en estado "Elegida"
- * - observaciones: requeridas (instrucciones para el proveedor)
+ * - motivo: requerido (motivo de generación de la OC para auditoría)
  */
 class StoreOrdenCompraRequest extends FormRequest
 {
@@ -52,7 +52,7 @@ class StoreOrdenCompraRequest extends FormRequest
                     }
                 },
             ],
-            'observaciones' => [
+            'motivo' => [
                 'required',
                 'string',
                 'min:10',
@@ -69,9 +69,9 @@ class StoreOrdenCompraRequest extends FormRequest
         return [
             'oferta_id.required' => 'Debe seleccionar una oferta.',
             'oferta_id.exists' => 'La oferta seleccionada no existe.',
-            'observaciones.required' => 'Las observaciones son obligatorias (instrucciones para el proveedor).',
-            'observaciones.min' => 'Las observaciones deben tener al menos 10 caracteres.',
-            'observaciones.max' => 'Las observaciones no pueden exceder 1000 caracteres.',
+            'motivo.required' => 'El motivo es obligatorio para generar la Orden de Compra.',
+            'motivo.min' => 'El motivo debe tener al menos 10 caracteres.',
+            'motivo.max' => 'El motivo no puede exceder 1000 caracteres.',
         ];
     }
 
@@ -82,7 +82,7 @@ class StoreOrdenCompraRequest extends FormRequest
     {
         return [
             'oferta_id' => 'oferta',
-            'observaciones' => 'observaciones/instrucciones',
+            'motivo' => 'motivo de generación',
         ];
     }
 }

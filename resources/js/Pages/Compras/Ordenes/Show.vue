@@ -150,13 +150,23 @@ const puedeRecepcionar = () => {
 
     <AppLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Orden de Compra: {{ orden.numero_oc }}
+            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                Gestión de Compras
             </h2>
         </template>
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+        <div class="py-6">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                
+                <!-- Breadcrumb y título -->
+                <div class="mb-6">
+                    <p class="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
+                        GESTIÓN DE COMPRAS &gt; ÓRDENES &gt; DETALLE
+                    </p>
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                        ORDEN DE COMPRA: {{ orden.numero_oc }}
+                    </h1>
+                </div>
                 
                 <AlertMessage v-if="$page.props.flash.success" :message="$page.props.flash.success" type="success" />
                 <AlertMessage v-if="$page.props.flash.error" :message="$page.props.flash.error" type="error" />
@@ -180,10 +190,11 @@ const puedeRecepcionar = () => {
                 </div>
 
                 <!-- Barra de acciones -->
-                <div class="bg-white shadow-sm sm:rounded-lg p-4">
+                <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg p-4 mb-6">
                     <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-                        <Link :href="route('ordenes.index')" class="text-gray-600 hover:text-gray-900 text-sm font-medium">
-                            &larr; Volver al listado
+                        <Link :href="route('ordenes.index')" 
+                              class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors">
+                            Volver
                         </Link>
                         <div class="flex flex-wrap gap-2">
                             <!-- Descargar PDF -->
@@ -322,29 +333,34 @@ const puedeRecepcionar = () => {
                 </div>
 
                 <!-- Tabla de productos -->
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <h4 class="text-lg font-medium text-gray-900 mb-4">Productos Solicitados</h4>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-gray-50">
+                <div class="bg-white dark:bg-gray-800 overflow-hidden shadow-sm sm:rounded-lg p-6">
+                    <h4 class="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                        </svg>
+                        Productos Solicitados
+                    </h4>
+                    <div class="overflow-x-auto rounded-lg border border-gray-200 dark:border-gray-700">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-indigo-600">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">#</th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Unit.</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Subtotal</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">#</th>
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">Producto</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Cantidad</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Precio Unit.</th>
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">Subtotal</th>
                                 </tr>
                             </thead>
-                            <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-for="(detalle, index) in orden.detalles" :key="detalle.id">
-                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                <tr v-for="(detalle, index) in orden.detalles" :key="detalle.id" class="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {{ index + 1 }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-medium text-gray-900">
+                                        <div class="text-sm font-medium text-gray-900 dark:text-white">
                                             {{ detalle.producto?.nombre || `Producto #${detalle.producto_id}` }}
                                         </div>
-                                        <div class="text-xs text-gray-500">
+                                        <div class="text-xs text-gray-500 dark:text-gray-400">
                                             {{ detalle.producto?.codigo }}
                                         </div>
                                     </td>
