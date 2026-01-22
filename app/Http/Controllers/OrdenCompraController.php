@@ -87,6 +87,78 @@ class OrdenCompraController extends Controller
     }
 
     /**
+     * CU-24: Consultar Órdenes de Compra
+     * 
+     * Contexto: El administrador necesita consultar todas las OC generadas
+     * para hacer seguimiento de las compras.
+     * 
+     * Principio K&K (Salida de Navegación): Lista con filtros y búsqueda
+     */
+    public function historial(Request $request): Response
+    {
+        // Query base: todas las órdenes de compra
+        $query = OrdenCompra::with([
+            'proveedor:id,razon_social,cuit',
+            'estado:id,nombre',
+            'usuario:id,name',
+        ]);
+
+        // Filtro por proveedor
+        if ($request->filled('proveedor_id')) {
+            $query->where('proveedor_id', $request->proveedor_id);
+        }
+
+        // Filtro por estado
+        if ($request->filled('estado_id')) {
+            $query->where('estado_id', $request->estado_id);
+        }
+
+        // Filtro por fecha desde
+        if ($request->filled('fecha_desde')) {
+            $query->whereDate('fecha_emision', '>=', $request->fecha_desde);
+        }
+
+        // Filtro por fecha hasta
+        if ($request->filled('fecha_hasta')) {
+            $query->whereDate('fecha_emision', '<=', $request->fecha_hasta);
+        }
+
+        // Búsqueda por número de OC
+        if ($request->filled('busqueda')) {
+            $busqueda = $request->busqueda;
+            $query->where(function($q) use ($busqueda) {
+                $q->where('numero_oc', 'LIKE', "%{$busqueda}%")
+                  ->orWhereHas('proveedor', function($pq) use ($busqueda) {
+                      $pq->where('razon_social', 'LIKE', "%{$busqueda}%");
+                  });
+            });
+        }
+
+        // Ordenar por fecha más reciente y paginar
+        $ordenes = $query->orderBy('fecha_emision', 'desc')
+                        ->paginate(15)
+                        ->withQueryString();
+
+        // Obtener proveedores para el filtro
+        $proveedores = \App\Models\Proveedor::whereHas('ordenesCompra')
+            ->select('id', 'razon_social')
+            ->orderBy('razon_social')
+            ->get();
+
+        // Obtener estados para el filtro
+        $estados = EstadoOrdenCompra::select('id', 'nombre')
+            ->orderBy('nombre')
+            ->get();
+
+        return Inertia::render('Compras/Ordenes/Historial', [
+            'ordenes' => $ordenes,
+            'proveedores' => $proveedores,
+            'estados' => $estados,
+            'filters' => $request->only(['proveedor_id', 'estado_id', 'fecha_desde', 'fecha_hasta', 'busqueda']),
+        ]);
+    }
+
+    /**
      * CU-22: Muestra formulario para generar OC desde oferta elegida
      * Kendall P2+P3: Resumen + Ingreso de Motivo
      */

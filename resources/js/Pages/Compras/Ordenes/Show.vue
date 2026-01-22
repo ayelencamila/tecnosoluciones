@@ -149,20 +149,29 @@ const puedeRecepcionar = () => {
     <Head :title="`OC ${orden.numero_oc}`" />
 
     <AppLayout>
+        <!-- HEADER -->
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Gestión de Compras
-            </h2>
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                        Gestión de Compras
+                    </h2>
+                    <p class="text-sm font-medium text-indigo-800 dark:text-indigo-300 tracking-wide mt-1">
+                        Órdenes › Detalle de Orden de Compra
+                    </p>
+                </div>
+                <Link :href="route('ordenes.consulta')" 
+                      class="px-5 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">
+                    Volver
+                </Link>
+            </div>
         </template>
 
         <div class="py-6">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
                 
-                <!-- Breadcrumb y título -->
-                <div class="mb-6">
-                    <p class="text-xs font-medium text-indigo-600 dark:text-indigo-400 uppercase tracking-wider mb-1">
-                        GESTIÓN DE COMPRAS &gt; ÓRDENES &gt; DETALLE
-                    </p>
+                <!-- Título con número de OC -->
+                <div class="mb-2">
                     <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">
                         ORDEN DE COMPRA: {{ orden.numero_oc }}
                     </h1>

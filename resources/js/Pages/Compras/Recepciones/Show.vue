@@ -48,34 +48,43 @@ const calcularTotalRecepcion = () => {
     <Head :title="`Recepción ${recepcion.numero_recepcion}`" />
 
     <AppLayout>
+        <!-- HEADER -->
         <template #header>
-            <div class="flex justify-between items-center">
+            <div class="flex items-center justify-between">
                 <div>
                     <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                        Recepción {{ recepcion.numero_recepcion }}
+                        Gestión de Compras
                     </h2>
-                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                        Detalle de la recepción de mercadería
+                    <p class="text-sm font-medium text-indigo-800 dark:text-indigo-300 tracking-wide mt-1">
+                        Recepciones › Detalle de Recepción
                     </p>
                 </div>
                 <Link
                     :href="route('recepciones.index')"
-                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700"
+                    class="px-5 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 text-sm font-semibold rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                 >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                    </svg>
-                    Volver al listado
+                    Volver
                 </Link>
             </div>
         </template>
 
         <div class="py-6">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+                
+                <!-- Título -->
+                <div class="mb-2">
+                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                        RECEPCIÓN: {{ recepcion.numero_recepcion }}
+                    </h1>
+                </div>
+
                 <!-- Información general -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
                             Información de la Recepción
                         </h3>
                     </div>
@@ -108,7 +117,10 @@ const calcularTotalRecepcion = () => {
                 <!-- Datos de la Orden de Compra -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clip-rule="evenodd"/>
+                            </svg>
                             Orden de Compra Asociada
                         </h3>
                     </div>
@@ -143,7 +155,10 @@ const calcularTotalRecepcion = () => {
                 <!-- Observaciones -->
                 <div v-if="recepcion.observaciones" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                            </svg>
                             Observaciones
                         </h3>
                     </div>
@@ -155,27 +170,30 @@ const calcularTotalRecepcion = () => {
                 <!-- Detalle de productos recibidos -->
                 <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
-                        <h3 class="text-lg font-medium text-gray-900 dark:text-white">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-emerald-600 dark:text-emerald-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"/>
+                            </svg>
                             Productos Recibidos
                         </h3>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                            <thead class="bg-gray-50 dark:bg-gray-700">
+                            <thead class="bg-indigo-600">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
                                         Producto
                                     </th>
-                                    <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-center text-xs font-bold text-white uppercase tracking-wider">
                                         Cantidad Recibida
                                     </th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
                                         Precio Unitario
                                     </th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-right text-xs font-bold text-white uppercase tracking-wider">
                                         Subtotal
                                     </th>
-                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                                    <th class="px-6 py-3 text-left text-xs font-bold text-white uppercase tracking-wider">
                                         Observación
                                     </th>
                                 </tr>

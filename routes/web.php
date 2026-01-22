@@ -427,9 +427,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{oferta}/rechazar', [\App\Http\Controllers\OfertaCompraController::class, 'rechazar'])->name('rechazar');
     });
 
-    // CU-22: Órdenes de Compra
+    // CU-22: Órdenes de Compra (Generar OC desde ofertas elegidas)
+    // CU-24: Consultar Órdenes de Compra (Historial)
     Route::prefix('ordenes')->name('ordenes.')->middleware('role:admin')->group(function () {
         Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index'); // P1: Lista ofertas elegidas listas para OC
+        Route::get('/historial', [\App\Http\Controllers\OrdenCompraController::class, 'historial'])->name('historial'); // CU-24: Consultar OC generadas
         Route::get('/create', [\App\Http\Controllers\OrdenCompraController::class, 'create'])->name('create'); // P2+P3+P4: Resumen + Motivo + Confirmación
         Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store'); // P5: Resultado
         Route::get('/{orden}', [\App\Http\Controllers\OrdenCompraController::class, 'show'])->name('show')->whereNumber('orden');
@@ -443,7 +445,8 @@ Route::middleware(['auth'])->group(function () {
 
     // CU-23: Recepción de Mercadería
     Route::prefix('recepciones')->name('recepciones.')->middleware('role:admin')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'index'])->name('index');
+        Route::get('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'index'])->name('index'); // P1: Seleccionar OC pendiente
+        Route::get('/historial', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'historial'])->name('historial'); // Historial de recepciones
         Route::get('/crear', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'store'])->name('store');
         Route::get('/{recepcion}', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'show'])->name('show');

@@ -270,7 +270,7 @@ $cotizaciones->each(function($c) {
 
 ---
 
-## 🚀 Poner en Producción
+##  Poner en Producción
 
 ### 1. Configurar variables de entorno
 
@@ -325,7 +325,7 @@ crontab -e
 
 ---
 
-## ✨ Características Implementadas
+##  Características Implementadas
 
 ✅ Envío dual (Email + WhatsApp) con un solo comando
 ✅ Emails profesionales con diseño moderno
