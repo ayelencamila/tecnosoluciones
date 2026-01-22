@@ -394,7 +394,8 @@
     <div class="footer">
         <div class="footer-row">
             <div class="footer-left">
-                Documento generado automáticamente por el Sistema de Gestión de Compras
+                <strong>DOCUMENTO INTERNO - NO VÁLIDO COMO FACTURA</strong><br>
+                Orden de compra interna - No posee validez fiscal
             </div>
             <div class="footer-right">
                 Impreso: {{ now()->format('d/m/Y H:i:s') }}
