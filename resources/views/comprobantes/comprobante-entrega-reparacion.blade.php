@@ -282,8 +282,9 @@
 
     <!-- Aviso Legal (Kendall: Información Constante) -->
     <div class="legal-notice">
-        <strong>IMPORTANTE:</strong> Este es un comprobante interno no fiscal. 
-        Conserve este documento como constancia de la entrega del equipo. 
+        <strong>DOCUMENTO INTERNO - NO VÁLIDO COMO FACTURA</strong><br>
+        Comprobante de entrega de reparación - No posee validez fiscal.<br><br>
+        <strong>IMPORTANTE:</strong> Conserve este documento como constancia de la entrega del equipo. 
         La garantía de los trabajos realizados es de 30 días a partir de la fecha de entrega, 
         siempre que el equipo no haya sido manipulado por terceros.
     </div>
