@@ -43,6 +43,14 @@ class Comprobante extends Model
     protected $table = 'comprobantes';
     protected $primaryKey = 'comprobante_id';
 
+    /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'comprobante_id';
+    }
+
     protected $fillable = [
         'tipo_entidad',
         'entidad_id',
@@ -94,6 +102,24 @@ class Comprobante extends Model
     }
 
     /**
+     * Relación con TipoComprobante
+     */
+    public function tipoComprobante(): BelongsTo
+    {
+        return $this->belongsTo(\Illuminate\Database\Eloquent\Model::class, 'tipo_comprobante_id', 'tipo_id')
+            ->setTable('tipos_comprobante');
+    }
+
+    /**
+     * Relación con EstadoComprobante
+     */
+    public function estadoComprobante(): BelongsTo
+    {
+        return $this->belongsTo(\Illuminate\Database\Eloquent\Model::class, 'estado_comprobante_id', 'estado_id')
+            ->setTable('estados_comprobante');
+    }
+
+    /**
      * Self-reference: Comprobante original (Elmasri: trazabilidad)
      */
     public function original(): BelongsTo
@@ -117,7 +143,7 @@ class Comprobante extends Model
      * CRÍTICO: Usa lockForUpdate() para prevenir condición de carrera
      * cuando múltiples usuarios emiten comprobantes simultáneamente
      */
-    public static function generarNumeroCorrelativo(string $tipoComprobante, string $prefijo = null): string
+    public static function generarNumeroCorrelativo(string $tipoComprobante, ?string $prefijo = null): string
     {
         return \DB::transaction(function () use ($tipoComprobante, $prefijo) {
             if (!$prefijo) {

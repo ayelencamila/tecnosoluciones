@@ -16,6 +16,7 @@ use App\Http\Controllers\ReparacionController;
 use App\Http\Controllers\ProveedorController; 
 use App\Http\Controllers\Admin\CategoriaProductoController;
 use App\Http\Controllers\Api\ClienteBonificacionController;
+use App\Http\Controllers\ComprobanteInternoController;
 use Inertia\Inertia;
 
 /*
@@ -388,6 +389,15 @@ Route::middleware(['auth'])->group(function () {
             'auditorias' => $query->latest()->paginate(15)->withQueryString()
         ]);
     })->name('auditorias.index');
+    
+    // --- MÓDULO DE COMPROBANTES INTERNOS (CU-32) ---
+    Route::prefix('comprobantes')->name('comprobantes.')->group(function () {
+        Route::get('/', [ComprobanteInternoController::class, 'index'])->name('index');
+        Route::get('/{comprobante}', [ComprobanteInternoController::class, 'show'])->name('show');
+        Route::get('/{comprobante}/pdf', [ComprobanteInternoController::class, 'verPdf'])->name('pdf');
+        Route::post('/{comprobante}/anular', [ComprobanteInternoController::class, 'anular'])->name('anular');
+        Route::post('/{comprobante}/reemitir', [ComprobanteInternoController::class, 'reemitir'])->name('reemitir');
+    })->scopeBindings();
     
     // --- MÓDULO DE CONFIGURACIÓN ---
     Route::prefix('configuracion')->name('configuracion.')->group(function () {
