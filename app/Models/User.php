@@ -22,8 +22,12 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'telefono',
         'password',
         'rol_id',
+        'activo',           
+        'bloqueado_hasta',
+        'foto_perfil',
     ];
 
     /**
@@ -53,8 +57,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Accessor para obtener el nombre del rol (para compatibilidad con frontend).
-     * Lee directamente de la BD sin necesidad de modelo Rol.
+     * Accessor para obtener el nombre del rol.
      */
     public function getRoleAttribute(): ?string
     {
@@ -62,14 +65,9 @@ class User extends Authenticatable
             return null;
         }
 
-        // Cache en el objeto para evitar múltiples queries
-        if (!isset($this->attributes['_cached_role'])) {
-            $this->attributes['_cached_role'] = \DB::table('roles')
-                ->where('rol_id', $this->rol_id)
-                ->value('nombre');
-        }
-
-        return $this->attributes['_cached_role'];
+        return $this->relationLoaded('rol') 
+            ? $this->rol?->nombre 
+            : \DB::table('roles')->where('rol_id', $this->rol_id)->value('nombre');
     }
 
     /**
@@ -82,6 +80,25 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'activo' => 'boolean',           
+            'bloqueado_hasta' => 'datetime',
         ];
+    }
+    
+    /**
+     * Verifica si el usuario está bloqueado por seguridad.
+     */
+    public function estaBloqueado(): bool
+    {
+        // Si tiene fecha de bloqueo y esa fecha es EN EL FUTURO, está bloqueado.
+        return $this->bloqueado_hasta && $this->bloqueado_hasta->isFuture();
+    }
+
+    /**
+     * Verifica si el actor está activo (no dado de baja).
+     */
+    public function estaActivo(): bool
+    {
+        return $this->activo;
     }
 }

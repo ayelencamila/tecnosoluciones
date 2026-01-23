@@ -14,5 +14,17 @@ if (token) {
 // Configurar withCredentials para mantener cookies de sesión
 window.axios.defaults.withCredentials = true;
 
+// Interceptor para manejar errores 419 (CSRF token expirado)
+window.axios.interceptors.response.use(
+    response => response,
+    error => {
+        if (error.response?.status === 419) {
+            // Recargar la página para obtener nuevo token CSRF
+            window.location.reload();
+        }
+        return Promise.reject(error);
+    }
+);
+
 
 

@@ -1,7 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { router } from '@inertiajs/vue3';
-import axios from 'axios';
 
 const notifications = ref([]);
 const showDropdown = ref(false);
@@ -16,7 +15,7 @@ const unreadCount = computed(() => {
 const loadNotifications = async () => {
     try {
         loading.value = true;
-        const response = await axios.get('/api/notifications');
+        const response = await window.axios.get('/api/notifications');
         notifications.value = response.data;
     } catch (error) {
         console.error('Error cargando notificaciones:', error);
@@ -28,7 +27,7 @@ const loadNotifications = async () => {
 // Marcar como leída
 const markAsRead = async (notificationId) => {
     try {
-        await axios.post(`/api/notifications/${notificationId}/read`);
+        await window.axios.post(`/api/notifications/${notificationId}/read`);
         const notification = notifications.value.find(n => n.id === notificationId);
         if (notification) {
             notification.read_at = new Date().toISOString();
@@ -50,7 +49,7 @@ const goToNotification = (notification) => {
 // Marcar todas como leídas
 const markAllAsRead = async () => {
     try {
-        await axios.post('/api/notifications/mark-all-read');
+        await window.axios.post('/api/notifications/mark-all-read');
         notifications.value.forEach(n => {
             n.read_at = new Date().toISOString();
         });

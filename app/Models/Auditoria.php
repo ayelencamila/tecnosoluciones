@@ -179,6 +179,24 @@ class Auditoria extends Model
 
     public const ACCION_ACCESO_DENEGADO = 'ACCESO_DENEGADO';
 
+    public const ACCION_BLOQUEO_AUTOMATICO = 'BLOQUEO_AUTOMATICO';
+
+    // Módulo Usuarios (CU-12)
+    public const ACCION_CREAR_USUARIO = 'CREAR_USUARIO';
+    public const ACCION_MODIFICAR_USUARIO = 'MODIFICAR_USUARIO';
+    public const ACCION_ACTIVAR_USUARIO = 'ACTIVAR_USUARIO';
+    public const ACCION_DESACTIVAR_USUARIO = 'DESACTIVAR_USUARIO';
+    public const ACCION_BLOQUEAR_USUARIO = 'BLOQUEAR_USUARIO';
+    public const ACCION_DESBLOQUEAR_USUARIO = 'DESBLOQUEAR_USUARIO';
+    public const ACCION_RESTABLECER_PASSWORD = 'RESTABLECER_PASSWORD';
+
+    // Módulo Roles (CU-12)
+    public const ACCION_CREAR_ROL = 'CREAR_ROL';
+    public const ACCION_MODIFICAR_ROL = 'MODIFICAR_ROL';
+    public const ACCION_ELIMINAR_ROL = 'ELIMINAR_ROL';
+    public const ACCION_ACTIVAR_ROL = 'ACTIVAR_ROL';
+    public const ACCION_DESACTIVAR_ROL = 'DESACTIVAR_ROL';
+
     /**
      * Obtiene el usuario que realizó la operación auditada
      */

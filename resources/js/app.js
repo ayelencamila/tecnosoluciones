@@ -1,7 +1,7 @@
 import '../css/app.css';
 import './bootstrap';
 
-import { createInertiaApp } from '@inertiajs/vue3';
+import { createInertiaApp, router } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
@@ -9,6 +9,15 @@ import { createPinia } from 'pinia';
 
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const pinia = createPinia();
+
+// Manejar errores de sesión expirada (419) globalmente
+router.on('invalid', (event) => {
+    if (event.detail.response.status === 419) {
+        event.preventDefault();
+        // Recargar la página para obtener un nuevo token CSRF
+        window.location.reload();
+    }
+});
 
 createInertiaApp({
     title: (title) => `${title} - ${appName}`,
