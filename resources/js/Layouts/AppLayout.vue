@@ -16,145 +16,151 @@ const showingUsuariosRoles = ref(false);
 
 const page = usePage(); 
 
-// --- 1. MENÚ PRINCIPAL (OPERATIVO) ---
+// Helper para verificar permisos
+const can = (permiso) => {
+    const permisos = page.props.auth.permisos || [];
+    // Admin tiene todo
+    if (page.props.auth.user?.role === 'administrador') return true;
+    return permisos.includes(permiso);
+};
+
+// Helper para verificar si tiene alguno de los permisos
+const canAny = (listaPermisos) => {
+    return listaPermisos.some(p => can(p));
+};
+
+// --- 1. MENÚ PRINCIPAL (OPERATIVO) - Basado en PERMISOS ---
 const mainNavItems = computed(() => {
-    const role = page.props.auth.user.role;
     const items = [];
 
-    // Dashboard - Todos los roles
-    items.push({ 
-        name: 'Dashboard', 
-        route: 'dashboard', 
-        icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
-        roles: ['administrador', 'vendedor', 'tecnico']
-    });
+    // Dashboard - Todos con permiso
+    if (can('dashboard.ver')) {
+        items.push({ 
+            name: 'Dashboard', 
+            route: 'dashboard', 
+            icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6',
+        });
+    }
 
-    // Ventas - Admin y Vendedor
-    if (role === 'administrador' || role === 'vendedor') {
+    // Ventas
+    if (can('ventas.ver')) {
         items.push({ 
             name: 'Ventas', 
             route: 'ventas.index', 
             icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-            roles: ['administrador', 'vendedor']
         });
     }
 
-    // Productos - Admin y Vendedor
-    if (role === 'administrador' || role === 'vendedor') {
+    // Productos
+    if (can('productos.ver')) {
         items.push({ 
             name: 'Productos', 
             route: 'productos.index', 
             icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4',
-            roles: ['administrador', 'vendedor']
         });
     }
 
-    // Stock - Admin y Vendedor
-    if (role === 'administrador' || role === 'vendedor') {
+    // Stock
+    if (can('stock.ver')) {
         items.push({ 
             name: 'Stock', 
             route: 'productos.stock', 
             icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
-            roles: ['administrador', 'vendedor']
         });
     }
 
-    // Reparaciones - Admin, Vendedor y Técnico
-    if (role === 'administrador' || role === 'vendedor' || role === 'tecnico') {
+    // Reparaciones
+    if (can('reparaciones.ver')) {
         items.push({ 
             name: 'Reparaciones', 
             route: 'reparaciones.index', 
             icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
-            roles: ['administrador', 'vendedor', 'tecnico']
         });
     }
 
-    // PROVEEDORES  ---
-    // Visible para Admin y Vendedor (si el vendedor ayuda en compras/recepción)
-    if (role === 'administrador' || role === 'vendedor') {
+    // Proveedores
+    if (can('proveedores.ver')) {
         items.push({ 
             name: 'Proveedores', 
             route: 'proveedores.index', 
-            // Icono de Camión/Proveedor
             icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', 
-            roles: ['administrador', 'vendedor']
         });
     }
 
-    // Alertas SLA - Solo Técnico
-    if (role === 'tecnico') {
+    // Alertas SLA
+    if (can('alertas.ver')) {
         items.push({ 
             name: 'Alertas', 
             route: 'alertas.index', 
             icon: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z',
-            roles: ['tecnico']
         });
     }
 
-    // Clientes - Todos
-    items.push({ 
-        name: 'Clientes', 
-        route: 'clientes.index', 
-        icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
-        roles: ['administrador', 'vendedor', 'tecnico']
-    });
+    // Clientes
+    if (can('clientes.ver')) {
+        items.push({ 
+            name: 'Clientes', 
+            route: 'clientes.index', 
+            icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z',
+        });
+    }
 
-    // Pagos - Admin y Vendedor
-    if (role === 'administrador' || role === 'vendedor') {
+    // Pagos
+    if (can('pagos.ver')) {
         items.push({ 
             name: 'Pagos', 
             route: 'pagos.index', 
             icon: 'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',
-            roles: ['administrador', 'vendedor']
         });
     }
 
-    // Descuentos - Admin y Vendedor
-    if (role === 'administrador' || role === 'vendedor') {
+    // Descuentos
+    if (can('descuentos.ver')) {
         items.push({ 
             name: 'Descuentos', 
             route: 'descuentos.index', 
             icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z',
-            roles: ['administrador', 'vendedor']
         });
     }
 
-    // Auditoría - Solo Admin
-    if (role === 'administrador') {
+    // Auditoría
+    if (can('auditoria.ver')) {
         items.push({ 
             name: 'Auditoría', 
             route: 'auditorias.index', 
             icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01',
-            roles: ['administrador']
         });
     }
 
-    // Comprobantes Internos - Admin y Vendedor (CU-32)
-    if (role === 'administrador' || role === 'vendedor') {
+    // Comprobantes
+    if (can('comprobantes.ver')) {
         items.push({ 
             name: 'Comprobantes', 
             route: 'comprobantes.index', 
             icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z',
-            roles: ['administrador', 'vendedor']
         });
     }
 
     return items;
 });
 
-// --- 2. MENÚ USUARIOS Y ROLES (SOLO ADMIN) ---
+// --- 2. MENÚ USUARIOS Y ROLES ---
 const usuariosRolesItems = computed(() => {
-    if (page.props.auth.user.role !== 'administrador') return [];
-
-    return [
-        { name: 'Usuarios', route: 'admin.usuarios.index', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-        { name: 'Roles y Permisos', route: 'admin.roles.index', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-    ];
+    const items = [];
+    
+    if (can('usuarios.gestionar')) {
+        items.push({ name: 'Usuarios', route: 'admin.usuarios.index', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' });
+    }
+    if (can('roles.gestionar')) {
+        items.push({ name: 'Roles y Permisos', route: 'admin.roles.index', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' });
+    }
+    
+    return items;
 });
 
-// --- 3. MENÚ MAESTROS (SOLO ADMIN) ---
+// --- 3. MENÚ MAESTROS ---
 const maestrosItems = computed(() => {
-    if (page.props.auth.user.role !== 'administrador') return [];
+    if (!can('maestros.gestionar')) return [];
 
     return [
         { name: 'Categorías Prod.', route: 'admin.categorias.index' },
@@ -162,7 +168,6 @@ const maestrosItems = computed(() => {
         { name: 'Marcas', route: 'admin.marcas.index' },
         { name: 'Modelos', route: 'admin.modelos.index' },
         { name: 'Unidades Medida', route: 'admin.unidades-medida.index' },
-        // { name: 'Proveedores', route: 'admin.proveedores.index' }, <--- ESTA LÍNEA SE ELIMINÓ (CAUSABA EL ERROR)
         { name: 'Depósitos', route: 'admin.depositos.index' },
         { name: 'Medios de Pago', route: 'admin.medios-pago.index' },
         { name: 'Estados Reparación', route: 'admin.estados-reparacion.index' },
@@ -174,31 +179,29 @@ const maestrosItems = computed(() => {
     ];
 });
 
-// --- 4. MENÚ COMPRAS (SOLO ADMIN) ---
+// --- 4. MENÚ COMPRAS ---
 const comprasItems = computed(() => {
-    const role = page.props.auth.user.role;
-    if (role !== 'administrador') return [];
-
-    return [
-        { name: 'Monitoreo de Stock', route: 'monitoreo-stock.index' }, // CU-20
-        { name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' }, // CU-20
-        { name: 'Ofertas de Compra', route: 'ofertas.index' },
-        { name: 'Órdenes de Compra', route: 'ordenes.index' }, // CU-22
-        { name: 'Recepción de Mercadería', route: 'recepciones.index' }, // CU-23
-    ];
+    const items = [];
+    
+    if (can('compras.monitoreo')) items.push({ name: 'Monitoreo de Stock', route: 'monitoreo-stock.index' });
+    if (can('compras.cotizaciones.ver')) items.push({ name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' });
+    if (canAny(['compras.ordenes.ver', 'compras.ordenes.crear'])) items.push({ name: 'Ofertas de Compra', route: 'ofertas.index' });
+    if (can('compras.ordenes.ver')) items.push({ name: 'Órdenes de Compra', route: 'ordenes.index' });
+    if (can('compras.recepciones.ver')) items.push({ name: 'Recepción de Mercadería', route: 'recepciones.index' });
+    
+    return items;
 });
 
-// --- 5. MENÚ BONIFICACIONES (SOLO ADMIN) ---
+// --- 5. MENÚ BONIFICACIONES ---
 const bonificacionesNavItems = computed(() => {
-    const role = page.props.auth.user.role;
-    if (role !== 'administrador') return [];
+    // Solo mostrar si tiene permiso de configuración
+    if (!can('configuracion.editar')) return [];
 
     return [
         { 
             name: 'Bonificaciones', 
             route: 'bonificaciones.index', 
             icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
-            roles: ['administrador']
         },
     ];
 });

@@ -101,4 +101,49 @@ class User extends Authenticatable
     {
         return $this->activo;
     }
+
+    /**
+     * Obtiene los permisos del usuario desde su rol
+     */
+    public function getPermisosAttribute(): array
+    {
+        if (!$this->rol_id) {
+            return [];
+        }
+
+        // Si la relación está cargada, usar el modelo (ya tiene el cast)
+        if ($this->relationLoaded('rol') && $this->rol) {
+            return $this->rol->permisos ?? [];
+        }
+
+        // Si no está cargada, obtener directamente y decodificar
+        $permisosJson = \DB::table('roles')->where('rol_id', $this->rol_id)->value('permisos');
+
+        return $permisosJson ? json_decode($permisosJson, true) : [];
+    }
+
+    /**
+     * Verifica si el usuario tiene un permiso específico
+     */
+    public function hasPermission(string $permiso): bool
+    {
+        // Administrador tiene todos los permisos
+        if ($this->role === 'administrador') {
+            return true;
+        }
+
+        return in_array($permiso, $this->permisos);
+    }
+
+    /**
+     * Verifica si el usuario tiene alguno de los permisos dados
+     */
+    public function hasAnyPermission(array $permisos): bool
+    {
+        if ($this->role === 'administrador') {
+            return true;
+        }
+
+        return !empty(array_intersect($permisos, $this->permisos));
+    }
 }

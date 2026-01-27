@@ -24,86 +24,20 @@ use Inertia\Response;
 class RolController extends Controller
 {
     /**
-     * Lista de permisos disponibles en el sistema.
-     * Organizados por módulo para facilitar la asignación.
+     * Obtiene los permisos disponibles desde la configuración.
+     * Transforma el formato del config al formato esperado por la UI.
      */
-    public const PERMISOS_DISPONIBLES = [
-        'clientes' => [
-            'clientes.ver' => 'Ver clientes',
-            'clientes.crear' => 'Crear clientes',
-            'clientes.editar' => 'Editar clientes',
-            'clientes.eliminar' => 'Eliminar clientes',
-            'clientes.historial' => 'Ver historial de clientes',
-        ],
-        'productos' => [
-            'productos.ver' => 'Ver productos',
-            'productos.crear' => 'Crear productos',
-            'productos.editar' => 'Editar productos',
-            'productos.eliminar' => 'Eliminar productos',
-            'productos.precios' => 'Modificar precios',
-        ],
-        'ventas' => [
-            'ventas.ver' => 'Ver ventas',
-            'ventas.crear' => 'Registrar ventas',
-            'ventas.anular' => 'Anular ventas',
-            'ventas.descuentos' => 'Aplicar descuentos',
-        ],
-        'reparaciones' => [
-            'reparaciones.ver' => 'Ver reparaciones',
-            'reparaciones.crear' => 'Registrar reparaciones',
-            'reparaciones.editar' => 'Editar reparaciones',
-            'reparaciones.cambiar_estado' => 'Cambiar estado de reparaciones',
-            'reparaciones.asignar_repuestos' => 'Asignar repuestos',
-        ],
-        'stock' => [
-            'stock.ver' => 'Consultar stock',
-            'stock.ajustar' => 'Ajustar stock',
-        ],
-        'proveedores' => [
-            'proveedores.ver' => 'Ver proveedores',
-            'proveedores.crear' => 'Crear proveedores',
-            'proveedores.editar' => 'Editar proveedores',
-            'proveedores.eliminar' => 'Eliminar proveedores',
-        ],
-        'compras' => [
-            'compras.ver' => 'Ver órdenes de compra',
-            'compras.crear' => 'Crear órdenes de compra',
-            'compras.recepcionar' => 'Recepcionar mercadería',
-        ],
-        'pagos' => [
-            'pagos.ver' => 'Ver pagos',
-            'pagos.registrar' => 'Registrar pagos',
-            'pagos.anular' => 'Anular pagos',
-        ],
-        'reportes' => [
-            'reportes.ventas' => 'Reportes de ventas',
-            'reportes.stock' => 'Reportes de stock',
-            'reportes.reparaciones' => 'Reportes de reparaciones',
-            'reportes.cuentas_corrientes' => 'Reportes de cuentas corrientes',
-        ],
-        'configuracion' => [
-            'configuracion.maestros' => 'Gestionar maestros',
-            'configuracion.parametros' => 'Modificar parámetros globales',
-            'configuracion.plantillas' => 'Gestionar plantillas WhatsApp',
-        ],
-        'usuarios' => [
-            'usuarios.ver' => 'Ver usuarios',
-            'usuarios.crear' => 'Crear usuarios',
-            'usuarios.editar' => 'Editar usuarios',
-            'usuarios.activar' => 'Activar/Desactivar usuarios',
-            'usuarios.bloquear' => 'Bloquear/Desbloquear usuarios',
-            'usuarios.password' => 'Restablecer contraseñas',
-        ],
-        'roles' => [
-            'roles.ver' => 'Ver roles',
-            'roles.crear' => 'Crear roles',
-            'roles.editar' => 'Editar roles',
-            'roles.eliminar' => 'Eliminar roles',
-        ],
-        'auditoria' => [
-            'auditoria.ver' => 'Consultar log de auditoría',
-        ],
-    ];
+    protected function getPermisosDisponibles(): array
+    {
+        $modulos = config('permisos.modulos', []);
+        $resultado = [];
+        
+        foreach ($modulos as $modulo => $config) {
+            $resultado[$config['label'] ?? $modulo] = $config['permisos'] ?? [];
+        }
+        
+        return $resultado;
+    }
 
     /**
      * Muestra el listado de roles.
@@ -125,7 +59,7 @@ class RolController extends Controller
     public function create(): Response
     {
         return Inertia::render('Admin/Roles/Create', [
-            'permisosDisponibles' => self::PERMISOS_DISPONIBLES,
+            'permisosDisponibles' => $this->getPermisosDisponibles(),
         ]);
     }
 
@@ -176,7 +110,7 @@ class RolController extends Controller
     {
         return Inertia::render('Admin/Roles/Edit', [
             'rol' => $role->loadCount('users'),
-            'permisosDisponibles' => self::PERMISOS_DISPONIBLES,
+            'permisosDisponibles' => $this->getPermisosDisponibles(),
         ]);
     }
 
