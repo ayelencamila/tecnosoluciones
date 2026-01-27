@@ -107,7 +107,9 @@ class VerificarEstadoCuentaService
         float $limiteCredito
     ): void {
         // 1. Obtener administradores (usuarios con role 'admin')
-        $administradores = User::where('role', 'admin')->get();
+        $administradores = User::whereHas('rol', function($query) {
+            $query->where('nombre', 'admin');
+        })->get();
         
         if ($administradores->isEmpty()) {
             Log::warning("[CU-09 Paso 4] No hay administradores configurados para recibir notificaciones.");

@@ -47,7 +47,10 @@ class ProvinciaSeeder extends Seeder
         ];
 
         foreach ($provincias as $provincia) {
-            Provincia::create($provincia);
+            Provincia::updateOrCreate(
+                ['provinciaID' => $provincia['provinciaID']],
+                $provincia
+            );
         }
 
         $this->command->info('✅ '.count($provincias).' provincias creadas exitosamente');

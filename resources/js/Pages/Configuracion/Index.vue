@@ -41,29 +41,12 @@ const formatLabel = (key, desc) => {
     <AppLayout>
         <template #header>
             <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                Configuración Global del Sistema
+                Parámetros del Sistema
             </h2>
         </template>
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                
-                <!-- Mensaje informativo -->
-                <div class="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded-lg">
-                    <div class="flex items-start">
-                        <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-sm text-blue-800">
-                                <strong>ℹ️ Información:</strong> Esta sección gestiona parámetros numéricos y booleanos del sistema. 
-                                Las <a href="/plantillas-whatsapp" class="underline font-semibold hover:text-blue-900">plantillas de WhatsApp</a> 
-                                se configuran en su módulo dedicado (CU-30). 
-                                Para ver el historial de cambios, accede a <a href="/auditorias" class="underline font-semibold hover:text-blue-900">Auditorías</a>.
-                            </p>
-                        </div>
-                    </div>
-                </div>
                 
                 <form @submit.prevent="submit">
                     
@@ -95,41 +78,9 @@ const formatLabel = (key, desc) => {
                                         </div>
                                     </div>
 
-                                    <div v-else :class="{ 'md:col-span-2': param.clave.includes('plantilla') }">
+                                    <div v-else>
                                         <InputLabel :for="param.clave" :value="param.descripcion || param.clave" />
-                                        
-                                        <!-- Mostrar variables disponibles para plantillas WhatsApp -->
-                                        <div v-if="param.clave.includes('whatsapp_plantilla')" class="mt-2 mb-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-indigo-400 rounded-r">
-                                            <div class="flex items-start">
-                                                <svg class="w-5 h-5 text-indigo-600 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                <div class="flex-1">
-                                                    <p class="text-sm font-semibold text-indigo-900 mb-1">Puedes usar las siguientes variables:</p>
-                                                    <div class="flex flex-wrap gap-2">
-                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono bg-white border border-indigo-200 text-indigo-700">
-                                                            [nombre_cliente]
-                                                        </span>
-                                                        <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono bg-white border border-indigo-200 text-indigo-700">
-                                                            [motivo]
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <!-- Campo de texto o textarea según el tipo -->
-                                        <textarea
-                                            v-if="param.clave.includes('plantilla')"
-                                            :id="param.clave" 
-                                            :name="param.clave"
-                                            v-model="form[param.clave]" 
-                                            class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm font-mono text-sm" 
-                                            rows="5"
-                                            placeholder="Escribe el mensaje de la plantilla aquí..."
-                                        ></textarea>
                                         <TextInput 
-                                            v-else
                                             :id="param.clave" 
                                             :name="param.clave"
                                             v-model="form[param.clave]" 

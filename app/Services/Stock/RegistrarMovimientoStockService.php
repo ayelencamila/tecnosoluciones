@@ -14,17 +14,19 @@ class RegistrarMovimientoStockService
     public function handle(array $data, int $userId)
     {
         return DB::transaction(function () use ($data, $userId) {
-            // 1. Buscar el Stock y el Tipo de Movimiento
-            $stock = Stock::findOrFail($data['stock_id']);
+            // 1. Buscar el Stock y BLOQUEARLO para edición segura (ACID)
+            $stock = Stock::where('stock_id', $data['stock_id'])
+                          ->lockForUpdate()
+                          ->firstOrFail();
+
             $tipoMovimiento = TipoMovimientoStock::findOrFail($data['tipo_movimiento_id']);
             
             $cantidad = (int) $data['cantidad'];
             
             // 2. Calcular el impacto real (Signo * Cantidad)
-            // Ej: Si signo es -1 (Salida) y cantidad 10 => -10
             $cambioReal = $cantidad * $tipoMovimiento->signo; 
 
-            // Validar que no quede negativo si es una resta
+            // Validar que no quede negativo si es una resta (Check constraint lógico)
             if ($cambioReal < 0 && abs($cambioReal) > $stock->cantidad_disponible) {
                  throw new Exception("Stock insuficiente para realizar este ajuste. Disponible: {$stock->cantidad_disponible}");
             }
@@ -39,18 +41,20 @@ class RegistrarMovimientoStockService
             MovimientoStock::create([
                 'productoID' => $stock->productoID,
                 'deposito_id' => $stock->deposito_id,
-                'tipo_movimiento_id' => $tipoMovimiento->id, // Guardamos FK
-                'cantidad' => $cantidad, // Guardamos siempre positivo en la cantidad nominal
-                'signo' => $tipoMovimiento->signo, // Guardamos el signo histórico
+                'tipo_movimiento_id' => $tipoMovimiento->id, 
+                'cantidad' => $cantidad,
+                'signo' => $tipoMovimiento->signo,
                 'stockAnterior' => $stockAnterior,
                 'stockNuevo' => $stock->cantidad_disponible,
                 'motivo' => $data['motivo'],
                 'user_id' => $userId,
                 'fecha_movimiento' => now(),
-                'referenciaTabla' => 'manual', // Indica que fue un ajuste manual
+                'referenciaTabla' => 'manual', 
             ]);
 
             Log::info("Movimiento de stock registrado: {$tipoMovimiento->nombre} x{$cantidad} en Producto ID {$stock->productoID}");
+            
+            return $stock;
         });
     }
 }

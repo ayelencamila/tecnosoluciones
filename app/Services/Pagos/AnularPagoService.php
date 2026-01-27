@@ -43,7 +43,7 @@ class AnularPagoService
                     $pago->monto,
                     $descripcionReverso,
                     now(), // La anulación genera una deuda HOY (simple)
-                    $pago->pago_id,
+                    $pago->pagoID,
                     'pagos (anulacion)',
                     $userId
                 );
@@ -51,9 +51,9 @@ class AnularPagoService
 
             // 3. Registrar en Auditoría (Usando tu modelo)
             Auditoria::registrar(
-                'ANULAR_PAGO', // (Deberías agregar esta constante a tu modelo Auditoria)
+                Auditoria::ACCION_ANULAR_PAGO,
                 $pago->getTable(),
-                $pago->pago_id,
+                $pago->pagoID,
                 ['anulado' => false],
                 ['anulado' => true],
                 "Anulación de Recibo {$pago->numero_recibo}",
@@ -61,7 +61,7 @@ class AnularPagoService
                 $userId
             );
 
-            Log::info("Pago anulado exitosamente: ID {$pago->pago_id} por Usuario {$userId}");
+            Log::info("Pago anulado exitosamente: ID {$pago->pagoID} por Usuario {$userId}");
 
             return $pago;
         });

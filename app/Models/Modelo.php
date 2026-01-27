@@ -25,4 +25,10 @@ class Modelo extends Model
     {
         return $this->belongsTo(Marca::class);
     }
+
+    // Relación: Un Modelo tiene muchas Reparaciones
+    public function reparaciones()
+    {
+        return $this->hasMany(Reparacion::class, 'modelo_id');
+    }
 }

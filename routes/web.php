@@ -13,6 +13,7 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ConfiguracionController;
 use App\Http\Controllers\ReparacionController;
+use App\Http\Controllers\ProveedorController; 
 use App\Http\Controllers\Admin\CategoriaProductoController;
 use App\Http\Controllers\Api\ClienteBonificacionController;
 use Inertia\Inertia;
@@ -27,6 +28,14 @@ use Inertia\Inertia;
 Route::prefix('bonificacion')->group(function () {
     Route::get('/{token}', [ClienteBonificacionController::class, 'mostrar'])->name('bonificacion.mostrar');
     Route::post('/{token}/responder', [ClienteBonificacionController::class, 'responder'])->name('bonificacion.responder');
+});
+
+// CU-20: Rutas públicas del Portal de Proveedores (Magic Links)
+Route::prefix('portal')->name('portal.')->group(function () {
+    Route::get('/cotizacion/{token}', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'mostrarCotizacion'])->name('cotizacion');
+    Route::post('/cotizacion/{token}/responder', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'responderCotizacion'])->name('cotizacion.responder');
+    Route::post('/cotizacion/{token}/rechazar', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'rechazarCotizacion'])->name('cotizacion.rechazar');
+    Route::get('/cotizacion/{token}/agradecimiento-rechazo', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'agradecimientoRechazo'])->name('agradecimiento.rechazo');
 });
 
 // Ruta de inicio
@@ -68,7 +77,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // 1. Categorías de Producto (Implementación Actual)
         Route::resource('categorias', CategoriaProductoController::class);
         Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
-        Route::resource('proveedores', \App\Http\Controllers\Admin\ProveedorController::class);
+        // Proveedores MOVIDO al grupo principal (es un módulo operativo)
         Route::resource('unidades-medida', \App\Http\Controllers\Admin\UnidadMedidaController::class);
         // 2. Otras posibles rutas para  maestros
         Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
@@ -96,6 +105,64 @@ Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::clas
 Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
     ->name('api.modelos.por-marca');
 
+// --- API CONFIGURABLE SELECTS (CRUD RÁPIDO) ---
+Route::middleware(['auth'])->prefix('api')->group(function () {
+    // Tipos de Cliente
+    Route::get('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'index']);
+    Route::post('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'store']);
+    Route::delete('/tipos-cliente/{tipoCliente}', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'destroy']);
+    
+    // Estados de Cliente
+    Route::get('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'index']);
+    Route::post('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'store']);
+    Route::delete('/estados-cliente/{estadoCliente}', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'destroy']);
+    
+    // Provincias
+    Route::get('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'index']);
+    Route::post('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'store']);
+    Route::delete('/provincias/{provincia}', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'destroy']);
+    
+    // Localidades
+    Route::get('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'index']);
+    Route::post('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'store']);
+    Route::delete('/localidades/{localidad}', [\App\Http\Controllers\Api\LocalidadApiController::class, 'destroy']);
+    
+    // Marcas
+    Route::get('/marcas', [\App\Http\Controllers\Api\MarcaApiController::class, 'index']);
+    Route::post('/marcas', [\App\Http\Controllers\Api\MarcaApiController::class, 'store']);
+    Route::delete('/marcas/{marca}', [\App\Http\Controllers\Api\MarcaApiController::class, 'destroy']);
+    
+    // Modelos (por marca)
+    Route::get('/modelos', [\App\Http\Controllers\Api\ModeloController::class, 'indexAll']);
+    Route::post('/modelos', [\App\Http\Controllers\Api\ModeloController::class, 'store']);
+    Route::delete('/modelos/{modelo}', [\App\Http\Controllers\Api\ModeloController::class, 'destroy']);
+    
+    // Unidades de Medida
+    Route::get('/unidades-medida', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'index']);
+    Route::post('/unidades-medida', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'store']);
+    Route::delete('/unidades-medida/{unidadMedida}', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'destroy']);
+    
+    // Categorías de Producto
+    Route::get('/categorias-producto', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'index']);
+    Route::post('/categorias-producto', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'store']);
+    Route::delete('/categorias-producto/{categoriaProducto}', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'destroy']);
+    
+    // Estados de Producto
+    Route::get('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'index']);
+    Route::post('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'store']);
+    Route::delete('/estados-producto/{estadoProducto}', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'destroy']);
+    
+    // Medios de Pago
+    Route::get('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'index']);
+    Route::post('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'store']);
+    Route::delete('/medios-pago/{medioPago}', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'destroy']);
+    
+    // Tipos de Movimiento de Stock
+    Route::get('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'index']);
+    Route::post('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'store']);
+    Route::delete('/tipos-movimiento-stock/{tipoMovimientoStock}', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'destroy']);
+});
+
 // --- API DE NOTIFICACIONES ---
 Route::middleware(['auth'])->group(function () {
     Route::get('/api/notifications', function () {
@@ -115,6 +182,69 @@ Route::middleware(['auth'])->group(function () {
         auth()->user()->unreadNotifications->markAsRead();
         return response()->json(['success' => true]);
     });
+
+    // API de Alertas para Técnicos (CU-14)
+    Route::get('/api/tecnico/alertas', function () {
+        return \App\Models\AlertaReparacion::where('tecnicoID', auth()->id())
+            ->where('leida', false)
+            ->with(['reparacion.cliente', 'reparacion.modelo.marca', 'tipoAlerta'])
+            ->orderBy('created_at', 'desc')
+            ->take(20)
+            ->get();
+    });
+
+    // API de Motivos de Demora (para técnicos y admins)
+    Route::get('/api/motivos-demora', function () {
+        return \App\Models\MotivoDemoraReparacion::orderBy('orden')->get();
+    });
+
+    Route::post('/api/motivos-demora', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'codigo' => 'nullable|string|max:50',
+            'nombre' => 'required|string|max:100',
+            'descripcion' => 'nullable|string|max:500',
+            'requiere_bonificacion' => 'boolean',
+            'pausa_sla' => 'boolean',
+            'activo' => 'boolean',
+        ]);
+
+        // Generar código si no se proporciona
+        if (empty($validated['codigo'])) {
+            $base = strtoupper(preg_replace('/[^A-Za-z0-9]/', '_', substr($validated['nombre'], 0, 10)));
+            $validated['codigo'] = 'MOT_' . $base . '_' . substr(time(), -4);
+        }
+
+        // Asegurar que el código sea único
+        $baseCode = $validated['codigo'];
+        $counter = 1;
+        while (\App\Models\MotivoDemoraReparacion::where('codigo', $validated['codigo'])->exists()) {
+            $validated['codigo'] = $baseCode . '_' . $counter++;
+        }
+
+        // Obtener el próximo orden disponible
+        $maxOrden = \App\Models\MotivoDemoraReparacion::max('orden') ?? 0;
+        $validated['orden'] = $maxOrden + 1;
+        $validated['activo'] = $validated['activo'] ?? true;
+        $validated['requiere_bonificacion'] = $validated['requiere_bonificacion'] ?? false;
+        $validated['pausa_sla'] = $validated['pausa_sla'] ?? false;
+
+        $motivo = \App\Models\MotivoDemoraReparacion::create($validated);
+
+        return response()->json($motivo, 201);
+    });
+
+    Route::patch('/api/motivos-demora/{id}/toggle', function ($id) {
+        $motivo = \App\Models\MotivoDemoraReparacion::findOrFail($id);
+        $motivo->update(['activo' => !$motivo->activo]);
+        return response()->json(['success' => true, 'activo' => $motivo->activo]);
+    });
+
+    Route::delete('/api/motivos-demora/{id}', function ($id) {
+        $motivo = \App\Models\MotivoDemoraReparacion::findOrFail($id);
+        // Soft delete: solo desactivar
+        $motivo->update(['activo' => false]);
+        return response()->json(['success' => true]);
+    });
 });
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
@@ -123,6 +253,12 @@ Route::middleware(['auth'])->group(function () {
     // --- MÓDULO DE VENTAS ---
     Route::post('/ventas/{venta}/anular', [VentaController::class, 'anular'])
         ->name('ventas.anular');
+    
+    Route::get('/ventas/{venta}/imprimir', [VentaController::class, 'imprimirComprobante'])
+        ->name('ventas.imprimir');
+    
+    Route::get('/ventas/{venta}/imprimir-anulacion', [VentaController::class, 'imprimirComprobanteAnulacion'])
+        ->name('ventas.imprimir-anulacion');
     
     Route::resource('ventas', VentaController::class);
 
@@ -135,10 +271,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [PagoController::class, 'index'])->name('index');
         // Formulario de Carga (Create)
         Route::get('/crear', [PagoController::class, 'create'])->name('create');
+        // Obtener documentos pendientes de un cliente (CU-10 Paso 6)
+        Route::get('/cliente/{cliente}/documentos-pendientes', [PagoController::class, 'obtenerDocumentosPendientes'])
+            ->name('cliente.documentos');
         // Guardar Pago (Store)
         Route::post('/', [PagoController::class, 'store'])->name('store');
         // Ver Recibo (Show)
         Route::get('/{pago}', [PagoController::class, 'show'])->name('show');
+        // Imprimir Recibo (CU-10 Paso 12 - Kendall)
+        Route::get('/{pago}/imprimir', [PagoController::class, 'imprimirRecibo'])->name('imprimir');
         // Anular Pago
         Route::delete('/{pago}', [PagoController::class, 'anular'])->name('anular');
     });
@@ -154,10 +295,24 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{cliente}/confirmar-baja', [ClienteController::class, 'confirmDelete'])->name('confirmDelete');   
         Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])->name('darDeBaja'); 
     });
+
+    // --- MÓDULO DE PROVEEDORES (CU-16 a CU-19) ---
+    // Ubicado aquí para acceso operativo (Admin/Compras)
+    Route::resource('proveedores', ProveedorController::class)->parameters([
+        'proveedores' => 'proveedor'
+    ]);
+    
+    // Ruta adicional para actualizar calificación (CU-21)
+    Route::patch('proveedores/{proveedor}/calificacion', [ProveedorController::class, 'actualizarCalificacion'])
+        ->name('proveedores.actualizar-calificacion');
     
     // API Interna para buscar clientes (Buscador Asíncrono)
     Route::get('/api/clientes/buscar', [App\Http\Controllers\ClienteController::class, 'buscar'])
         ->name('api.clientes.buscar');
+
+    // API: Buscar productos (para autocomplete)
+    Route::get('/api/productos/buscar', [ProductoController::class, 'buscar'])
+        ->name('api.productos.buscar');
 
     //--- MÓDULO DE PRODUCTOS ---
     Route::prefix('productos')->name('productos.')->group(function () {
@@ -233,6 +388,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/crear', [ReparacionController::class, 'create'])->name('create');
         Route::post('/', [ReparacionController::class, 'store'])->name('store');
         Route::get('/{reparacion}', [ReparacionController::class, 'show'])->name('show');
+        Route::get('/{reparacion}/imprimir-ingreso', [ReparacionController::class, 'imprimirComprobanteIngreso'])->name('imprimir-ingreso');
+        Route::get('/{reparacion}/imprimir-entrega', [ReparacionController::class, 'imprimirComprobanteEntrega'])->name('imprimir-entrega');
         Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])->name('edit');
         Route::put('/{reparacion}', [ReparacionController::class, 'update'])->name('update');
         Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])->name('destroy');
@@ -254,6 +411,65 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{bonificacion}/aprobar', [\App\Http\Controllers\BonificacionReparacionController::class, 'aprobar'])->name('aprobar');
         Route::post('/{bonificacion}/rechazar', [\App\Http\Controllers\BonificacionReparacionController::class, 'rechazar'])->name('rechazar');
     });
+
+    // --- MÓDULO DE COMPRAS (CU-20 a CU-23) ---
+    
+    // CU-21: Ofertas de Compra
+    Route::prefix('ofertas')->name('ofertas.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\OfertaCompraController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\OfertaCompraController::class, 'create'])->name('create');
+        Route::get('/comparar', [\App\Http\Controllers\OfertaCompraController::class, 'comparar'])->name('comparar');
+        Route::post('/cancelar-evaluacion', [\App\Http\Controllers\OfertaCompraController::class, 'cancelarEvaluacion'])->name('cancelar-evaluacion');
+        Route::post('/', [\App\Http\Controllers\OfertaCompraController::class, 'store'])->name('store');
+        Route::get('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'show'])->name('show');
+        Route::get('/{oferta}/confirmar-seleccion', [\App\Http\Controllers\OfertaCompraController::class, 'confirmarSeleccion'])->name('confirmar-seleccion');
+        Route::post('/{oferta}/elegir', [\App\Http\Controllers\OfertaCompraController::class, 'elegir'])->name('elegir');
+        Route::post('/{oferta}/rechazar', [\App\Http\Controllers\OfertaCompraController::class, 'rechazar'])->name('rechazar');
+    });
+
+    // CU-22: Órdenes de Compra (Generar OC desde ofertas elegidas)
+    // CU-24: Consultar Órdenes de Compra (Historial)
+    Route::prefix('ordenes')->name('ordenes.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index'); // P1: Lista ofertas elegidas listas para OC
+        Route::get('/historial', [\App\Http\Controllers\OrdenCompraController::class, 'historial'])->name('historial'); // CU-24: Consultar OC generadas
+        Route::get('/create', [\App\Http\Controllers\OrdenCompraController::class, 'create'])->name('create'); // P2+P3+P4: Resumen + Motivo + Confirmación
+        Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store'); // P5: Resultado
+        Route::get('/{orden}', [\App\Http\Controllers\OrdenCompraController::class, 'show'])->name('show')->whereNumber('orden');
+        Route::get('/{orden}/descargar-pdf', [\App\Http\Controllers\OrdenCompraController::class, 'descargarPdf'])->name('descargar-pdf')->whereNumber('orden');
+        Route::post('/{orden}/reenviar-whatsapp', [\App\Http\Controllers\OrdenCompraController::class, 'reenviarWhatsApp'])->name('reenviar-whatsapp')->whereNumber('orden');
+        Route::post('/{orden}/reenviar-email', [\App\Http\Controllers\OrdenCompraController::class, 'reenviarEmail'])->name('reenviar-email')->whereNumber('orden');
+        Route::post('/{orden}/regenerar-pdf', [\App\Http\Controllers\OrdenCompraController::class, 'regenerarPdf'])->name('regenerar-pdf')->whereNumber('orden');
+        Route::post('/{orden}/confirmar', [\App\Http\Controllers\OrdenCompraController::class, 'confirmar'])->name('confirmar')->whereNumber('orden');
+        Route::post('/{orden}/cancelar', [\App\Http\Controllers\OrdenCompraController::class, 'cancelar'])->name('cancelar')->whereNumber('orden');
+    });
+
+    // CU-23: Recepción de Mercadería
+    Route::prefix('recepciones')->name('recepciones.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'index'])->name('index'); // P1: Seleccionar OC pendiente
+        Route::get('/historial', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'historial'])->name('historial'); // Historial de recepciones
+        Route::get('/crear', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'store'])->name('store');
+        Route::get('/{recepcion}', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'show'])->name('show');
+    });
+
+    // CU-20: Solicitudes de Cotización
+    Route::prefix('solicitudes-cotizacion')->name('solicitudes-cotizacion.')->middleware('role:admin')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'index'])->name('index');
+        Route::get('/create', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'store'])->name('store');
+        Route::get('/{solicitud}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'show'])->name('show');
+        Route::post('/{solicitud}/enviar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'enviar'])->name('enviar');
+        Route::post('/{solicitud}/agregar-proveedor', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'agregarProveedor'])->name('agregar-proveedor');
+        Route::post('/{solicitud}/cerrar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cerrar'])->name('cerrar');
+        Route::post('/{solicitud}/cancelar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cancelar'])->name('cancelar');
+        Route::post('/{solicitud}/reenviar/{cotizacion}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'reenviarRecordatorio'])->name('reenviar');
+        Route::post('/generar-automaticas', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'generarAutomaticas'])->name('generar-automaticas');
+    });
+
+    // CU-20: Monitoreo de Stock
+    Route::get('/monitoreo-stock', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'monitoreoStock'])
+        ->name('monitoreo-stock.index')
+        ->middleware('role:admin');
 
 });
 

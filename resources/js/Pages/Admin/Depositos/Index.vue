@@ -21,7 +21,7 @@ const modalTitle = ref('');
 const form = useForm({
     deposito_id: null,
     nombre: '',
-    ubicacion: '',
+    direccion: '',
     activo: true
 });
 
@@ -38,7 +38,7 @@ const openEditModal = (deposito) => {
     modalTitle.value = 'Editar Depósito';
     form.deposito_id = deposito.deposito_id;
     form.nombre = deposito.nombre;
-    form.ubicacion = deposito.ubicacion;
+    form.direccion = deposito.direccion;
     form.activo = Boolean(deposito.activo);
     form.clearErrors();
     showModal.value = true;
@@ -109,7 +109,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                         {{ dep.nombre }}
                                         <span v-if="dep.deposito_id === 1" class="ml-2 text-xs bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full">Principal</span>
                                     </td>
-                                    <td class="px-6 py-4 text-sm text-gray-500">{{ dep.ubicacion || '-' }}</td>
+                                    <td class="px-6 py-4 text-sm text-gray-500">{{ dep.direccion || '-' }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span :class="['px-2 inline-flex text-xs leading-5 font-semibold rounded-full', getEstadoBadge(dep.activo)]">
                                             {{ dep.activo ? 'Activo' : 'Inactivo' }}
@@ -148,9 +148,9 @@ const getPaginationLabel = (label, index, totalLinks) => {
                 </div>
 
                 <div class="mb-4">
-                    <InputLabel for="ubicacion" value="Ubicación / Dirección" />
-                    <TextInput id="ubicacion" v-model="form.ubicacion" type="text" class="mt-1 block w-full" placeholder="Ej: Calle Falsa 123" />
-                    <InputError :message="form.errors.ubicacion" class="mt-2" />
+                    <InputLabel for="direccion" value="Ubicación / Dirección" />
+                    <TextInput id="direccion" v-model="form.direccion" type="text" class="mt-1 block w-full" placeholder="Ej: Calle Falsa 123" />
+                    <InputError :message="form.errors.direccion" class="mt-2" />
                 </div>
 
                 <div class="mb-4 block">

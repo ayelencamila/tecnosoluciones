@@ -57,6 +57,14 @@ class EstadoCliente extends Model
     protected $keyType = 'int';
 
     /**
+     * Get the route key for the model.
+     */
+    public function getRouteKeyName(): string
+    {
+        return 'estadoClienteID';
+    }
+
+    /**
      * Atributos que se pueden asignar de forma masiva
      *
      * @var array<int, string>

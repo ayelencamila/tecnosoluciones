@@ -16,13 +16,13 @@ class AlertaReparacion extends Model
     protected $fillable = [
         'reparacionID',
         'tecnicoID',
-        'tipo_alerta',
+        'tipo_alerta_id',
         'dias_excedidos',
         'dias_efectivos',
         'sla_vigente',
+        'respuesta_tecnico',
         'leida',
         'fecha_lectura',
-        'respuesta_tecnico',
     ];
 
     protected $casts = [
@@ -56,6 +56,14 @@ class AlertaReparacion extends Model
     public function tecnico(): BelongsTo
     {
         return $this->belongsTo(User::class, 'tecnicoID', 'id');
+    }
+
+    /**
+     * Tipo de alerta (tabla paramétrica)
+     */
+    public function tipoAlerta(): BelongsTo
+    {
+        return $this->belongsTo(TipoAlertaReparacion::class, 'tipo_alerta_id', 'tipo_id');
     }
 
     /**

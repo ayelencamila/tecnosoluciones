@@ -10,7 +10,6 @@ return new class extends Migration
     {
         Schema::create('categorias_producto', function (Blueprint $table) {
             $table->id();
-            // CAMBIO AQUÍ: Usamos string para permitir cualquier nombre nuevo en el futuro
             $table->string('nombre')->unique(); 
             $table->text('descripcion')->nullable();
             // ¡Perfecto que agregaste el campo activo!

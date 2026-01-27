@@ -4,6 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
@@ -21,6 +23,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'rol_id',
     ];
 
     /**
@@ -34,11 +37,39 @@ class User extends Authenticatable
     ];
 
     /**
+     * Relación: Un usuario pertenece a un rol.
+     */
+    public function rol(): BelongsTo
+    {
+        return $this->belongsTo(Rol::class, 'rol_id', 'rol_id');
+    }
+
+    /**
      * Reparaciones asignadas a este usuario (técnico).
      */
     public function reparacionesAsignadas(): HasMany
     {
         return $this->hasMany(Reparacion::class, 'tecnico_id');
+    }
+
+    /**
+     * Accessor para obtener el nombre del rol (para compatibilidad con frontend).
+     * Lee directamente de la BD sin necesidad de modelo Rol.
+     */
+    public function getRoleAttribute(): ?string
+    {
+        if (!$this->rol_id) {
+            return null;
+        }
+
+        // Cache en el objeto para evitar múltiples queries
+        if (!isset($this->attributes['_cached_role'])) {
+            $this->attributes['_cached_role'] = \DB::table('roles')
+                ->where('rol_id', $this->rol_id)
+                ->value('nombre');
+        }
+
+        return $this->attributes['_cached_role'];
     }
 
     /**

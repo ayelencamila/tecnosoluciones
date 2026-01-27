@@ -16,4 +16,12 @@ class UnidadMedida extends Model
     protected $casts = [
         'activo' => 'boolean',
     ];
+
+    /**
+     * Relación: Una unidad de medida tiene muchos productos
+     */
+    public function productos()
+    {
+        return $this->hasMany(Producto::class, 'unidadMedidaID');
+    }
 }

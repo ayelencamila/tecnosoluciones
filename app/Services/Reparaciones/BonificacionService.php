@@ -6,7 +6,9 @@ use App\Models\AlertaReparacion;
 use App\Models\BonificacionReparacion;
 use App\Models\Reparacion;
 use App\Models\Configuracion;
+use App\Models\User;
 use App\Jobs\NotificarBonificacionCliente;
+use App\Notifications\BonificacionPendienteAprobacion;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -65,7 +67,28 @@ class BonificacionService
             'monto_descuento' => $montoDescuento,
         ]);
         
+        // Notificar a los administradores sobre la bonificación pendiente
+        $this->notificarAdministradores($bonificacion);
+        
         return $bonificacion;
+    }
+    
+    /**
+     * Notifica a todos los administradores sobre una nueva bonificación pendiente
+     */
+    protected function notificarAdministradores(BonificacionReparacion $bonificacion): void
+    {
+        // rol_id = 1 es admin según la tabla roles
+        $admins = User::where('rol_id', 1)->get();
+        
+        foreach ($admins as $admin) {
+            $admin->notify(new BonificacionPendienteAprobacion($bonificacion));
+        }
+        
+        Log::info('Notificación enviada a administradores', [
+            'bonificacion_id' => $bonificacion->bonificacionID,
+            'admins_notificados' => $admins->count(),
+        ]);
     }
     
     /**

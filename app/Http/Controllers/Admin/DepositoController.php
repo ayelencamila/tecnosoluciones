@@ -22,12 +22,12 @@ class DepositoController extends Controller
     {
         $request->validate([
             'nombre' => 'required|string|max:100|unique:depositos,nombre',
-            'ubicacion' => 'nullable|string|max:255',
+            'direccion' => 'nullable|string|max:255',
         ]);
 
         Deposito::create([
             'nombre' => $request->nombre,
-            'ubicacion' => $request->ubicacion,
+            'direccion' => $request->direccion,
             'activo' => true
         ]);
 
@@ -40,7 +40,7 @@ class DepositoController extends Controller
 
         $request->validate([
             'nombre' => 'required|string|max:100|unique:depositos,nombre,' . $id . ',deposito_id',
-            'ubicacion' => 'nullable|string|max:255',
+            'direccion' => 'nullable|string|max:255',
             'activo' => 'boolean'
         ]);
 
@@ -49,7 +49,7 @@ class DepositoController extends Controller
             return back()->withErrors(['activo' => 'El depósito principal no puede desactivarse.']);
         }
 
-        $deposito->update($request->only(['nombre', 'ubicacion', 'activo']));
+        $deposito->update($request->only(['nombre', 'direccion', 'activo']));
 
         return back()->with('success', 'Depósito actualizado.');
     }

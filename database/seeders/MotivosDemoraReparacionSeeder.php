@@ -88,7 +88,10 @@ class MotivosDemoraReparacionSeeder extends Seeder
         ];
 
         foreach ($motivos as $motivo) {
-            \App\Models\MotivoDemoraReparacion::create($motivo);
+            \App\Models\MotivoDemoraReparacion::updateOrCreate(
+                ['nombre' => $motivo['nombre']],
+                $motivo
+            );
         }
 
         $this->command->info('✓ 8 motivos de demora creados exitosamente');

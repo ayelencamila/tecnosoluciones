@@ -25,7 +25,7 @@ class AlertaReparacionController extends Controller
     {
         $tecnicoID = Auth::id();
 
-        $alertas = AlertaReparacion::with(['reparacion.cliente', 'reparacion.estado'])
+        $alertas = AlertaReparacion::with(['reparacion.cliente', 'reparacion.estado', 'tipoAlerta'])
             ->where('tecnicoID', $tecnicoID)
             ->orderBy('leida', 'asc')
             ->orderBy('created_at', 'desc')
@@ -46,7 +46,7 @@ class AlertaReparacionController extends Controller
             abort(403, 'No autorizado para ver esta alerta');
         }
 
-        $alerta->load(['reparacion.cliente', 'reparacion.estado', 'tecnico']);
+        $alerta->load(['reparacion.cliente', 'reparacion.estado', 'tecnico', 'tipoAlerta']);
 
         // Obtener motivos de demora activos
         $motivos = MotivoDemoraReparacion::activos()

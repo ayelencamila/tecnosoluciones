@@ -18,7 +18,7 @@ class MovimientoCuentaCorriente extends Model
 
     protected $fillable = [
         'cuentaCorrienteID',
-        'tipoMovimiento',
+        'tipo_movimiento_cc_id',
         'descripcion',
         'monto',
         'fechaEmision',

@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Venta extends Model
 {
@@ -80,5 +81,13 @@ class Venta extends Model
     {
         $pagado = $this->pagos()->sum('pago_venta_imputacion.monto_imputado');
         return max(0, $this->total - $pagado);
+    }
+
+    /**
+     * Comprobantes asociados a esta venta (Larman: Relación Polimórfica)
+     */
+    public function comprobantes(): MorphMany
+    {
+        return $this->morphMany(Comprobante::class, 'entidad', 'tipo_entidad', 'entidad_id');
     }
 }

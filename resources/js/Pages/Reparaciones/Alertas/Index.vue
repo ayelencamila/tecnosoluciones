@@ -15,10 +15,15 @@ const alertasLeidas = computed(() => {
     return props.alertas.data.filter(a => a.leida);
 });
 
-const getTipoAlertaColor = (tipo) => {
-    return tipo === 'incumplimiento' 
+const getTipoAlertaColor = (tipoAlerta) => {
+    const nombre = tipoAlerta?.nombre || '';
+    return nombre === 'sla_excedido' || nombre === 'incumplimiento'
         ? 'bg-red-100 text-red-800' 
         : 'bg-orange-100 text-orange-800';
+};
+
+const getTipoAlertaNombre = (tipoAlerta) => {
+    return tipoAlerta?.descripcion || 'SLA Excedido';
 };
 
 const formatFecha = (fecha) => {
@@ -73,7 +78,7 @@ const formatFecha = (fecha) => {
                                         <div class="flex items-center gap-3 mb-2">
                                             <span :class="getTipoAlertaColor(alerta.tipo_alerta)"
                                                   class="px-3 py-1 text-xs font-semibold rounded-full uppercase">
-                                                {{ alerta.tipo_alerta }}
+                                                {{ getTipoAlertaNombre(alerta.tipo_alerta) }}
                                             </span>
                                             <span class="text-sm text-gray-500">
                                                 Reparación #{{ alerta.reparacion.codigo_reparacion }}
@@ -131,7 +136,7 @@ const formatFecha = (fecha) => {
                                         <div class="flex items-center gap-3 mb-2">
                                             <span :class="getTipoAlertaColor(alerta.tipo_alerta)"
                                                   class="px-3 py-1 text-xs font-semibold rounded-full uppercase">
-                                                {{ alerta.tipo_alerta }}
+                                                {{ getTipoAlertaNombre(alerta.tipo_alerta) }}
                                             </span>
                                             <span class="text-sm text-gray-500">
                                                 Reparación #{{ alerta.reparacion.codigo_reparacion }}

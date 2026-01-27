@@ -26,7 +26,7 @@ class BonificacionReparacion extends Model
         'aprobada_por',
         'fecha_aprobacion',
         'observaciones_aprobacion',
-        'decision_cliente',
+        'estado_decision_id',
         'fecha_decision_cliente',
         'observaciones_decision',
     ];
@@ -81,17 +81,40 @@ class BonificacionReparacion extends Model
     }
 
     /**
+     * Estado de decisión del cliente
+     */
+    public function estadoDecision(): BelongsTo
+    {
+        return $this->belongsTo(EstadoDecisionCliente::class, 'estado_decision_id', 'estado_id');
+    }
+
+    /**
+     * Accessor para obtener decision_cliente como string (compatibilidad)
+     */
+    public function getDecisionClienteAttribute(): ?string
+    {
+        return $this->estadoDecision?->nombre;
+    }
+
+    /**
      * Aprobar bonificación
      */
     public function aprobar(int $usuarioID, ?string $observaciones = null): void
     {
+        // Obtener estado_id 'pendiente' para contexto 'bonificacion'
+        $estadoPendiente = \DB::table('estados_decision_cliente')
+            ->where('nombre', 'pendiente')
+            ->where('contexto', 'bonificacion')
+            ->value('estado_id');
+
         $this->update([
             'estado' => 'aprobada',
             'porcentaje_aprobado' => $this->porcentaje_sugerido,
-            'monto_bonificado' => $this->monto_original * (1 - $this->porcentaje_sugerido / 100),
+            'monto_bonificado' => $this->monto_original * ($this->porcentaje_sugerido / 100),
             'aprobada_por' => $usuarioID,
             'fecha_aprobacion' => now(),
             'observaciones_aprobacion' => $observaciones,
+            'estado_decision_id' => $estadoPendiente, // Esperando respuesta del cliente
         ]);
     }
 
@@ -116,6 +139,12 @@ class BonificacionReparacion extends Model
         // Calcular el descuento (no el total con descuento)
         $montoDescuento = $this->monto_original * ($porcentaje / 100);
         
+        // Obtener estado_id 'pendiente' para contexto 'bonificacion'
+        $estadoPendiente = \DB::table('estados_decision_cliente')
+            ->where('nombre', 'pendiente')
+            ->where('contexto', 'bonificacion')
+            ->value('estado_id');
+
         $this->update([
             'estado' => 'aprobada',
             'porcentaje_aprobado' => $porcentaje,
@@ -123,6 +152,7 @@ class BonificacionReparacion extends Model
             'aprobada_por' => $usuarioID,
             'fecha_aprobacion' => now(),
             'observaciones_aprobacion' => $observaciones,
+            'estado_decision_id' => $estadoPendiente, // Esperando respuesta del cliente
         ]);
     }
 
@@ -139,24 +169,20 @@ class BonificacionReparacion extends Model
      */
     public function registrarDecisionCliente(string $decision, ?string $observaciones = null): void
     {
+        // Obtener estado_id por nombre y contexto
+        $estadoDecision = \DB::table('estados_decision_cliente')
+            ->where('nombre', $decision)
+            ->where('contexto', 'bonificacion')
+            ->value('estado_id');
+
         $this->update([
-            'decision_cliente' => $decision,
+            'estado_decision_id' => $estadoDecision,
             'fecha_decision_cliente' => now(),
             'observaciones_decision' => $observaciones,
         ]);
 
-        // Actualizar estado de la reparación según decisión
-        if ($decision === 'aceptar') {
-            // Cliente acepta continuar con la reparación y la bonificación
-            $this->reparacion->update([
-                'estadoReparacionID' => 2, // "En Reparación" - ajustar según tu sistema
-            ]);
-        } elseif ($decision === 'cancelar') {
-            // Cliente cancela/retira la reparación
-            $this->reparacion->update([
-                'estadoReparacionID' => 5, // "Listo para retiro" - ajustar según tu sistema
-            ]);
-        }
+        // Disparar evento para que el listener procese la decisión
+        event(new \App\Events\ClienteRespondioBonificacion($this, $decision));
     }
 
     /**

@@ -4,10 +4,13 @@ import { Link, usePage } from '@inertiajs/vue3';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
+import TecnicoAlertBell from '@/Components/TecnicoAlertBell.vue';
 
 const showingSidebar = ref(false);
 // Estado para el menú desplegable de Maestros
 const showingMaestros = ref(false);
+// Estado para el menú desplegable de Compras
+const showingCompras = ref(false);
 
 const page = usePage(); 
 
@@ -61,6 +64,18 @@ const mainNavItems = computed(() => {
             route: 'reparaciones.index', 
             icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
             roles: ['admin', 'tecnico']
+        });
+    }
+
+    // PROVEEDORES  ---
+    // Visible para Admin y Vendedor (si el vendedor ayuda en compras/recepción)
+    if (role === 'admin' || role === 'vendedor') {
+        items.push({ 
+            name: 'Proveedores', 
+            route: 'proveedores.index', 
+            // Icono de Camión/Proveedor
+            icon: 'M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4', 
+            roles: ['admin', 'vendedor']
         });
     }
 
@@ -125,7 +140,7 @@ const maestrosItems = computed(() => {
         { name: 'Marcas', route: 'admin.marcas.index' },
         { name: 'Modelos', route: 'admin.modelos.index' },
         { name: 'Unidades Medida', route: 'admin.unidades-medida.index' },
-        { name: 'Proveedores', route: 'admin.proveedores.index' },
+        // { name: 'Proveedores', route: 'admin.proveedores.index' }, <--- ESTA LÍNEA SE ELIMINÓ (CAUSABA EL ERROR)
         { name: 'Depósitos', route: 'admin.depositos.index' },
         { name: 'Medios de Pago', route: 'admin.medios-pago.index' },
         { name: 'Estados Reparación', route: 'admin.estados-reparacion.index' },
@@ -137,7 +152,21 @@ const maestrosItems = computed(() => {
     ];
 });
 
-// --- 3. MENÚ BONIFICACIONES (SOLO ADMIN) ---
+// --- 3. MENÚ COMPRAS (SOLO ADMIN) ---
+const comprasItems = computed(() => {
+    const role = page.props.auth.user.role;
+    if (role !== 'admin') return [];
+
+    return [
+        { name: 'Monitoreo de Stock', route: 'monitoreo-stock.index' }, // CU-20
+        { name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' }, // CU-20
+        { name: 'Ofertas de Compra', route: 'ofertas.index' },
+        { name: 'Órdenes de Compra', route: 'ordenes.index' }, // CU-22
+        { name: 'Recepción de Mercadería', route: 'recepciones.index' }, // CU-23
+    ];
+});
+
+// --- 4. MENÚ BONIFICACIONES (SOLO ADMIN) ---
 const bonificacionesNavItems = computed(() => {
     const role = page.props.auth.user.role;
     if (role !== 'admin') return [];
@@ -157,9 +186,16 @@ const isMaestrosActive = computed(() => {
     return maestrosItems.value.some(item => route().current(item.route));
 });
 
+const isComprasActive = computed(() => {
+    return comprasItems.value.some(item => route().current(item.route) || route().current(item.route.replace('.index', '*')));
+});
+
 // Si hay una ruta activa adentro, abrimos el menú por defecto
 if (isMaestrosActive.value) {
     showingMaestros.value = true;
+}
+if (isComprasActive.value) {
+    showingCompras.value = true;
 }
 
 const isActive = (routeName) => {
@@ -202,6 +238,44 @@ const isActive = (routeName) => {
                     {{ item.name }}
                 </Link>
 
+                <!-- SECCIÓN COMPRAS (Admin) - Después de Dashboard -->
+                <div v-if="$page.props.auth.user.role === 'admin'">
+                    <button 
+                        @click="showingCompras = !showingCompras"
+                        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 focus:outline-none transition-colors"
+                        :class="{ 'bg-gray-50': showingCompras || isComprasActive }"
+                    >
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            Compras
+                        </div>
+                        <svg 
+                            class="w-4 h-4 text-gray-400 transform transition-transform duration-200" 
+                            :class="{ 'rotate-180': showingCompras }"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <div v-show="showingCompras" class="mt-1 space-y-1 pl-11">
+                        <Link 
+                            v-for="subitem in comprasItems" 
+                            :key="subitem.name"
+                            :href="route(subitem.route)"
+                            class="block px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                            :class="isActive(subitem.route)
+                                ? 'text-indigo-700 bg-indigo-50'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'"
+                        >
+                            {{ subitem.name }}
+                        </Link>
+                    </div>
+                </div>
+
+                <!-- SECCIÓN ADMINISTRACIÓN -->
                 <div v-if="$page.props.auth.user.role === 'admin'" class="pt-4 pb-2">
                     <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Administración
@@ -216,7 +290,7 @@ const isActive = (routeName) => {
                     >
                         <div class="flex items-center">
                             <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
                             </svg>
                             Gestión de Maestros
                         </div>
@@ -243,7 +317,36 @@ const isActive = (routeName) => {
                         </Link>
                     </div>
 
-                    <!-- Bonificaciones (Solo Admin) -->
+                    <Link 
+                        :href="route('configuracion.index')"
+                        class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
+                        :class="isActive('configuracion.index') 
+                            ? 'bg-indigo-50 text-indigo-700' 
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
+                    >
+                        <svg class="w-5 h-5 mr-3 transition-colors" 
+                             :class="isActive('configuracion.index') ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                        Parámetros del Sistema
+                    </Link>
+
+                    <Link 
+                        :href="route('plantillas-whatsapp.index')" 
+                        class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
+                        :class="isActive('plantillas-whatsapp.index') || isActive('plantillas-whatsapp.edit')
+                            ? 'bg-green-50 text-green-700' 
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
+                    >
+                        <svg class="w-5 h-5 mr-3 transition-colors" 
+                             :class="isActive('plantillas-whatsapp.index') || isActive('plantillas-whatsapp.edit') ? 'text-green-600' : 'text-gray-400 group-hover:text-gray-500'"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        Plantillas WhatsApp
+                    </Link>
+
                     <Link 
                         v-for="item in bonificacionesNavItems" 
                         :key="item.name"
@@ -260,40 +363,6 @@ const isActive = (routeName) => {
                         </svg>
                         {{ item.name }}
                     </Link>
-
-                    <!-- Configuración y Plantillas -->
-                    <div class="pt-4 mt-4 border-t border-gray-200">
-                        <Link 
-                            :href="route('configuracion.index')"
-                            class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
-                            :class="isActive('configuracion.index') 
-                                ? 'bg-indigo-50 text-indigo-700' 
-                                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
-                        >
-                            <svg class="w-5 h-5 mr-3 transition-colors" 
-                                 :class="isActive('configuracion.index') ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'"
-                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            Configuración Global
-                        </Link>
-
-                        <!-- Plantillas WhatsApp (CU-30) -->
-                        <Link 
-                            :href="route('plantillas-whatsapp.index')" 
-                            class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group mt-1"
-                            :class="isActive('plantillas-whatsapp.index') || isActive('plantillas-whatsapp.edit')
-                                ? 'bg-green-50 text-green-700' 
-                                : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
-                        >
-                            <svg class="w-5 h-5 mr-3 transition-colors" 
-                                 :class="isActive('plantillas-whatsapp.index') || isActive('plantillas-whatsapp.edit') ? 'text-green-600' : 'text-gray-400 group-hover:text-gray-500'"
-                                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-                            </svg>
-                            Plantillas WhatsApp
-                        </Link>
-                    </div>
                 </div>
 
             </nav>
@@ -311,14 +380,14 @@ const isActive = (routeName) => {
                 </button>
 
                 <div class="flex-1 min-w-0">
-                     <div v-if="$slots.header" class="text-lg font-bold text-gray-900 sm:truncate">
+                      <div v-if="$slots.header" class="text-lg font-bold text-gray-900 sm:truncate">
                         <slot name="header" />
-                     </div>
+                      </div>
                 </div>
 
                 <div class="ml-4 flex items-center gap-4">
-                    <!-- Campanita de Notificaciones -->
                     <NotificationBell v-if="$page.props.auth.user.role === 'admin'" />
+                    <TecnicoAlertBell v-if="$page.props.auth.user.role === 'tecnico'" />
                     
                     <div class="relative">
                         <Dropdown align="right" width="48">

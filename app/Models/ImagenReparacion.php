@@ -13,9 +13,14 @@ class ImagenReparacion extends Model
     protected $fillable = [
         'reparacion_id',
         'ruta_archivo',
-        'etapa', // 'ingreso', 'proceso', 'salida'
+        'etapa_id',
         'nombre_original'
     ];
+
+    public function etapa(): BelongsTo
+    {
+        return $this->belongsTo(EtapaImagenReparacion::class, 'etapa_id', 'etapa_id');
+    }
 
     public function reparacion(): BelongsTo
     {

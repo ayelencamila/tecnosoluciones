@@ -23,11 +23,12 @@ class RegistrarPagoService
                 'clienteID'   => $cliente->clienteID,
                 'user_id'     => $userId,
                 'monto'       => $data['monto'],
-                'medioPagoID' => $data['medioPagoID'], // <--- Cambio clave
+                'medioPagoID' => $data['medioPagoID'],
                 'fecha_pago'  => now(),
                 'observaciones' => $data['observaciones'] ?? null,
             ]);
 
+            // Registrar crédito en cuenta corriente SOLO si el cliente la tiene (mayoristas)
             if ($cliente->cuentaCorriente) {
                 $descripcion = "Pago Recibido - Recibo: {$pago->numero_recibo}";
                 
@@ -39,11 +40,35 @@ class RegistrarPagoService
                     $userId
                 );
             }
+            // Para clientes minoristas sin CC, el pago solo se registra y se imputa a ventas
 
-            $this->imputarPagoAutomaticamente($pago, $cliente);
+            // CU-10 Paso 7: Imputación manual o automática
+            // Si hay imputaciones manuales con contenido, usarlas. Si no, imputar automáticamente.
+            if (!empty($data['imputaciones']) && is_array($data['imputaciones'])) {
+                $this->imputarPagoManualmente($pago, $data['imputaciones']);
+            } else {
+                $this->imputarPagoAutomaticamente($pago, $cliente);
+            }
 
             // CU-09 Paso 7: Disparar evento para verificar normalización
             event(new PagoRegistrado($pago, $userId));
+
+            // CU-10 Paso 13: Registrar en historial de operaciones
+            \App\Models\Auditoria::registrar(
+                \App\Models\Auditoria::ACCION_REGISTRAR_PAGO,
+                'pagos',
+                $pago->pagoID,
+                null,
+                [
+                    'numero_recibo' => $pago->numero_recibo,
+                    'monto' => $pago->monto,
+                    'clienteID' => $pago->clienteID,
+                    'medioPagoID' => $pago->medioPagoID,
+                ],
+                "Pago recibido de cliente ID {$cliente->clienteID}",
+                "Monto: \${$pago->monto} - Recibo: {$pago->numero_recibo}",
+                $userId
+            );
 
             Log::info("Pago registrado e imputado: ID {$pago->pagoID}");
 
@@ -75,6 +100,18 @@ class RegistrarPagoService
 
                 $montoDisponible -= $montoAImputar;
             }
+        }
+    }
+
+    /**
+     * Imputa el pago manualmente según las instrucciones del usuario (CU-10 Paso 7)
+     */
+    private function imputarPagoManualmente(Pago $pago, array $imputaciones): void
+    {
+        foreach ($imputaciones as $imputacion) {
+            $pago->ventasImputadas()->attach($imputacion['venta_id'], [
+                'monto_imputado' => $imputacion['monto_imputado']
+            ]);
         }
     }
 }

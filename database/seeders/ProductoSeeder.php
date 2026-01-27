@@ -49,68 +49,87 @@ class ProductoSeeder extends Seeder
             $tipoMayorista = $tiposCliente->where('nombreTipo', 'Mayorista')->first()->tipoClienteID;
 
             // --- PRODUCTO FÍSICO 1 (EQUIPO) ---
-            $prod1 = Producto::create([
-                'codigo' => 'EQ-001',
-                'nombre' => 'Notebook HP Pavilion 15',
-                'descripcion' => 'Notebook 15.6" Intel Core i5, 8GB RAM, 256GB SSD',
-                
-                // CAMBIOS PARA SOPORTAR LA NUEVA ESTRUCTURA:
-                'marca_id' => $marcaHP->id,           // Usamos el ID de la marca
-                'unidad_medida_id' => $unidadU->id,   // Usamos el ID de la unidad
-                
-                'categoriaProductoID' => $categorias->where('nombre', 'Equipos')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'proveedor_habitual_id' => null 
-            ]);
+            $prod1 = Producto::firstOrCreate(
+                ['codigo' => 'EQ-001'],
+                [
+                    'nombre' => 'Notebook HP Pavilion 15',
+                    'descripcion' => 'Notebook 15.6" Intel Core i5, 8GB RAM, 256GB SSD',
+                    
+                    // CAMBIOS PARA SOPORTAR LA NUEVA ESTRUCTURA:
+                    'marca_id' => $marcaHP->id,           // Usamos el ID de la marca
+                    'unidad_medida_id' => $unidadU->id,   // Usamos el ID de la unidad
+                    
+                    'categoriaProductoID' => $categorias->where('nombre', 'Equipos')->first()->id,
+                    'estadoProductoID' => $estadoActivo->id,
+                    'proveedor_habitual_id' => null 
+                ]
+            );
 
             // Stock
-            Stock::create([
-                'productoID' => $prod1->id,
-                'deposito_id' => $depositoPrincipal->deposito_id,
-                'cantidad_disponible' => 5, 
-                'stock_minimo' => 2,        
-            ]);
+            Stock::firstOrCreate(
+                ['productoID' => $prod1->id, 'deposito_id' => $depositoPrincipal->deposito_id],
+                [
+                    'cantidad_disponible' => 5, 
+                    'stock_minimo' => 2,        
+                ]
+            );
 
             // Precios
-            PrecioProducto::create(['productoID' => $prod1->id, 'tipoClienteID' => $tipoNormal, 'precio' => 850000, 'fechaDesde' => now()]);
-            PrecioProducto::create(['productoID' => $prod1->id, 'tipoClienteID' => $tipoMayorista, 'precio' => 780000, 'fechaDesde' => now()]);
+            PrecioProducto::firstOrCreate(
+                ['productoID' => $prod1->id, 'tipoClienteID' => $tipoNormal],
+                ['precio' => 850000, 'fechaDesde' => now()]
+            );
+            PrecioProducto::firstOrCreate(
+                ['productoID' => $prod1->id, 'tipoClienteID' => $tipoMayorista],
+                ['precio' => 780000, 'fechaDesde' => now()]
+            );
 
             // --- PRODUCTO FÍSICO 2 (REPUESTO) ---
-            $prod2 = Producto::create([
-                'codigo' => 'REP-002',
-                'nombre' => 'Disco SSD 480GB',
-                'descripcion' => 'Disco de estado sólido 480GB SATA III',
-                
-                // CAMBIOS:
-                'marca_id' => $marcaKingston->id,
-                'unidad_medida_id' => $unidadU->id,
-                
-                'categoriaProductoID' => $categorias->where('nombre', 'Repuestos')->first()->id,
-                'estadoProductoID' => $estadoActivo->id,
-                'proveedor_habitual_id' => null
-            ]);
+            $prod2 = Producto::firstOrCreate(
+                ['codigo' => 'REP-002'],
+                [
+                    'nombre' => 'Disco SSD 480GB',
+                    'descripcion' => 'Disco de estado sólido 480GB SATA III',
+                    
+                    // CAMBIOS:
+                    'marca_id' => $marcaKingston->id,
+                    'unidad_medida_id' => $unidadU->id,
+                    
+                    'categoriaProductoID' => $categorias->where('nombre', 'Repuestos')->first()->id,
+                    'estadoProductoID' => $estadoActivo->id,
+                    'proveedor_habitual_id' => null
+                ]
+            );
             
             // Stock
-            Stock::create([
-                'productoID' => $prod2->id,
-                'deposito_id' => $depositoPrincipal->deposito_id,
-                'cantidad_disponible' => 12,
-                'stock_minimo' => 5,
-            ]);
+            Stock::firstOrCreate(
+                ['productoID' => $prod2->id, 'deposito_id' => $depositoPrincipal->deposito_id],
+                [
+                    'cantidad_disponible' => 12,
+                    'stock_minimo' => 5,
+                ]
+            );
 
             // Precios
-            PrecioProducto::create(['productoID' => $prod2->id, 'tipoClienteID' => $tipoNormal, 'precio' => 55000, 'fechaDesde' => now()]);
-            PrecioProducto::create(['productoID' => $prod2->id, 'tipoClienteID' => $tipoMayorista, 'precio' => 50000, 'fechaDesde' => now()]);
+            PrecioProducto::firstOrCreate(
+                ['productoID' => $prod2->id, 'tipoClienteID' => $tipoNormal],
+                ['precio' => 55000, 'fechaDesde' => now()]
+            );
+            PrecioProducto::firstOrCreate(
+                ['productoID' => $prod2->id, 'tipoClienteID' => $tipoMayorista],
+                ['precio' => 50000, 'fechaDesde' => now()]
+            );
 
             // --- SERVICIO (NO FÍSICO) ---
-            $serv1 = Producto::create([
-                'codigo' => 'SERV-001',
-                'nombre' => 'Servicio de Mantenimiento Preventivo',
-                'descripcion' => 'Limpieza completa, renovación de pasta térmica, optimización',
-                
-                // CAMBIOS:
-                'marca_id' => null, // Servicios sin marca
-                'unidad_medida_id' => $unidadSrv->id,
+            $serv1 = Producto::firstOrCreate(
+                ['codigo' => 'SERV-001'],
+                [
+                    'nombre' => 'Servicio de Mantenimiento Preventivo',
+                    'descripcion' => 'Limpieza completa, renovación de pasta térmica, optimización',
+                    
+                    // CAMBIOS:
+                    'marca_id' => null, // Servicios sin marca
+                    'unidad_medida_id' => $unidadSrv->id,
                 
                 'categoriaProductoID' => $categorias->where('nombre', 'Servicios Técnicos')->first()->id,
                 'estadoProductoID' => $estadoActivo->id,
@@ -118,8 +137,14 @@ class ProductoSeeder extends Seeder
             ]);
             
             // Precios
-            PrecioProducto::create(['productoID' => $serv1->id, 'tipoClienteID' => $tipoNormal, 'precio' => 25000, 'fechaDesde' => now()]);
-            PrecioProducto::create(['productoID' => $serv1->id, 'tipoClienteID' => $tipoMayorista, 'precio' => 22000, 'fechaDesde' => now()]);
+            PrecioProducto::firstOrCreate(
+                ['productoID' => $serv1->id, 'tipoClienteID' => $tipoNormal],
+                ['precio' => 25000, 'fechaDesde' => now()]
+            );
+            PrecioProducto::firstOrCreate(
+                ['productoID' => $serv1->id, 'tipoClienteID' => $tipoMayorista],
+                ['precio' => 22000, 'fechaDesde' => now()]
+            );
             
             $this->command->info('Productos y stocks de ejemplo creados exitosamente (Actualizado Misión 6).');
         

@@ -211,10 +211,13 @@ class ConfiguracionService
                 ])
             )->values(),
             
-            'Reparaciones (SLA)' => $todas->filter(fn($c) => 
+            'Reparaciones' => $todas->filter(fn($c) => 
                 str_starts_with($c->clave, 'sla_') ||
-                str_starts_with($c->clave, 'bonificacion_') ||
                 str_starts_with($c->clave, 'estados_pausa')
+            )->values(),
+            
+            'Bonificaciones' => $todas->filter(fn($c) => 
+                str_starts_with($c->clave, 'bonificacion_')
             )->values(),
             
             'Comunicación (WhatsApp)' => $todas->filter(fn($c) => 

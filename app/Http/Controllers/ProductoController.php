@@ -33,6 +33,33 @@ use App\Services\Productos\UpdateProductoService;
 
 class ProductoController extends Controller
 {
+    /**
+     * API: Buscar productos por nombre/código (para autocomplete)
+     * Retorna JSON con productos que coinciden con la búsqueda
+     */
+    public function buscar(Request $request)
+    {
+        $query = $request->input('q', '');
+        $limit = $request->input('limit', 10);
+        
+        if (strlen($query) < 2) {
+            return response()->json([]);
+        }
+        
+        $productos = Producto::query()
+            ->where(function ($q) use ($query) {
+                $q->where('nombre', 'like', "%{$query}%")
+                  ->orWhere('codigo', 'like', "%{$query}%");
+            })
+            ->where('estadoProductoID', 1) // Solo productos activos
+            ->select('id', 'nombre', 'codigo')
+            ->orderBy('nombre')
+            ->limit($limit)
+            ->get();
+        
+        return response()->json($productos);
+    }
+
     public function index(Request $request)
     {
         $query = Producto::query()

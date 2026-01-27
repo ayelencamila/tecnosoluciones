@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue';
+import ConfigurableSelect from '@/Components/ConfigurableSelect.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
@@ -16,6 +17,12 @@ const props = defineProps({
     tiposCliente: { type: Array, default: () => [] },
     estadosCliente: { type: Array, default: () => [] },
 });
+
+// Estados reactivos para las listas configurables
+const tiposClienteList = ref([...props.tiposCliente]);
+const estadosClienteList = ref([...props.estadosCliente]);
+const provinciasList = ref([...props.provincias]);
+const localidadesList = ref([]);
 
 // Definición del Formulario
 const form = useForm({
@@ -42,23 +49,21 @@ const form = useForm({
 // El componente SelectInput espera un array de objetos { value, label }
 
 const provinciasOptions = computed(() => {
-    const opciones = props.provincias.map(p => ({
+    return provinciasList.value.map(p => ({
         value: p.provinciaID,
         label: p.nombre
     }));
-    return [{ value: '', label: 'Seleccione Provincia...' }, ...opciones];
 });
 
 const tiposClienteOptions = computed(() => {
-    const opciones = props.tiposCliente.map(t => ({
+    return tiposClienteList.value.map(t => ({
         value: t.tipoClienteID,
         label: t.nombreTipo
     }));
-    return [{ value: '', label: 'Seleccione Tipo...' }, ...opciones];
 });
 
 const estadosClienteOptions = computed(() => {
-    return props.estadosCliente.map(e => ({
+    return estadosClienteList.value.map(e => ({
         value: e.estadoClienteID,
         label: e.nombreEstado
     }));
@@ -73,14 +78,14 @@ const localidadesOptions = computed(() => {
     if (cargandoLocalidades.value) {
         return [{ value: '', label: 'Cargando...' }];
     }
-    const opciones = localidades.value.map(l => ({
+    const opciones = localidadesList.value.map(l => ({
         value: l.localidadID,
         label: l.nombre
     }));
     if (opciones.length === 0 && form.provincia_id) {
         return [{ value: '', label: 'No hay localidades disponibles' }];
     }
-    return [{ value: '', label: 'Seleccione Localidad...' }, ...opciones];
+    return opciones;
 });
 
 // Lógica Reactiva: Detectar si es Mayorista
@@ -92,13 +97,13 @@ const esMayorista = computed(() => {
 // Watcher: Cargar localidades al cambiar provincia
 watch(() => form.provincia_id, async (newProvinciaId) => {
     form.localidad_id = ''; // Resetear selección
-    localidades.value = []; // Limpiar lista anterior
+    localidadesList.value = []; // Limpiar lista anterior
     
     if (newProvinciaId) {
         cargandoLocalidades.value = true;
         try {
             const response = await axios.get(route('api.localidades.por-provincia', newProvinciaId));
-            localidades.value = response.data;
+            localidadesList.value = response.data;
         } catch (error) {
             console.error('Error al cargar localidades:', error);
         } finally {
@@ -106,6 +111,48 @@ watch(() => form.provincia_id, async (newProvinciaId) => {
         }
     }
 });
+
+// Funciones de refresh para ConfigurableSelect
+const refreshTiposCliente = async () => {
+    try {
+        const response = await axios.get('/api/tipos-cliente');
+        tiposClienteList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar tipos de cliente:', error);
+    }
+};
+
+const refreshEstadosCliente = async () => {
+    try {
+        const response = await axios.get('/api/estados-cliente');
+        estadosClienteList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar estados de cliente:', error);
+    }
+};
+
+const refreshProvincias = async () => {
+    try {
+        const response = await axios.get('/api/provincias');
+        provinciasList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar provincias:', error);
+    }
+};
+
+const refreshLocalidades = async () => {
+    if (!form.provincia_id) return;
+    
+    cargandoLocalidades.value = true;
+    try {
+        const response = await axios.get(`/api/localidades?provincia_id=${form.provincia_id}`);
+        localidadesList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar localidades:', error);
+    } finally {
+        cargandoLocalidades.value = false;
+    }
+};
 
 const submit = () => {
     form.post(route('clientes.store'), {
@@ -178,41 +225,51 @@ const submit = () => {
                                 <TextInput id="altura" v-model="form.altura" type="text" class="mt-1 block w-full" required />
                                 <InputError :message="form.errors.altura" class="mt-2" />
                             </div>
-                            
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <div>
-                                <InputLabel for="provincia_id">Provincia <span class="text-red-600">*</span></InputLabel>
-                                <SelectInput 
-                                    id="provincia_id" 
-                                    v-model="form.provincia_id" 
+                                <ConfigurableSelect
+                                    id="provincia_id"
+                                    v-model="form.provincia_id"
+                                    label="Provincia"
                                     :options="provinciasOptions"
-                                    class="mt-1 block w-full" 
-                                    required
+                                    placeholder="Seleccione Provincia..."
+                                    :error="form.errors.provincia_id"
+                                    api-endpoint="/api/provincias"
+                                    name-field="nombre"
+                                    @refresh="refreshProvincias"
                                 />
-                                <InputError :message="form.errors.provincia_id" class="mt-2" />
                             </div>
                             <div>
-                                <InputLabel for="localidad_id">Localidad <span class="text-red-600">*</span></InputLabel>
-                                <SelectInput 
-                                    id="localidad_id" 
-                                    v-model="form.localidad_id" 
+                                <ConfigurableSelect
+                                    id="localidad_id"
+                                    v-model="form.localidad_id"
+                                    label="Localidad"
                                     :options="localidadesOptions"
-                                    class="mt-1 block w-full" 
-                                    required 
+                                    placeholder="Seleccione Localidad..."
+                                    :error="form.errors.localidad_id"
                                     :disabled="!form.provincia_id || cargandoLocalidades"
+                                    :loading="cargandoLocalidades"
+                                    api-endpoint="/api/localidades"
+                                    name-field="nombre"
+                                    :additional-data="{ provincia_id: form.provincia_id }"
+                                    @refresh="refreshLocalidades"
                                 />
-                                <InputError :message="form.errors.localidad_id" class="mt-2" />
                             </div>
-                            
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                             <div>
                                 <InputLabel for="codigoPostal">Código Postal <span class="text-red-600">*</span></InputLabel>
                                 <TextInput id="codigoPostal" v-model="form.codigoPostal" type="text" class="mt-1 block w-full" required />
                                 <InputError :message="form.errors.codigoPostal" class="mt-2" />
                             </div>
-                             <div>
+                            <div>
                                 <InputLabel for="barrio" value="Barrio" />
                                 <TextInput id="barrio" v-model="form.barrio" type="text" class="mt-1 block w-full" />
                             </div>
-                             <div>
+                            <div>
                                 <InputLabel for="pisoDepto" value="Piso / Depto" />
                                 <TextInput id="pisoDepto" v-model="form.pisoDepto" type="text" class="mt-1 block w-full" />
                             </div>
@@ -221,27 +278,31 @@ const submit = () => {
                         <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">Datos Comerciales</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <div>
-                                <InputLabel for="tipo_cliente_id">Tipo de Cliente <span class="text-red-600">*</span></InputLabel>
-                                <SelectInput 
-                                    id="tipo_cliente_id" 
-                                    v-model="form.tipo_cliente_id" 
+                                <ConfigurableSelect
+                                    id="tipo_cliente_id"
+                                    v-model="form.tipo_cliente_id"
+                                    label="Tipo de Cliente"
                                     :options="tiposClienteOptions"
-                                    class="mt-1 block w-full" 
-                                    required
+                                    placeholder="Seleccione Tipo..."
+                                    :error="form.errors.tipo_cliente_id"
+                                    api-endpoint="/api/tipos-cliente"
+                                    name-field="nombreTipo"
+                                    @refresh="refreshTiposCliente"
                                 />
-                                <InputError :message="form.errors.tipo_cliente_id" class="mt-2" />
                             </div>
 
                             <div>
-                                <InputLabel for="estado_cliente_id">Estado Inicial <span class="text-red-600">*</span></InputLabel>
-                                <SelectInput 
-                                    id="estado_cliente_id" 
-                                    v-model="form.estado_cliente_id" 
+                                <ConfigurableSelect
+                                    id="estado_cliente_id"
+                                    v-model="form.estado_cliente_id"
+                                    label="Estado"
                                     :options="estadosClienteOptions"
-                                    class="mt-1 block w-full" 
-                                    required
+                                    placeholder="Seleccione Estado..."
+                                    :error="form.errors.estado_cliente_id"
+                                    api-endpoint="/api/estados-cliente"
+                                    name-field="nombreEstado"
+                                    @refresh="refreshEstadosCliente"
                                 />
-                                <InputError :message="form.errors.estado_cliente_id" class="mt-2" />
                             </div>
                         </div>
 

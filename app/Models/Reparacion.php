@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Reparacion extends Model
 {
@@ -38,7 +39,7 @@ class Reparacion extends Model
         // Campos CU-14: Control de SLA
         'sla_excedido',
         'fecha_marcada_demorada',
-        'decision_cliente',
+        'estado_decision_id',
         'fecha_decision_cliente',
     ];
 
@@ -151,13 +152,25 @@ class Reparacion extends Model
     }
 
     /**
-     * Obtiene el SLA vigente desde configuración
+     * Obtiene el SLA vigente para esta reparación
+     * Prioridad: sla_dias > fecha_promesa > configuración default
+     * 
      * @return int Días de SLA
      */
     public function getSLAVigente(): int
     {
-        // Usar sla_dias_reparacion que es la clave configurada por el admin
-        return (int) Configuracion::get('sla_dias_reparacion', 3);
+        // Prioridad 1: Si tiene sla_dias explícito, usarlo
+        if ($this->sla_dias !== null && $this->sla_dias > 0) {
+            return (int) $this->sla_dias;
+        }
+        
+        // Prioridad 2: Si tiene fecha_promesa, calcular días desde ingreso
+        if ($this->fecha_promesa !== null && $this->fecha_ingreso !== null) {
+            return max(1, $this->fecha_ingreso->diffInDays($this->fecha_promesa));
+        }
+        
+        // Prioridad 3: Usar configuración default
+        return (int) Configuracion::get('sla_reparaciones_default', 7);
     }
 
     /**
@@ -248,19 +261,42 @@ class Reparacion extends Model
     /**
      * Determina si la reparación excede o incumple el SLA
      * 
-     * @return array ['excede' => bool, 'incumple' => bool, 'dias_efectivos' => int, 'sla_vigente' => int]
+     * @return array ['excede' => bool, 'incumple' => bool, 'dias_efectivos' => int, 'sla_vigente' => int, 'dias_excedidos' => int]
      */
     public function excedeOIncumpleSLA(): array
     {
         $diasEfectivos = $this->calcularDiasEfectivos();
         $slaVigente = $this->getSLAVigente();
 
+        // Si tiene fecha_promesa, verificar directamente si ya pasó
+        $excede = false;
+        $diasExcedidos = 0;
+        
+        if ($this->fecha_promesa !== null) {
+            $fechaPromesa = \Carbon\Carbon::parse($this->fecha_promesa);
+            $ahora = now();
+            
+            // Excede si ya pasó la fecha/hora prometida
+            $excede = $ahora->gt($fechaPromesa);
+            
+            // Calcular horas/días excedidos desde fecha_promesa
+            if ($excede) {
+                $horasExcedidas = $fechaPromesa->diffInHours($ahora);
+                // Convertir a días (mínimo 1 si excede aunque sea por horas)
+                $diasExcedidos = max(1, (int) floor($horasExcedidas / 24));
+            }
+        } else {
+            // Sin fecha_promesa, comparar días efectivos vs SLA
+            $excede = $diasEfectivos > $slaVigente;
+            $diasExcedidos = max(0, $diasEfectivos - $slaVigente);
+        }
+
         return [
             'dias_efectivos' => $diasEfectivos,
             'sla_vigente' => $slaVigente,
-            'excede' => $diasEfectivos > $slaVigente, // Pasó el SLA
-            'incumple' => $diasEfectivos > ($slaVigente + 3), // Más de 3 días de exceso
-            'dias_excedidos' => max(0, $diasEfectivos - $slaVigente),
+            'excede' => $excede,
+            'incumple' => $diasExcedidos > 3, // Más de 3 días de exceso
+            'dias_excedidos' => $diasExcedidos,
         ];
     }
 
@@ -326,5 +362,48 @@ class Reparacion extends Model
     public function scopeEnEstadosMonitoreables($query)
     {
         return $query->whereIn('estado_reparacion_id', [1, 2]);
+    }
+
+    /**
+     * Scope: Búsqueda general de reparaciones
+     * Encapsula la lógica de búsqueda compleja (Principio GRASP: Alta Cohesión)
+     * 
+     * Busca en:
+     * - Código de reparación
+     * - Número de serie/IMEI
+     * - Marca del equipo
+     * - Modelo del equipo
+     * - Apellido, nombre o DNI del cliente
+     * 
+     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param string|null $search Término de búsqueda
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function scopeSearch($query, ?string $search)
+    {
+        if (empty($search)) {
+            return $query;
+        }
+
+        return $query->where(function($q) use ($search) {
+            $q->where('codigo_reparacion', 'like', "%{$search}%")
+              ->orWhere('numero_serie_imei', 'like', "%{$search}%")
+              // Búsqueda inteligente a través de relaciones
+              ->orWhereHas('modelo.marca', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
+              ->orWhereHas('modelo', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
+              ->orWhereHas('cliente', function($c) use ($search) {
+                  $c->where('apellido', 'like', "%{$search}%")
+                    ->orWhere('nombre', 'like', "%{$search}%")
+                    ->orWhere('dni', 'like', "%{$search}%");
+              });
+        });
+    }
+
+    /**
+     * Comprobantes asociados a esta reparación (Larman: Relación Polimórfica)
+     */
+    public function comprobantes(): MorphMany
+    {
+        return $this->morphMany(Comprobante::class, 'entidad', 'tipo_entidad', 'entidad_id');
     }
 }

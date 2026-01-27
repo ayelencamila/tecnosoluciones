@@ -86,28 +86,41 @@ class ClienteSeeder extends Seeder
                 'localidadID' => $localidad->localidadID,
             ]);
 
-            // Crear cuenta corriente primero
-            $esMoroso = $clienteData['estado']->nombreEstado === 'Moroso';
-            $estadoCuenta = $esMoroso ? $estadoCuentaBloqueada : $estadoCuentaActiva;
+            // LÓGICA DE NEGOCIO CORREGIDA:
+            // Solo creamos cuenta corriente si es Mayorista
+            $cuentaCorrienteID = null;
 
-            $cuentaCorriente = CuentaCorriente::create([
-                'saldo' => $esMoroso ? rand(-50000, -5000) : rand(-10000, 50000),
-                'limiteCredito' => $clienteData['tipo']->nombreTipo === 'Mayorista' ? 500000 : 100000,
-                'diasGracia' => $clienteData['tipo']->nombreTipo === 'Mayorista' ? 30 : 15,
-                'estadoCuentaCorrienteID' => $estadoCuenta->estadoCuentaCorrienteID,
-            ]);
+            if ($clienteData['tipo']->nombreTipo === 'Mayorista') {
+                $esMoroso = $clienteData['estado']->nombreEstado === 'Moroso';
+                $estadoCuenta = $esMoroso ? $estadoCuentaBloqueada : $estadoCuentaActiva;
 
-            // Asegurar DNI único (evitar conflictos si ya existen clientes en la BD)
+                $cuentaCorriente = CuentaCorriente::create([
+                    'saldo' => $esMoroso ? rand(-50000, -5000) : rand(-10000, 50000),
+                    'limiteCredito' => 500000,
+                    'diasGracia' => 30,
+                    'estadoCuentaCorrienteID' => $estadoCuenta->estadoCuentaCorrienteID,
+                ]);
+                $cuentaCorrienteID = $cuentaCorriente->cuentaCorrienteID;
+            } else {
+                // Si es Minorista pero en tus datos de ejemplo le pusiste estado 'Moroso'
+                // debemos corregir ese dato o forzarlo a 'Activo'/'Suspendido', 
+                // ya que un minorista NO puede tener deuda en cuenta corriente.
+                if ($clienteData['estado']->nombreEstado === 'Moroso') {
+                    // Corrección automática de datos inconsistentes en el seeder
+                    $clienteData['estado'] = $estadoSuspendido; 
+                }
+            }
+
+            // Asegurar DNI único
             $dni = (string) $clienteData['DNI'];
             $originalDni = $dni;
             $suffix = 1;
             while (Cliente::where('DNI', $dni)->exists()) {
-                // agregar sufijo incremental hasta que quede único
                 $dni = $originalDni.$suffix;
                 $suffix++;
             }
 
-            // Asegurar mail único (por si existe una restricción única en emails)
+            // Asegurar mail único
             $mail = $clienteData['mail'];
             $originalMail = $mail;
             $atPos = strrpos($originalMail, '@');
@@ -119,7 +132,7 @@ class ClienteSeeder extends Seeder
                 $mailSuffix++;
             }
 
-            // Crear cliente con referencia a cuenta corriente
+            // Crear cliente
             $cliente = Cliente::create([
                 'nombre' => $clienteData['nombre'],
                 'apellido' => $clienteData['apellido'],
@@ -130,13 +143,12 @@ class ClienteSeeder extends Seeder
                 'tipoClienteID' => $clienteData['tipo']->tipoClienteID,
                 'estadoClienteID' => $clienteData['estado']->estadoClienteID,
                 'direccionID' => $direccion->direccionID,
-                'cuentaCorrienteID' => $cuentaCorriente->cuentaCorrienteID,
+                'cuentaCorrienteID' => $cuentaCorrienteID, // Ahora respeta la lógica de negocio
             ]);
         }
 
         echo "✅ 30 clientes creados exitosamente\n";
-        echo "   • 10 Mayoristas Activos\n";
-        echo "   • 10 Minoristas Activos\n";
-        echo "   • 10 con estados variados (Inactivos, Morosos, Suspendidos)\n";
+        echo "   • Mayoristas: Con Cuenta Corriente\n";
+        echo "   • Minoristas: Sin Cuenta Corriente (Datos corregidos)\n";
     }
 }
