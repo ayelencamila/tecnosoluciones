@@ -56,8 +56,8 @@ const deleteProducto = () => {
 };
 
 // --- SELECTS ---
-const categoriasOptions = computed(() => [{ value: '', label: 'Todas las Categorías' }, ...props.categorias.map(c => ({ value: c.id, label: c.nombre }))]);
-const estadosOptions = computed(() => [{ value: '', label: 'Todos los Estados' }, ...props.estados.map(e => ({ value: e.id, label: e.nombre }))]);
+const categoriasOptions = computed(() => [{ value: '', label: 'Todas las Categorías' }, ...(props.categorias || []).map(c => ({ value: c.id, label: c.nombre }))]);
+const estadosOptions = computed(() => [{ value: '', label: 'Todos los Estados' }, ...(props.estados || []).map(e => ({ value: e.id, label: e.nombre }))]);
 
 // --- WATCHERS & FILTROS ---
 watch(form, debounce(() => {

@@ -229,9 +229,12 @@ class ProductoController extends Controller
 
     public function stock(Request $request)
     {
-        $query = Stock::query()->with(['producto.categoria', 'deposito']);
+        // Solo mostrar stocks de productos que NO son servicios
+        $query = Stock::query()
+            ->with(['producto.categoria', 'deposito'])
+            ->whereHas('producto', fn($q) => $q->where('es_servicio', false));
 
-        // Filtros... (tu código de filtros sigue igual)
+        // Filtros
         if ($request->filled('deposito_id')) {
             $query->where('deposito_id', $request->input('deposito_id'));
         }
@@ -248,9 +251,14 @@ class ProductoController extends Controller
 
         $stocks = $query->orderBy('productoID', 'asc')->paginate(15)->withQueryString();
 
+        // Solo categorías que tienen productos físicos (no servicios)
+        $categoriasConStock = CategoriaProducto::where('activo', true)
+            ->whereHas('productos', fn($q) => $q->where('es_servicio', false))
+            ->get(['id', 'nombre']);
+
         return Inertia::render('Productos/Stock', [
             'stocks' => $stocks, 
-            'categorias' => CategoriaProducto::where('activo', true)->get(['id', 'nombre']),
+            'categorias' => $categoriasConStock,
             'depositos' => \App\Models\Deposito::where('activo', true)->get(['deposito_id', 'nombre']),
             
             // CORRECCIÓN 1: Enviamos los tipos de movimiento para que el desplegable funcione
@@ -258,9 +266,10 @@ class ProductoController extends Controller
 
             'filters' => $request->only(['search', 'categoria_id', 'stock_bajo', 'deposito_id']),
             'stats' => [
-                'totalItems' => Stock::count(),
+                'totalItems' => Stock::whereHas('producto', fn($q) => $q->where('es_servicio', false))->count(),
                 'valorizado' => 0,
-                'stockBajo' => Stock::whereRaw('cantidad_disponible <= stock_minimo')->count(),
+                'stockBajo' => Stock::whereHas('producto', fn($q) => $q->where('es_servicio', false))
+                    ->whereRaw('cantidad_disponible <= stock_minimo')->count(),
             ],
         ]);
     }
