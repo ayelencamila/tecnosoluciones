@@ -57,7 +57,8 @@ class RegistrarVentaService
             foreach ($calculos['itemsAProcesar'] as $item) {
                 $producto = Producto::findOrFail($item['producto_id']);
                 
-                if ($producto->unidadMedida !== 'Servicio') { 
+                // Los servicios no manejan stock
+                if (!$producto->es_servicio) { 
                     /* Buscamos el stock y LO BLOQUEAMOS hasta que termine la transacción.
                      * Esto impide que otro vendedor venda el mismo item simultáneamente.
                      */
@@ -119,8 +120,9 @@ class RegistrarVentaService
                     $detalle->descuentos()->attach($descuentoInfo['mapaPivote']);
                 }
 
-                // Descuento de Stock (Ya validado y bloqueado arriba, procedemos seguro) 
-                if ($detalle->producto->unidadMedida !== 'Servicio') {
+                // Descuento de Stock (Ya validado y bloqueado arriba, procedemos seguro)
+                // Los servicios no manejan stock
+                if (!$detalle->producto->es_servicio) {
                     $stockRegistro = Stock::where('productoID', $detalle->producto_id)->lockForUpdate()->first();
                     
                     if ($stockRegistro) {
@@ -181,7 +183,8 @@ class RegistrarVentaService
          */
         foreach ($itemsAProcesar as $item) {
             $producto = Producto::findOrFail($item['producto_id']);
-            if ($producto->unidadMedida !== 'Servicio') {
+            // Los servicios no manejan stock
+            if (!$producto->es_servicio) {
                  if (! $producto->tieneStock($item['cantidad'])) {
                     throw new SinStockException($producto->nombre, $item['cantidad'], $producto->stock_total);
                 }

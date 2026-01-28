@@ -28,6 +28,9 @@ const form = useForm({
   codigo: props.producto.codigo,
   nombre: props.producto.nombre,
   descripcion: props.producto.descripcion || '',
+  foto: null,
+  eliminar_foto: false,
+  es_servicio: props.producto.es_servicio || false,
   // IDs de relaciones nuevas
   marca_id: props.producto.marca_id || '',
   unidad_medida_id: props.producto.unidad_medida_id,
@@ -38,6 +41,27 @@ const form = useForm({
   precios: preciosIniciales,
   motivo: '', 
 });
+
+// Preview de la foto
+const fotoPreview = ref(props.producto.foto ? `/storage/${props.producto.foto}` : null);
+const fotoOriginal = ref(props.producto.foto);
+
+const handleFotoChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    form.foto = file;
+    form.eliminar_foto = false;
+    fotoPreview.value = URL.createObjectURL(file);
+  }
+};
+
+const removeFoto = () => {
+  form.foto = null;
+  fotoPreview.value = null;
+  if (fotoOriginal.value) {
+    form.eliminar_foto = true;
+  }
+};
 
 const precioError = computed(() => {
     if (props.errors.precios) return props.errors.precios;
@@ -55,9 +79,12 @@ const submitForm = () => {
   
   form.transform((data) => ({
     ...data,
-    precios: preciosArray
+    precios: preciosArray,
+    _method: 'PUT', // Necesario para enviar archivos con PUT
   }))
-  .put(route('productos.update', props.producto.id));
+  .post(route('productos.update', props.producto.id), {
+    forceFormData: true,
+  });
 };
 </script>
 
@@ -117,6 +144,32 @@ const submitForm = () => {
                                 <label class="block text-sm font-medium text-gray-700 mb-1">Descripción</label>
                                 <textarea v-model="form.descripcion" rows="3" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                             </div>
+
+                            <!-- FOTO DEL PRODUCTO -->
+                            <div class="px-6 pb-6">
+                                <label class="block text-sm font-medium text-gray-700 mb-2">Foto del Producto</label>
+                                <div class="flex items-start gap-4">
+                                    <!-- Preview -->
+                                    <div v-if="fotoPreview" class="relative">
+                                        <img :src="fotoPreview" alt="Foto producto" class="w-32 h-32 object-cover rounded-lg border border-gray-300 shadow-sm">
+                                        <button type="button" @click="removeFoto" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                        </button>
+                                    </div>
+                                    <!-- Input -->
+                                    <div class="flex-1">
+                                        <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                                <svg class="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                <p class="text-xs text-gray-500">{{ fotoPreview ? 'Cambiar foto' : 'Subir foto' }}</p>
+                                                <p class="text-xs text-gray-400">PNG, JPG o WEBP (máx. 2MB)</p>
+                                            </div>
+                                            <input type="file" class="hidden" accept="image/jpeg,image/png,image/webp" @change="handleFotoChange">
+                                        </label>
+                                    </div>
+                                </div>
+                                <InputError :message="form.errors.foto" class="mt-1" />
+                            </div>
                         </div>
 
                         <div class="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
@@ -160,6 +213,15 @@ const submitForm = () => {
                                     <option :value="null">-- Ninguno --</option>
                                     <option v-for="prov in proveedores" :key="prov.id" :value="prov.id">{{ prov.razon_social }}</option>
                                 </select>
+                            </div>
+
+                            <!-- ES SERVICIO -->
+                            <div class="pt-4 border-t">
+                                <label class="flex items-center cursor-pointer">
+                                    <input type="checkbox" v-model="form.es_servicio" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                    <span class="ml-2 text-sm font-medium text-gray-700">Es un Servicio</span>
+                                </label>
+                                <p class="text-xs text-gray-500 mt-1">Los servicios no manejan stock</p>
                             </div>
 
                             <div class="pt-4 border-t border-gray-200 mt-4">

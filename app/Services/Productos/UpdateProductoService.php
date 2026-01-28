@@ -8,6 +8,7 @@ use App\Models\Auditoria;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class UpdateProductoService 
 {
@@ -21,16 +22,31 @@ class UpdateProductoService
             $motivo = $validatedData['motivo'];
 
             // 1. ACTUALIZAR PRODUCTO
-            $producto->update([
+            $updateData = [
                 'codigo' => $validatedData['codigo'],
                 'nombre' => $validatedData['nombre'],
                 'descripcion' => $validatedData['descripcion'] ?? null,
+                'es_servicio' => $validatedData['es_servicio'] ?? $producto->es_servicio,
                 'marca_id' => $validatedData['marca_id'] ?? null,
                 'unidad_medida_id' => $validatedData['unidad_medida_id'],
                 'categoriaProductoID' => $validatedData['categoriaProductoID'],
                 'estadoProductoID' => $validatedData['estadoProductoID'],
                 'proveedor_habitual_id' => $validatedData['proveedor_habitual_id'] ?? null,
-            ]);
+            ];
+
+            // Manejar foto
+            if (!empty($validatedData['eliminar_foto']) && $producto->foto) {
+                Storage::disk('public')->delete($producto->foto);
+                $updateData['foto'] = null;
+            } elseif (!empty($validatedData['foto_path'])) {
+                // Eliminar foto anterior si existe
+                if ($producto->foto) {
+                    Storage::disk('public')->delete($producto->foto);
+                }
+                $updateData['foto'] = $validatedData['foto_path'];
+            }
+
+            $producto->update($updateData);
 
             // 2. ACTUALIZAR STOCK MÍNIMO
             if (isset($validatedData['stockMinimo'])) {
