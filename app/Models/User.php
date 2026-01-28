@@ -22,8 +22,12 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'email',
+        'telefono',
         'password',
         'rol_id',
+        'activo',           
+        'bloqueado_hasta',
+        'foto_perfil',
     ];
 
     /**
@@ -53,8 +57,7 @@ class User extends Authenticatable
     }
 
     /**
-     * Accessor para obtener el nombre del rol (para compatibilidad con frontend).
-     * Lee directamente de la BD sin necesidad de modelo Rol.
+     * Accessor para obtener el nombre del rol.
      */
     public function getRoleAttribute(): ?string
     {
@@ -62,14 +65,9 @@ class User extends Authenticatable
             return null;
         }
 
-        // Cache en el objeto para evitar múltiples queries
-        if (!isset($this->attributes['_cached_role'])) {
-            $this->attributes['_cached_role'] = \DB::table('roles')
-                ->where('rol_id', $this->rol_id)
-                ->value('nombre');
-        }
-
-        return $this->attributes['_cached_role'];
+        return $this->relationLoaded('rol') 
+            ? $this->rol?->nombre 
+            : \DB::table('roles')->where('rol_id', $this->rol_id)->value('nombre');
     }
 
     /**
@@ -82,6 +80,70 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'activo' => 'boolean',           
+            'bloqueado_hasta' => 'datetime',
         ];
+    }
+    
+    /**
+     * Verifica si el usuario está bloqueado por seguridad.
+     */
+    public function estaBloqueado(): bool
+    {
+        // Si tiene fecha de bloqueo y esa fecha es EN EL FUTURO, está bloqueado.
+        return $this->bloqueado_hasta && $this->bloqueado_hasta->isFuture();
+    }
+
+    /**
+     * Verifica si el actor está activo (no dado de baja).
+     */
+    public function estaActivo(): bool
+    {
+        return $this->activo;
+    }
+
+    /**
+     * Obtiene los permisos del usuario desde su rol
+     */
+    public function getPermisosAttribute(): array
+    {
+        if (!$this->rol_id) {
+            return [];
+        }
+
+        // Si la relación está cargada, usar el modelo (ya tiene el cast)
+        if ($this->relationLoaded('rol') && $this->rol) {
+            return $this->rol->permisos ?? [];
+        }
+
+        // Si no está cargada, obtener directamente y decodificar
+        $permisosJson = \DB::table('roles')->where('rol_id', $this->rol_id)->value('permisos');
+
+        return $permisosJson ? json_decode($permisosJson, true) : [];
+    }
+
+    /**
+     * Verifica si el usuario tiene un permiso específico
+     */
+    public function hasPermission(string $permiso): bool
+    {
+        // Administrador tiene todos los permisos
+        if ($this->role === 'administrador') {
+            return true;
+        }
+
+        return in_array($permiso, $this->permisos);
+    }
+
+    /**
+     * Verifica si el usuario tiene alguno de los permisos dados
+     */
+    public function hasAnyPermission(array $permisos): bool
+    {
+        if ($this->role === 'administrador') {
+            return true;
+        }
+
+        return !empty(array_intersect($permisos, $this->permisos));
     }
 }

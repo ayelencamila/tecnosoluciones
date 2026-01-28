@@ -90,7 +90,7 @@ class ReparacionController extends Controller
             'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
             // Filtrar solo usuarios con rol de técnico para asignación de reparaciones
             'tecnicos' => \App\Models\User::whereHas('rol', function($query) {
-                    $query->whereIn('nombre', ['tecnico', 'admin']);
+                    $query->whereIn('nombre', ['tecnico', 'administrador']);
                 })
                 ->orderBy('name')
                 ->get(['id', 'name']),

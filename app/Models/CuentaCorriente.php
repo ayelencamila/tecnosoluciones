@@ -142,6 +142,40 @@ class CuentaCorriente extends Model
     }
 
     /**
+<<<<<<< HEAD
+     * Calcula los días de vencimiento del movimiento más antiguo sin pagar.
+     * 
+     * @return int Días de vencimiento (0 si no hay vencidos)
+     */
+    public function calcularDiasVencimiento(): int
+    {
+        $diasGracia = $this->getDiasGraciaAplicables();
+        $fechaLimiteVencimiento = Carbon::today()->subDays($diasGracia);
+
+        // Obtener tipo_id del tipo de movimiento Débito
+        $tipoDebito = \DB::table('tipos_movimiento_cuenta_corriente')
+            ->where('nombre', 'Debito')
+            ->value('tipo_id');
+
+        // Obtener el débito más antiguo vencido
+        $movimientoMasAntiguo = $this->movimientosCC()
+            ->where('tipo_movimiento_cc_id', $tipoDebito)
+            ->whereNotNull('fechaVencimiento')
+            ->where('fechaVencimiento', '<=', $fechaLimiteVencimiento)
+            ->orderBy('fechaVencimiento', 'asc')
+            ->first();
+
+        if (!$movimientoMasAntiguo) {
+            return 0;
+        }
+
+        return Carbon::parse($movimientoMasAntiguo->fechaVencimiento)
+            ->diffInDays(Carbon::today());
+    }
+
+    /**
+=======
+>>>>>>> origin/main
      * Calcula los recargos por mora sobre saldos vencidos.
      * 
      * @return array ['total' => float, 'detalle' => array]

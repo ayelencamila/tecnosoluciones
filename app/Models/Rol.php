@@ -19,6 +19,7 @@ class Rol extends Model
 
     protected $casts = [
         'activo' => 'boolean',
+        'permisos' => 'array',
     ];
 
     /**

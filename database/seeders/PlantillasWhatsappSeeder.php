@@ -177,6 +177,93 @@ class PlantillasWhatsappSeeder extends Seeder
                 'motivo_modificacion' => 'Plantilla inicial del sistema',
                 'usuario_modificacion' => null,
             ],
+
+            // ===== SOLICITUD DE COTIZACIÓN (CU-20) =====
+            [
+                'tipo_evento' => 'solicitud_cotizacion',
+                'nombre' => 'Solicitud de cotización a proveedores',
+                'contenido_plantilla' => "📋 *SOLICITUD DE COTIZACIÓN*\n\n" .
+                    "Estimado/a *{razon_social}*,\n\n" .
+                    "Le invitamos a cotizar los siguientes productos:\n\n" .
+                    "{lista_productos}\n\n" .
+                    "*Fecha límite:* {fecha_vencimiento}\n\n" .
+                    "🔗 *Para cotizar, ingrese al siguiente enlace:*\n" .
+                    "{magic_link}\n\n" .
+                    "_Este enlace es único y personal. No lo comparta._\n\n" .
+                    "Gracias por su colaboración.\n" .
+                    "*TecnoSoluciones*",
+                'variables_disponibles' => [
+                    'razon_social',
+                    'lista_productos',
+                    'fecha_vencimiento',
+                    'magic_link',
+                    'codigo_solicitud',
+                ],
+                'horario_inicio' => '09:00',
+                'horario_fin' => '18:00',
+                'activo' => true,
+                'motivo_modificacion' => 'Plantilla inicial del sistema',
+                'usuario_modificacion' => null,
+            ],
+
+            // ===== RECORDATORIO DE COTIZACIÓN (CU-20) =====
+            [
+                'tipo_evento' => 'recordatorio_cotizacion',
+                'nombre' => 'Recordatorio de cotización pendiente',
+                'contenido_plantilla' => "🔔 *RECORDATORIO - SOLICITUD DE COTIZACIÓN*\n\n" .
+                    "Estimado/a *{razon_social}*,\n\n" .
+                    "Le recordamos que tenemos una solicitud de cotización pendiente.\n" .
+                    "⏰ *Solo quedan {dias_restantes} día(s) para responder.*\n\n" .
+                    "*Productos solicitados:*\n\n" .
+                    "{lista_productos}\n\n" .
+                    "*Fecha límite:* {fecha_vencimiento}\n\n" .
+                    "🔗 *Para cotizar, ingrese al siguiente enlace:*\n" .
+                    "{magic_link}\n\n" .
+                    "_Este enlace es único y personal. No lo comparta._\n\n" .
+                    "Gracias por su colaboración.\n" .
+                    "*TecnoSoluciones*",
+                'variables_disponibles' => [
+                    'razon_social',
+                    'dias_restantes',
+                    'lista_productos',
+                    'fecha_vencimiento',
+                    'magic_link',
+                    'codigo_solicitud',
+                ],
+                'horario_inicio' => '09:00',
+                'horario_fin' => '18:00',
+                'activo' => true,
+                'motivo_modificacion' => 'Plantilla inicial del sistema',
+                'usuario_modificacion' => null,
+            ],
+
+            // ===== ORDEN DE COMPRA (CU-22) =====
+            [
+                'tipo_evento' => 'orden_compra',
+                'nombre' => 'Envío de orden de compra a proveedor',
+                'contenido_plantilla' => "📦 *ORDEN DE COMPRA - {numero_oc}*\n\n" .
+                    "Estimado/a *{razon_social}*,\n\n" .
+                    "Le enviamos la siguiente orden de compra:\n\n" .
+                    "{lista_productos}\n\n" .
+                    "💰 *Total:* \${total}\n\n" .
+                    "📅 *Fecha esperada de entrega:* {fecha_entrega}\n\n" .
+                    "Por favor, confirme la recepción de esta orden.\n\n" .
+                    "Gracias.\n" .
+                    "*TecnoSoluciones*",
+                'variables_disponibles' => [
+                    'numero_oc',
+                    'razon_social',
+                    'lista_productos',
+                    'total',
+                    'fecha_entrega',
+                    'observaciones',
+                ],
+                'horario_inicio' => '09:00',
+                'horario_fin' => '18:00',
+                'activo' => true,
+                'motivo_modificacion' => 'Plantilla inicial del sistema',
+                'usuario_modificacion' => null,
+            ],
         ];
 
         foreach ($plantillas as $plantilla) {

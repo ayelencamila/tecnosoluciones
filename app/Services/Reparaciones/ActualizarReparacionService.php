@@ -42,12 +42,12 @@ class ActualizarReparacionService
 
     public function handle(Reparacion $reparacion, array $datos, int $userId): Reparacion
     {
-        // 1. Validar Estado Final usando el metodo del modelo
+        // 1. Validar Estado Final usando el método del modelo
         if ($reparacion->estado->esFinal()) {
-            throw new \Exception("La reparacion esta en estado '{$reparacion->estado->nombreEstado}' y no admite mas modificaciones.");
+            throw new \Exception("La reparación está en estado '{$reparacion->estado->nombreEstado}' y no admite más modificaciones.");
         }
 
-        // 2. Validar Transicion de Estado usando IDs (respeta la BD)
+        // 2. Validar Transición de Estado usando IDs (respeta la BD)
         $estadoActualId = $reparacion->estado_reparacion_id;
         $nuevoEstadoId = $datos['estado_reparacion_id'];
         $nuevoEstado = EstadoReparacion::findOrFail($nuevoEstadoId);

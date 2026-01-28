@@ -6,26 +6,32 @@
  * que el técnico ingrese un motivo de demora.
  */
 import { ref, computed, onMounted } from 'vue';
-import { router } from '@inertiajs/vue3';
-import axios from 'axios';
+import { router, usePage } from '@inertiajs/vue3';
 
 const alertas = ref([]);
 const showDropdown = ref(false);
 const loading = ref(false);
+
+// Verificar si el usuario está autenticado
+const page = usePage();
+const isAuthenticated = computed(() => !!page.props.auth?.user);
 
 // Contador de alertas no leídas
 const unreadCount = computed(() => {
     return alertas.value.filter(a => !a.leida).length;
 });
 
-// Cargar alertas del técnico
+// Cargar alertas del técnico usando window.axios (configurado en bootstrap.js)
 const loadAlertas = async () => {
+    if (!isAuthenticated.value) return;
+    
     try {
         loading.value = true;
-        const response = await axios.get('/api/tecnico/alertas');
+        const response = await window.axios.get('/api/tecnico/alertas');
         alertas.value = response.data;
     } catch (error) {
         console.error('Error cargando alertas:', error);
+        alertas.value = [];
     } finally {
         loading.value = false;
     }

@@ -41,8 +41,9 @@ class HandleInertiaRequests extends Middleware
 
             'auth' => [
                 'user' => fn () => $request->user()
-                    ? $request->user()->only('id', 'name', 'email', 'role')
+                    ? $request->user()->only('id', 'name', 'email', 'role', 'foto_perfil')
                     : null,
+                'permisos' => fn () => $request->user()?->permisos ?? [],
             ],
 
             // También pasamos mensajes Flash (éxito/error) para que funcionen las alertas

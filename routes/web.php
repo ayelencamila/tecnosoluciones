@@ -16,6 +16,7 @@ use App\Http\Controllers\ReparacionController;
 use App\Http\Controllers\ProveedorController; 
 use App\Http\Controllers\Admin\CategoriaProductoController;
 use App\Http\Controllers\Api\ClienteBonificacionController;
+use App\Http\Controllers\ComprobanteInternoController;
 use Inertia\Inertia;
 
 /*
@@ -38,14 +39,12 @@ Route::prefix('portal')->name('portal.')->group(function () {
     Route::get('/cotizacion/{token}/agradecimiento-rechazo', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'agradecimientoRechazo'])->name('agradecimiento.rechazo');
 });
 
-// Ruta de inicio
+// Ruta de inicio - Redirigir al login o dashboard
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    if (auth()->check()) {
+        return redirect()->route('dashboard');
+    }
+    return redirect()->route('login');
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
@@ -55,6 +54,8 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/photo', [ProfileController::class, 'updatePhoto'])->name('profile.photo.update');
+    Route::delete('/profile/photo', [ProfileController::class, 'deletePhoto'])->name('profile.photo.destroy');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
 
@@ -63,16 +64,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // Accesible por Admin y Vendedor (Panel General)
     Route::get('/vendedor', function () {
         return Inertia::render('Panel/General');
-    })->middleware('role:admin,vendedor')->name('panel.vendedor');
+    })->middleware('role:administrador,vendedor')->name('panel.vendedor');
 
     // SOLO Admin (Panel Exclusivo)
     Route::get('/solo-admin', function () {
         return Inertia::render('Panel/AdminOnly');
-    })->middleware('role:admin')->name('panel.admin');
+    })->middleware('role:administrador')->name('panel.admin');
 
     // --- GESTIÓN DE MAESTROS (Configuración de Tablas Paramétricas) ---
     // Todas estas rutas tendrán el prefijo /admin/ y el nombre admin.
-    Route::prefix('admin')->name('admin.')->middleware('role:admin')->group(function () {
+    Route::prefix('admin')->name('admin.')->middleware('role:administrador')->group(function () {
+        
+        // ============================================================
+        // CU-12: GESTIÓN DE USUARIOS Y ROLES
+        // ============================================================
+        
+        // --- Gestión de Usuarios ---
+        Route::resource('usuarios', \App\Http\Controllers\Admin\UserController::class);
+        Route::patch('usuarios/{usuario}/toggle-activo', [\App\Http\Controllers\Admin\UserController::class, 'toggleActivo'])
+            ->name('usuarios.toggle-activo');
+        Route::patch('usuarios/{usuario}/toggle-bloqueo', [\App\Http\Controllers\Admin\UserController::class, 'toggleBloqueo'])
+            ->name('usuarios.toggle-bloqueo');
+        Route::post('usuarios/{usuario}/reset-password', [\App\Http\Controllers\Admin\UserController::class, 'resetPassword'])
+            ->name('usuarios.reset-password');
+
+        // --- Gestión de Roles ---
+        Route::resource('roles', \App\Http\Controllers\Admin\RolController::class)->parameters(['roles' => 'role']);
+        Route::patch('roles/{role}/toggle-activo', [\App\Http\Controllers\Admin\RolController::class, 'toggleActivo'])
+            ->name('roles.toggle-activo');
+
+        // ============================================================
+        // MAESTROS (Tablas Paramétricas)
+        // ============================================================
         
         // 1. Categorías de Producto (Implementación Actual)
         Route::resource('categorias', CategoriaProductoController::class);
@@ -367,6 +390,15 @@ Route::middleware(['auth'])->group(function () {
         ]);
     })->name('auditorias.index');
     
+    // --- MÓDULO DE COMPROBANTES INTERNOS (CU-32) ---
+    Route::prefix('comprobantes')->name('comprobantes.')->group(function () {
+        Route::get('/', [ComprobanteInternoController::class, 'index'])->name('index');
+        Route::get('/{comprobante}', [ComprobanteInternoController::class, 'show'])->name('show');
+        Route::get('/{comprobante}/pdf', [ComprobanteInternoController::class, 'verPdf'])->name('pdf');
+        Route::post('/{comprobante}/anular', [ComprobanteInternoController::class, 'anular'])->name('anular');
+        Route::post('/{comprobante}/reemitir', [ComprobanteInternoController::class, 'reemitir'])->name('reemitir');
+    })->scopeBindings();
+    
     // --- MÓDULO DE CONFIGURACIÓN ---
     Route::prefix('configuracion')->name('configuracion.')->group(function () {
         Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
@@ -404,7 +436,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // --- BONIFICACIONES (CU-15) - Solo Admin ---
-    Route::prefix('bonificaciones')->name('bonificaciones.')->middleware('role:admin')->group(function () {
+    Route::prefix('bonificaciones')->name('bonificaciones.')->middleware('role:administrador')->group(function () {
         Route::get('/', [\App\Http\Controllers\BonificacionReparacionController::class, 'index'])->name('index');
         Route::get('/historial', [\App\Http\Controllers\BonificacionReparacionController::class, 'historial'])->name('historial');
         Route::get('/{bonificacion}', [\App\Http\Controllers\BonificacionReparacionController::class, 'show'])->name('show');
@@ -415,7 +447,7 @@ Route::middleware(['auth'])->group(function () {
     // --- MÓDULO DE COMPRAS (CU-20 a CU-23) ---
     
     // CU-21: Ofertas de Compra
-    Route::prefix('ofertas')->name('ofertas.')->middleware('role:admin')->group(function () {
+    Route::prefix('ofertas')->name('ofertas.')->middleware('role:administrador')->group(function () {
         Route::get('/', [\App\Http\Controllers\OfertaCompraController::class, 'index'])->name('index');
         Route::get('/crear', [\App\Http\Controllers\OfertaCompraController::class, 'create'])->name('create');
         Route::get('/comparar', [\App\Http\Controllers\OfertaCompraController::class, 'comparar'])->name('comparar');
@@ -429,7 +461,7 @@ Route::middleware(['auth'])->group(function () {
 
     // CU-22: Órdenes de Compra (Generar OC desde ofertas elegidas)
     // CU-24: Consultar Órdenes de Compra (Historial)
-    Route::prefix('ordenes')->name('ordenes.')->middleware('role:admin')->group(function () {
+    Route::prefix('ordenes')->name('ordenes.')->middleware('role:administrador')->group(function () {
         Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index'); // P1: Lista ofertas elegidas listas para OC
         Route::get('/historial', [\App\Http\Controllers\OrdenCompraController::class, 'historial'])->name('historial'); // CU-24: Consultar OC generadas
         Route::get('/create', [\App\Http\Controllers\OrdenCompraController::class, 'create'])->name('create'); // P2+P3+P4: Resumen + Motivo + Confirmación
@@ -444,7 +476,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // CU-23: Recepción de Mercadería
-    Route::prefix('recepciones')->name('recepciones.')->middleware('role:admin')->group(function () {
+    Route::prefix('recepciones')->name('recepciones.')->middleware('role:administrador')->group(function () {
         Route::get('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'index'])->name('index'); // P1: Seleccionar OC pendiente
         Route::get('/historial', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'historial'])->name('historial'); // Historial de recepciones
         Route::get('/crear', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'create'])->name('create');
@@ -453,7 +485,7 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // CU-20: Solicitudes de Cotización
-    Route::prefix('solicitudes-cotizacion')->name('solicitudes-cotizacion.')->middleware('role:admin')->group(function () {
+    Route::prefix('solicitudes-cotizacion')->name('solicitudes-cotizacion.')->middleware('role:administrador')->group(function () {
         Route::get('/', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'index'])->name('index');
         Route::get('/create', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'store'])->name('store');
@@ -469,7 +501,7 @@ Route::middleware(['auth'])->group(function () {
     // CU-20: Monitoreo de Stock
     Route::get('/monitoreo-stock', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'monitoreoStock'])
         ->name('monitoreo-stock.index')
-        ->middleware('role:admin');
+        ->middleware('role:administrador');
 
 });
 

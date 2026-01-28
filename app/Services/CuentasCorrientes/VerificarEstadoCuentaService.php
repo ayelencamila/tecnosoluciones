@@ -106,9 +106,9 @@ class VerificarEstadoCuentaService
         float $saldoVencido,
         float $limiteCredito
     ): void {
-        // 1. Obtener administradores (usuarios con role 'admin')
+        // 1. Obtener administradores (usuarios con role 'administrador')
         $administradores = User::whereHas('rol', function($query) {
-            $query->where('nombre', 'admin');
+            $query->where('nombre', 'administrador');
         })->get();
         
         if ($administradores->isEmpty()) {
