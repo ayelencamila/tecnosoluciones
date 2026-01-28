@@ -321,4 +321,32 @@ class UserController extends Controller
             'historial' => $historial,
         ]);
     }
+
+    /**
+     * Busca usuarios/técnicos para autocompletado.
+     * Filtra por nombre o email, opcionalmente por rol.
+     */
+    public function buscar(Request $request)
+    {
+        $query = $request->get('q');
+        $soloTecnicos = $request->boolean('tecnicos', false);
+        
+        if (!$query || strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $usuarios = User::with('rol')
+            ->where('activo', true)
+            ->where(function ($q) use ($query) {
+                $q->where('name', 'like', "%{$query}%")
+                  ->orWhere('email', 'like', "%{$query}%");
+            })
+            ->when($soloTecnicos, function ($q) {
+                $q->whereHas('rol', fn($r) => $r->whereIn('nombre', ['tecnico', 'administrador']));
+            })
+            ->limit(15)
+            ->get(['id', 'name', 'email', 'rol_id']);
+
+        return response()->json($usuarios);
+    }
 }

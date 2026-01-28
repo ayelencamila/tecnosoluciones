@@ -161,6 +161,28 @@ class ProveedorController extends Controller
         return redirect()->back()->with('success', 'Calificación actualizada correctamente.');
     }
 
+    /**
+     * Buscar proveedores para autocompletado (API interna)
+     */
+    public function buscar(Request $request)
+    {
+        $query = $request->get('q');
+        
+        if (!$query || strlen($query) < 2) {
+            return response()->json([]);
+        }
+
+        $proveedores = Proveedor::where('activo', true)
+            ->where(function ($q) use ($query) {
+                $q->where('razon_social', 'like', "%{$query}%")
+                  ->orWhere('cuit', 'like', "%{$query}%");
+            })
+            ->limit(15)
+            ->get(['id', 'razon_social', 'cuit']);
+
+        return response()->json($proveedores);
+    }
+
     // CU-19: Dar de baja Proveedor
     public function destroy(Request $request, Proveedor $proveedor)
     {

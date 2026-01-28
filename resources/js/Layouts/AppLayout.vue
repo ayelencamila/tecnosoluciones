@@ -11,6 +11,8 @@ const showingSidebar = ref(false);
 const showingMaestros = ref(false);
 // Estado para el menú desplegable de Compras
 const showingCompras = ref(false);
+// Estado para el menú desplegable de Reportes 
+const showingReportes = ref(false);
 // Estado para el menú desplegable de Usuarios y Roles
 const showingUsuariosRoles = ref(false);
 
@@ -206,6 +208,19 @@ const bonificacionesNavItems = computed(() => {
     ];
 });
 
+// --- 6. MENÚ REPORTES Y ESTADÍSTICAS --- (NUEVO)
+const reportesItems = computed(() => {
+    // Solo visible para Administradores
+    if (page.props.auth.user?.role !== 'administrador') return [];
+
+    return [
+        { name: 'Stock y Precios', route: 'reportes.stock' },
+        { name: 'Ventas', route: 'reportes.ventas' },
+        { name: 'Reparaciones', route: 'reportes.reparaciones' }, 
+        { name: 'Compras', route: 'reportes.compras' },
+    ];
+});
+
 // Verifica si alguna ruta del submenú está activa para dejarlo abierto
 const isMaestrosActive = computed(() => {
     return maestrosItems.value.some(item => route().current(item.route));
@@ -219,6 +234,11 @@ const isUsuariosRolesActive = computed(() => {
     return usuariosRolesItems.value.some(item => route().current(item.route) || route().current(item.route.replace('.index', '*')));
 });
 
+// Lógica para mantener abierto el menú de Reportes
+const isReportesActive = computed(() => {
+    return reportesItems.value.some(item => route().current(item.route));
+});
+
 // Si hay una ruta activa adentro, abrimos el menú por defecto
 if (isMaestrosActive.value) {
     showingMaestros.value = true;
@@ -228,6 +248,9 @@ if (isComprasActive.value) {
 }
 if (isUsuariosRolesActive.value) {
     showingUsuariosRoles.value = true;
+}
+if (isReportesActive.value) {
+    showingReportes.value = true;
 }
 
 const isActive = (routeName) => {
@@ -270,7 +293,6 @@ const isActive = (routeName) => {
                     {{ item.name }}
                 </Link>
 
-                <!-- SECCIÓN COMPRAS (Admin) - Después de Dashboard -->
                 <div v-if="$page.props.auth.user.role === 'administrador'">
                     <button 
                         @click="showingCompras = !showingCompras"
@@ -307,7 +329,42 @@ const isActive = (routeName) => {
                     </div>
                 </div>
 
-                <!-- SECCIÓN ADMINISTRACIÓN -->
+                <div v-if="$page.props.auth.user.role === 'administrador'">
+                    <button 
+                        @click="showingReportes = !showingReportes"
+                        class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 focus:outline-none transition-colors"
+                        :class="{ 'bg-gray-50': showingReportes || isReportesActive }"
+                    >
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 mr-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                            Reportes
+                        </div>
+                        <svg 
+                            class="w-4 h-4 text-gray-400 transform transition-transform duration-200" 
+                            :class="{ 'rotate-180': showingReportes }"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+
+                    <div v-show="showingReportes" class="mt-1 space-y-1 pl-11">
+                        <Link 
+                            v-for="subitem in reportesItems" 
+                            :key="subitem.name"
+                            :href="route(subitem.route)"
+                            class="block px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                            :class="isActive(subitem.route)
+                                ? 'text-indigo-700 bg-indigo-50'
+                                : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'"
+                        >
+                            {{ subitem.name }}
+                        </Link>
+                    </div>
+                </div>
+
                 <div v-if="$page.props.auth.user.role === 'administrador'" class="pt-4 pb-2">
                     <p class="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
                         Administración
@@ -349,7 +406,6 @@ const isActive = (routeName) => {
                         </Link>
                     </div>
 
-                    <!-- Usuarios y Roles -->
                     <button 
                         @click="showingUsuariosRoles = !showingUsuariosRoles"
                         class="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:text-gray-900 focus:outline-none transition-colors"
@@ -460,7 +516,6 @@ const isActive = (routeName) => {
                         <Dropdown align="right" width="48">
                             <template #trigger>
                                 <button type="button" class="flex items-center max-w-xs bg-white rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all duration-200 hover:bg-gray-50 p-1 pr-2">
-                                    <!-- Avatar con foto o iniciales -->
                                     <img 
                                         v-if="$page.props.auth.user.foto_perfil"
                                         :src="`/storage/${$page.props.auth.user.foto_perfil}`"
