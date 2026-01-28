@@ -115,6 +115,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('motivos-demora', \App\Http\Controllers\Admin\MotivoDemoraReparacionController::class);
         Route::post('admin/motivos-demora/reorder', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'reorder'])->name('admin.motivos-demora.reorder');
         Route::patch('admin/motivos-demora/{motivosDemora}/toggle', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'toggle'])->name('admin.motivos-demora.toggle');
+        
+        // Categorías de Gasto (para módulo de gastos)
+        Route::resource('categorias-gasto', \App\Http\Controllers\Admin\CategoriaGastoController::class);
+        Route::patch('categorias-gasto/{categorias_gasto}/toggle-activo', [\App\Http\Controllers\Admin\CategoriaGastoController::class, 'toggleActivo'])->name('admin.categorias-gasto.toggle-activo');
     });
 });
 
@@ -291,7 +295,15 @@ Route::middleware(['auth'])->group(function () {
         // CU-36 y CU-37: Reporte de Stock y Uso de Repuestos
         Route::get('/stock', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'index'])->name('stock');
         Route::get('/stock/exportar', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'exportar'])->name('stock.exportar');
+
+        // Reporte Mensual Consolidado (Entradas, Salidas, Balance)
+        Route::get('/mensual', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'index'])->name('mensual');
+        Route::get('/mensual/exportar', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'exportar'])->name('mensual.exportar');
     });
+
+    // --- MÓDULO DE GASTOS Y PÉRDIDAS ---
+    Route::resource('gastos', \App\Http\Controllers\GastoController::class)->except(['show']);
+    Route::patch('/gastos/{gasto}/anular', [\App\Http\Controllers\GastoController::class, 'anular'])->name('gastos.anular');
 
     // --- MÓDULO DE VENTAS ---
     Route::post('/ventas/{venta}/anular', [VentaController::class, 'anular'])

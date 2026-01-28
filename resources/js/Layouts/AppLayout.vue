@@ -57,6 +57,13 @@ const operacionesItems = computed(() => {
         });
     }
 
+    // Gastos y Pérdidas (acceso general, sin permiso específico por ahora)
+    items.push({ 
+        name: 'Gastos', 
+        route: 'gastos.index', 
+        icon: 'M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2zM10 8.5a.5.5 0 11-1 0 .5.5 0 011 0zm5 5a.5.5 0 11-1 0 .5.5 0 011 0z',
+    });
+
     if (can('clientes.ver')) {
         items.push({ 
             name: 'Clientes', 
@@ -157,6 +164,9 @@ const reportesItems = computed(() => {
 
     const items = [];
     
+    // Reporte Mensual consolidado siempre primero
+    items.push({ name: 'Reporte Mensual', route: 'reportes.mensual' });
+    
     if (can('reportes.stock')) items.push({ name: 'Stock y Precios', route: 'reportes.stock' });
     if (can('reportes.ventas')) items.push({ name: 'Ventas', route: 'reportes.ventas' });
     if (can('reportes.reparaciones')) items.push({ name: 'Reparaciones', route: 'reportes.reparaciones' });
@@ -194,6 +204,7 @@ const maestrosItems = computed(() => {
         { name: 'Localidades', route: 'admin.localidades.index' },
         { name: 'Tipos de Cliente', route: 'admin.tipos-cliente.index' },
         { name: 'Estados de Cliente', route: 'admin.estados-cliente.index' },
+        { name: 'Categorías de Gasto', route: 'admin.categorias-gasto.index' },
     ];
 });
 
