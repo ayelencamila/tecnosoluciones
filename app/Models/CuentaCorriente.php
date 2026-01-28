@@ -141,7 +141,7 @@ class CuentaCorriente extends Model
         return min($saldoDeudor, $debitosVencidosPendientes);
     }
 
-    /**
+    /** 
      * Calcula los días de vencimiento del movimiento más antiguo sin pagar.
      * 
      * @return int Días de vencimiento (0 si no hay vencidos)
