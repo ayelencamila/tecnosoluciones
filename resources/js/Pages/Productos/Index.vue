@@ -4,6 +4,7 @@ import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue'; 
+import SearchSelect from '@/Components/SearchSelect.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import Modal from '@/Components/Modal.vue';
 import InputLabel from '@/Components/InputLabel.vue';
@@ -16,7 +17,6 @@ const props = defineProps({
     productos: Object,
     categorias: Array,
     estados: Array,
-    proveedores: Array,
     filters: Object,
     stats: Object,
 });
@@ -58,7 +58,6 @@ const deleteProducto = () => {
 // --- SELECTS ---
 const categoriasOptions = computed(() => [{ value: '', label: 'Todas las Categorías' }, ...props.categorias.map(c => ({ value: c.id, label: c.nombre }))]);
 const estadosOptions = computed(() => [{ value: '', label: 'Todos los Estados' }, ...props.estados.map(e => ({ value: e.id, label: e.nombre }))]);
-const proveedoresOptions = computed(() => [{ value: '', label: 'Todos los Proveedores' }, ...props.proveedores.map(p => ({ value: p.id, label: p.razon_social }))]);
 
 // --- WATCHERS & FILTROS ---
 watch(form, debounce(() => {
@@ -138,7 +137,12 @@ const getPaginationLabel = (label, index, totalLinks) => {
                     <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                         <SelectInput v-model="form.categoria_id" class="w-full" :options="categoriasOptions" />
                         <SelectInput v-model="form.estado_id" class="w-full" :options="estadosOptions" />
-                        <SelectInput v-model="form.proveedor_id" class="w-full" :options="proveedoresOptions" />
+                        <SearchSelect 
+                            v-model="form.proveedor_id" 
+                            api-endpoint="/api/proveedores/buscar"
+                            display-field="razon_social"
+                            placeholder="Buscar proveedor..."
+                        />
 
                         <label class="flex items-center p-2 border border-gray-200 rounded-md bg-white cursor-pointer hover:bg-gray-50 transition h-[42px]">
                             <input type="checkbox" v-model="form.stock_bajo" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" />
@@ -169,7 +173,10 @@ const getPaginationLabel = (label, index, totalLinks) => {
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <tr v-for="producto in productos.data" :key="producto.id" class="hover:bg-gray-50 transition duration-150">
                                     <td class="px-6 py-4">
-                                        <div class="text-sm font-bold text-gray-900">{{ producto.nombre }}</div>
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-sm font-bold text-gray-900">{{ producto.nombre }}</div>
+                                            <span v-if="producto.es_servicio" class="px-1.5 py-0.5 text-xs font-medium bg-purple-100 text-purple-700 rounded" title="Servicio (sin stock)">SRV</span>
+                                        </div>
                                         <div class="text-xs text-gray-500 font-mono">{{ producto.codigo }}</div>
                                         <div v-if="producto.marca" class="text-xs text-gray-400 font-semibold">{{ producto.marca.nombre }}</div>
                                     </td>
@@ -183,10 +190,13 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                         {{ getPrecioMinorista(producto.precios) }}
                                     </td>
                                     <td class="px-6 py-4 text-center">
-                                        <span class="text-sm font-bold px-2 py-1 rounded" :class="calcularStockTotal(producto.stocks) < (producto.stocks[0]?.stock_minimo || 0) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'">
-                                            {{ calcularStockTotal(producto.stocks) }}
-                                        </span>
-                                        <span class="text-xs text-gray-400 ml-1">{{ producto.unidad_medida?.abreviatura }}</span>
+                                        <template v-if="!producto.es_servicio">
+                                            <span class="text-sm font-bold px-2 py-1 rounded" :class="calcularStockTotal(producto.stocks) < (producto.stocks[0]?.stock_minimo || 0) ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'">
+                                                {{ calcularStockTotal(producto.stocks) }}
+                                            </span>
+                                            <span class="text-xs text-gray-400 ml-1">{{ producto.unidad_medida?.abreviatura }}</span>
+                                        </template>
+                                        <span v-else class="text-xs text-purple-500 italic">N/A</span>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" :class="getEstadoBadgeClass(producto.estado?.nombre)">

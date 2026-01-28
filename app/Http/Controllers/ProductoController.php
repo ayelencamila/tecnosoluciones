@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -103,7 +104,6 @@ class ProductoController extends Controller
             'productos' => $productos,
             'categorias' => CategoriaProducto::where('activo', true)->get(['id', 'nombre']),
             'estados' => EstadoProducto::all(['id', 'nombre']),
-            'proveedores' => Proveedor::where('activo', true)->get(['id', 'razon_social']),
             'filters' => $request->only(['search', 'categoria_id', 'estado_id', 'stock_bajo', 'proveedor_id']),
             'stats' => [
                 'total' => Producto::count(),
@@ -133,7 +133,14 @@ class ProductoController extends Controller
     public function store(StoreProductoRequest $request, RegistrarProductoService $service)
     {
         try {
-            $producto = $service->handle($request->validated(), auth()->id());
+            $data = $request->validated();
+            
+            // Manejar subida de foto
+            if ($request->hasFile('foto')) {
+                $data['foto_path'] = $request->file('foto')->store('productos', 'public');
+            }
+
+            $producto = $service->handle($data, auth()->id());
 
             return redirect()->route('productos.show', $producto->id)
                              ->with('success', 'Producto registrado exitosamente');
@@ -190,7 +197,14 @@ class ProductoController extends Controller
     public function update(UpdateProductoRequest $request, Producto $producto, UpdateProductoService $service)
     {
         try {
-            $service->handle($producto, $request->validated(), auth()->id());
+            $data = $request->validated();
+            
+            // Manejar subida de foto
+            if ($request->hasFile('foto')) {
+                $data['foto_path'] = $request->file('foto')->store('productos', 'public');
+            }
+
+            $service->handle($producto, $data, auth()->id());
 
             return redirect()->route('productos.show', $producto->id)
                              ->with('success', 'Producto modificado exitosamente');

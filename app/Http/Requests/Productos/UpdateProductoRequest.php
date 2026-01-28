@@ -22,6 +22,9 @@ class UpdateProductoRequest extends FormRequest
             'codigo' => ['required', 'string', 'max:50', Rule::unique('productos')->ignore($productoId)],
             'nombre' => 'required|string|max:100',
             'descripcion' => 'nullable|string',
+            'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'], // Max 2MB
+            'eliminar_foto' => ['nullable', 'boolean'],
+            'es_servicio' => ['nullable', 'boolean'],
 
             // CORRECCIÓN: Validamos IDs, no texto
             'marca_id' => 'nullable|exists:marcas,id',

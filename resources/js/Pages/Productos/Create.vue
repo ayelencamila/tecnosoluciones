@@ -28,18 +28,36 @@ const form = useForm({
   codigo: '',
   nombre: '',
   descripcion: '',
+  foto: null,
+  es_servicio: false,
   marca_id: '', 
   unidad_medida_id: '', 
   categoriaProductoID: '',
   estadoProductoID: props.estados.find(e => e.nombre === 'Activo')?.id || '',
   proveedor_habitual_id: '',
   
-  // STOCK
+  // STOCK (solo aplica si NO es servicio)
   stock_minimo: 0,
-  cantidad_inicial: 0, // <--- NUEVO CAMPO
+  cantidad_inicial: 0,
   
   precios: {}, 
 });
+
+// Preview de la foto
+const fotoPreview = ref(null);
+
+const handleFotoChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    form.foto = file;
+    fotoPreview.value = URL.createObjectURL(file);
+  }
+};
+
+const removeFoto = () => {
+  form.foto = null;
+  fotoPreview.value = null;
+};
 
 // Transformar datos para ConfigurableSelect
 const marcasOptions = computed(() => {
@@ -125,7 +143,9 @@ const submitForm = () => {
     ...data,
     precios: preciosArray
   }))
-  .post(route('productos.store'));
+  .post(route('productos.store'), {
+    forceFormData: true, // Necesario para enviar archivos
+  });
 };
 </script>
 
@@ -201,6 +221,31 @@ const submitForm = () => {
                                         <textarea id="descripcion" name="descripcion" v-model="form.descripcion" rows="3" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"></textarea>
                                         <InputError :message="form.errors.descripcion" class="mt-1" />
                                     </div>
+
+                                    <!-- FOTO DEL PRODUCTO -->
+                                    <div class="md:col-span-2">
+                                        <label class="block text-sm font-medium text-gray-700 mb-2">Foto del Producto</label>
+                                        <div class="flex items-start gap-4">
+                                            <!-- Preview -->
+                                            <div v-if="fotoPreview" class="relative">
+                                                <img :src="fotoPreview" alt="Preview" class="w-32 h-32 object-cover rounded-lg border border-gray-300 shadow-sm">
+                                                <button type="button" @click="removeFoto" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 shadow">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                                                </button>
+                                            </div>
+                                            <!-- Input -->
+                                            <div class="flex-1">
+                                                <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition">
+                                                    <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                                        <svg class="w-8 h-8 mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                                                        <p class="text-xs text-gray-500">PNG, JPG o WEBP (máx. 2MB)</p>
+                                                    </div>
+                                                    <input type="file" class="hidden" accept="image/jpeg,image/png,image/webp" @change="handleFotoChange">
+                                                </label>
+                                            </div>
+                                        </div>
+                                        <InputError :message="form.errors.foto" class="mt-1" />
+                                    </div>
                                 </div>
                             </div>
 
@@ -270,7 +315,17 @@ const submitForm = () => {
                                         <InputError :message="form.errors.proveedor_habitual_id" class="mt-1" />
                                     </div>
 
-                                    <div class="grid grid-cols-2 gap-4 pt-4 border-t">
+                                    <!-- ES SERVICIO -->
+                                    <div class="pt-4 border-t">
+                                        <label class="flex items-center cursor-pointer">
+                                            <input type="checkbox" v-model="form.es_servicio" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500">
+                                            <span class="ml-2 text-sm font-medium text-gray-700">Es un Servicio</span>
+                                        </label>
+                                        <p class="text-xs text-gray-500 mt-1">Los servicios no manejan stock (ej: mano de obra, instalación)</p>
+                                    </div>
+
+                                    <!-- STOCK (solo si NO es servicio) -->
+                                    <div v-if="!form.es_servicio" class="grid grid-cols-2 gap-4 pt-4 border-t">
                                         <div>
                                             <label for="cantidad_inicial" class="block text-sm font-medium text-gray-700 mb-1">Stock Inicial</label>
                                             <input id="cantidad_inicial" name="cantidad_inicial" v-model="form.cantidad_inicial" type="number" min="0" class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">

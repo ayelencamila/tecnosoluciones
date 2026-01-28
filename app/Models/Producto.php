@@ -21,13 +21,19 @@ class Producto extends Model
         'codigo',
         'nombre',
         'descripcion',
+        'foto',
+        'es_servicio',
         'marca_id',
         'unidad_medida_id',
         'categoriaProductoID',
         'estadoProductoID',
         'proveedor_habitual_id',
     ];
-    protected $dates = ['deleted_at']; 
+    protected $dates = ['deleted_at'];
+    
+    protected $casts = [
+        'es_servicio' => 'boolean',
+    ]; 
 
     // --- RELACIONES ---
 

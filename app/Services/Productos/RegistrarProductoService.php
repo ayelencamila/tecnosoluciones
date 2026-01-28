@@ -7,6 +7,7 @@ use App\Models\PrecioProducto;
 use App\Models\Stock;
 use App\Models\Deposito;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Carbon\Carbon;
 
 class RegistrarProductoService
@@ -20,6 +21,8 @@ class RegistrarProductoService
                 'codigo' => $data['codigo'],
                 'nombre' => $data['nombre'],
                 'descripcion' => $data['descripcion'] ?? null,
+                'foto' => $data['foto_path'] ?? null,
+                'es_servicio' => $data['es_servicio'] ?? false,
                 
                 // CORRECCIÓN: Usamos IDs
                 'marca_id' => $data['marca_id'] ?? null,
@@ -44,39 +47,39 @@ class RegistrarProductoService
                 }
             }
 
-            // 3. Inicializar Stock
-            $depositoPrincipal = Deposito::where('nombre', 'like', '%Principal%')->first() 
-                              ?? Deposito::where('activo', true)->first();
+            // 3. Inicializar Stock (Solo si NO es servicio)
+            if (!($data['es_servicio'] ?? false)) {
+                $depositoPrincipal = Deposito::where('nombre', 'like', '%Principal%')->first() 
+                                  ?? Deposito::where('activo', true)->first();
 
-            if ($depositoPrincipal) {
-                $cantidadInicial = $data['cantidad_inicial'] ?? 0;
+                if ($depositoPrincipal) {
+                    $cantidadInicial = $data['cantidad_inicial'] ?? 0;
 
-                $stock = Stock::create([
-                    'productoID' => $producto->id,
-                    'deposito_id' => $depositoPrincipal->deposito_id,
-                    'cantidad_disponible' => $cantidadInicial,
-                    'stock_minimo' => $data['stock_minimo'] ?? 0,
-                ]);
+                    $stock = Stock::create([
+                        'productoID' => $producto->id,
+                        'deposito_id' => $depositoPrincipal->deposito_id,
+                        'cantidad_disponible' => $cantidadInicial,
+                        'stock_minimo' => $data['stock_minimo'] ?? 0,
+                    ]);
 
-                // Registrar movimiento de inventario inicial si corresponde
-                if ($cantidadInicial > 0) {
-                    // Buscamos un tipo de movimiento de "Entrada" o "Ajuste"
-                    // Nota: Idealmente usar el modelo TipoMovimientoStock
-                    $tipoEntrada = \App\Models\TipoMovimientoStock::where('signo', 1)->first(); 
-                    
-                    if ($tipoEntrada) {
-                         \App\Models\MovimientoStock::create([
-                            'productoID' => $producto->id,
-                            'deposito_id' => $depositoPrincipal->deposito_id,
-                            'tipo_movimiento_id' => $tipoEntrada->id,
-                            'cantidad' => $cantidadInicial,
-                            'signo' => 1,
-                            'stockAnterior' => 0,
-                            'stockNuevo' => $cantidadInicial,
-                            'motivo' => 'Inventario Inicial al Crear Producto',
-                            'user_id' => $userId,
-                            'fecha_movimiento' => now(),
-                        ]);
+                    // Registrar movimiento de inventario inicial si corresponde
+                    if ($cantidadInicial > 0) {
+                        $tipoEntrada = \App\Models\TipoMovimientoStock::where('signo', 1)->first(); 
+                        
+                        if ($tipoEntrada) {
+                             \App\Models\MovimientoStock::create([
+                                'productoID' => $producto->id,
+                                'deposito_id' => $depositoPrincipal->deposito_id,
+                                'tipo_movimiento_id' => $tipoEntrada->id,
+                                'cantidad' => $cantidadInicial,
+                                'signo' => 1,
+                                'stockAnterior' => 0,
+                                'stockNuevo' => $cantidadInicial,
+                                'motivo' => 'Inventario Inicial al Crear Producto',
+                                'user_id' => $userId,
+                                'fecha_movimiento' => now(),
+                            ]);
+                        }
                     }
                 }
             }

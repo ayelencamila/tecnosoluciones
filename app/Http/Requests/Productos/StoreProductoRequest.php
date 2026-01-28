@@ -18,6 +18,8 @@ class StoreProductoRequest extends FormRequest
             'codigo' => ['required', 'string', 'max:50', 'unique:productos,codigo'],
             'nombre' => ['required', 'string', 'max:100'],
             'descripcion' => ['nullable', 'string'],
+            'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'], // Max 2MB
+            'es_servicio' => ['nullable', 'boolean'],
             
             // IDs de Tablas Maestras
             'marca_id' => ['nullable', 'exists:marcas,id'],
