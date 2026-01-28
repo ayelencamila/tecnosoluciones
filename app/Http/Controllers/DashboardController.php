@@ -22,9 +22,7 @@ class DashboardController extends Controller
         $kpis = [];
         $tablas = [];
 
-        // ============================================
         // KPIs y datos comunes para ADMIN y VENDEDOR
-        // ============================================
         if (in_array($role, ['administrador', 'vendedor'])) {
             // Ventas de Hoy
             $kpis['ventasHoy'] = Venta::whereDate('created_at', Carbon::today())->sum('total');

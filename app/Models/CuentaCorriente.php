@@ -142,6 +142,7 @@ class CuentaCorriente extends Model
     }
 
     /**
+<<<<<<< HEAD
      * Calcula los días de vencimiento del movimiento más antiguo sin pagar.
      * 
      * @return int Días de vencimiento (0 si no hay vencidos)
@@ -173,6 +174,8 @@ class CuentaCorriente extends Model
     }
 
     /**
+=======
+>>>>>>> origin/main
      * Calcula los recargos por mora sobre saldos vencidos.
      * 
      * @return array ['total' => float, 'detalle' => array]
