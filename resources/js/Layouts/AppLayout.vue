@@ -590,10 +590,10 @@ const isActive = (routeName) => {
                 </div>
 
                 <div class="ml-4 flex items-center gap-4">
-                    <!-- Notificaciones para admin -->
+                    <!-- Notificaciones generales para admin -->
                     <NotificationBell v-if="$page.props.auth.user.role === 'administrador'" />
-                    <!-- Alertas SLA para admin y técnico -->
-                    <TecnicoAlertBell v-if="can('alertas.ver')" />
+                    <!-- Alertas SLA solo para técnico (el admin las ve en el menú Alertas) -->
+                    <TecnicoAlertBell v-if="$page.props.auth.user.role === 'tecnico'" />
                     
                     <div class="relative">
                         <Dropdown align="right" width="48">
