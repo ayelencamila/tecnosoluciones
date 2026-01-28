@@ -249,6 +249,20 @@
             pointer-events: none;
         }
 
+        /* Marca de agua para comprobante interno (no fiscal) */
+        .watermark-info {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 50pt;
+            font-weight: bold;
+            color: rgba(100, 100, 100, 0.12);
+            z-index: -1;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
         /* Botón de impresión - NO imprimible */
         .print-button {
             position: fixed;
@@ -278,9 +292,11 @@
         Imprimir
     </button>
 
-    <!-- Marca de agua si está anulada -->
+    <!-- Marca de agua según estado -->
     @if($es_anulada)
         <div class="watermark">ANULADA</div>
+    @else
+        <div class="watermark-info">NO VÁLIDO COMO FACTURA</div>
     @endif
 
     <!-- ENCABEZADO - Información CONSTANTE de la empresa -->
