@@ -105,6 +105,18 @@ return [
             ],
         ],
         
+        'reportes' => [
+            'label' => 'Reportes',
+            'permisos' => [
+                'reportes.ver' => 'Ver reportes',
+                'reportes.ventas' => 'Reportes de ventas',
+                'reportes.stock' => 'Reportes de stock',
+                'reportes.reparaciones' => 'Reportes de reparaciones',
+                'reportes.compras' => 'Reportes de compras',
+                'reportes.exportar' => 'Exportar reportes',
+            ],
+        ],
+        
         'alertas' => [
             'label' => 'Alertas SLA',
             'permisos' => [
