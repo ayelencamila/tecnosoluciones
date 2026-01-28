@@ -72,14 +72,16 @@ const imprimirComprobanteEntrega = () => {
                 <div class="flex justify-between items-center">
                     <Link :href="route('reparaciones.index')"><SecondaryButton> &larr; Volver al Listado </SecondaryButton></Link>
                     <div class="space-x-3">
-                        <SecondaryButton @click="imprimirComprobanteIngreso" class="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100">
-                            🖨️ Comprobante de Ingreso
+                        <SecondaryButton @click="imprimirComprobanteIngreso" class="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 inline-flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                            Comprobante de Ingreso
                         </SecondaryButton>
                         <SecondaryButton 
                             v-if="['Reparado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" 
                             @click="imprimirComprobanteEntrega" 
-                            class="bg-green-50 border-green-300 text-green-700 hover:bg-green-100">
-                            🖨️ Comprobante de Entrega
+                            class="bg-green-50 border-green-300 text-green-700 hover:bg-green-100 inline-flex items-center gap-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+                            Comprobante de Entrega
                         </SecondaryButton>
                         <DangerButton v-if="!['Cancelado', 'Anulado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" @click="showDeleteModal = true">Anular Reparación</DangerButton>
                         <Link v-if="!['Cancelado', 'Anulado'].includes(reparacion.estado?.nombreEstado)" :href="route('reparaciones.edit', reparacion.reparacionID)"><PrimaryButton> Actualizar / Diagnosticar </PrimaryButton></Link>
@@ -198,7 +200,7 @@ const imprimirComprobanteEntrega = () => {
             <div v-if="showDeleteModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 px-4">
                 <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all">
                     <h3 class="text-lg font-medium text-gray-900 mb-4">Anular Reparación</h3>
-                    <p class="text-sm text-gray-500 mb-4">¿Está seguro? <br><span v-if="reparacion.repuestos && reparacion.repuestos.length > 0" class="font-bold text-red-600 block mt-2 bg-red-50 p-2 rounded border border-red-100">⚠️ Se devolverá el stock de repuestos.</span></p>
+                    <p class="text-sm text-gray-500 mb-4">¿Está seguro? <br><span v-if="reparacion.repuestos && reparacion.repuestos.length > 0" class="font-bold text-red-600 flex items-center gap-1 mt-2 bg-red-50 p-2 rounded border border-red-100"><svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg> Se devolverá el stock de repuestos.</span></p>
                     <div class="mb-4">
                         <InputLabel value="Motivo (Requerido)" class="mb-1" />
                         <textarea v-model="deleteForm.motivo" rows="3" class="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500" placeholder="Ej: Cliente cancela..."></textarea>

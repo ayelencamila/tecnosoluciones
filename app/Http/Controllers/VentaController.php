@@ -25,6 +25,7 @@ use App\Http\Requests\Ventas\AnularVentaRequest; // <--- Asegúrate de tener est
 use App\Services\Ventas\RegistrarVentaService;
 use App\Services\Ventas\AnularVentaService;      // <--- Asegúrate de tener este archivo
 use App\Services\Comprobantes\ComprobanteService;
+use App\Services\Comprobantes\RegistrarComprobanteService;
 
 // Excepciones
 use App\Exceptions\Ventas\SinStockException;
@@ -192,6 +193,9 @@ class VentaController extends Controller
             'descuentos'
         ])->findOrFail($id);
 
+        // El comprobante ya se registra automáticamente en RegistrarVentaService
+        // Aquí solo preparamos los datos para la vista de impresión
+
         // Preparar datos siguiendo lineamientos de Kendall
         $datos = $service->prepararDatosComprobanteVenta($venta);
 
@@ -222,6 +226,9 @@ class VentaController extends Controller
         if ($venta->estado->nombreEstado !== 'Anulada') {
             return back()->withErrors(['error' => 'Solo se puede imprimir comprobante de anulación para ventas anuladas.']);
         }
+
+        // El comprobante de anulación ya se registra automáticamente en AnularVentaService
+        // Aquí solo preparamos los datos para la vista de impresión
 
         // Preparar datos siguiendo lineamientos de Kendall
         $datos = $service->prepararDatosComprobanteAnulacion($venta);

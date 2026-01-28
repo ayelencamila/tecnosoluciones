@@ -171,6 +171,22 @@ class RegistrarVentaService
                 Log::info("Deuda registrada en CC Cliente {$cliente->clienteID}: {$calculos['totalFinalVenta']}");
             }
 
+            // CU-32: Registrar comprobante interno de venta (TICKET - NO FISCAL)
+            $tipoComprobante = \DB::table('tipos_comprobante')->where('codigo', 'TICKET')->value('tipo_id');
+            $estadoEmitido = \DB::table('estados_comprobante')->where('nombre', 'EMITIDO')->value('estado_id');
+
+            if ($tipoComprobante && $estadoEmitido) {
+                \App\Models\Comprobante::create([
+                    'tipo_entidad' => $venta->getMorphClass(),
+                    'entidad_id' => $venta->venta_id,
+                    'usuario_id' => $vendedorUserID,
+                    'tipo_comprobante_id' => $tipoComprobante,
+                    'numero_correlativo' => $venta->numero_comprobante,
+                    'fecha_emision' => now(),
+                    'estado_comprobante_id' => $estadoEmitido,
+                ]);
+            }
+
             Log::info("Venta registrada con éxito: ID {$venta->venta_id}");
 
             return $venta;

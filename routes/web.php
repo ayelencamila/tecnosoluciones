@@ -435,6 +435,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [ComprobanteInternoController::class, 'index'])->name('index');
         Route::get('/{comprobante}', [ComprobanteInternoController::class, 'show'])->name('show');
         Route::get('/{comprobante}/pdf', [ComprobanteInternoController::class, 'verPdf'])->name('pdf');
+        Route::get('/{comprobante}/descargar', [ComprobanteInternoController::class, 'descargarPdf'])->name('descargar');
         Route::post('/{comprobante}/anular', [ComprobanteInternoController::class, 'anular'])->name('anular');
         Route::post('/{comprobante}/reemitir', [ComprobanteInternoController::class, 'reemitir'])->name('reemitir');
     })->scopeBindings();

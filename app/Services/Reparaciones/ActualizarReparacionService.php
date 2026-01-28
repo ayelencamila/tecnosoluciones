@@ -89,6 +89,22 @@ class ActualizarReparacionService
             // 5. Lógica de Cierre (ID 7 = Entregado según BD)
             if ($nuevoEstado->estadoReparacionID == 7 && !$reparacion->fecha_entrega_real) {
                 $reparacion->update(['fecha_entrega_real' => now()]);
+
+                // CU-32: Registrar comprobante de Entrega de Reparación
+                $tipoComprobante = \DB::table('tipos_comprobante')->where('codigo', 'ENTREGA_REPARACION')->value('tipo_id');
+                $estadoEmitido = \DB::table('estados_comprobante')->where('nombre', 'EMITIDO')->value('estado_id');
+
+                if ($tipoComprobante && $estadoEmitido) {
+                    \App\Models\Comprobante::create([
+                        'tipo_entidad' => $reparacion->getMorphClass(),
+                        'entidad_id' => $reparacion->reparacionID,
+                        'usuario_id' => $userId,
+                        'tipo_comprobante_id' => $tipoComprobante,
+                        'numero_correlativo' => 'ENT-' . $reparacion->codigo_reparacion,
+                        'fecha_emision' => now(),
+                        'estado_comprobante_id' => $estadoEmitido,
+                    ]);
+                }
             }
 
             // 6. CU-12 Paso 10: Registrar operación en el historial de operaciones

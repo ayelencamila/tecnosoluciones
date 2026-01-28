@@ -286,7 +286,10 @@
 </head>
 <body>
     <!-- Botón de impresión (no se imprime) -->
-    <button onclick="window.print()" class="print-button no-print">🖨️ Imprimir</button>
+    <button onclick="window.print()" class="print-button no-print" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+        Imprimir
+    </button>
 
     <!-- ENCABEZADO - Información CONSTANTE de la empresa -->
     <div class="header">
@@ -308,8 +311,10 @@
     </div>
 
     <!-- BANNER DE ANULACIÓN -->
-    <div class="banner-anulacion">
-        ⚠️ COMPROBANTE DE ANULACIÓN / NOTA DE CRÉDITO INTERNA ⚠️
+    <div class="banner-anulacion" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        COMPROBANTE DE ANULACIÓN / NOTA DE CRÉDITO INTERNA
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
     </div>
 
     <!-- INFORMACIÓN DEL COMPROBANTE - Información VARIABLE -->
@@ -348,7 +353,10 @@
 
     <!-- MOTIVO DE ANULACIÓN - Lineamiento: Contenido del informe -->
     <div class="motivo-section">
-        <div class="title">📋 Motivo de la Anulación</div>
+        <div class="title" style="display: flex; align-items: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            Motivo de la Anulación
+        </div>
         <div class="contenido">
             {{ $motivo_anulacion }}
         </div>

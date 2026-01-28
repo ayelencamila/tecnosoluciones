@@ -53,6 +53,21 @@ class RegistrarPagoService
             // CU-09 Paso 7: Disparar evento para verificar normalización
             event(new PagoRegistrado($pago, $userId));
 
+            // CU-32: Registrar comprobante interno de pago (NO FISCAL)
+            $tipoComprobante = \DB::table('tipos_comprobante')->where('codigo', 'RECIBO_PAGO')->value('tipo_id');
+            $estadoEmitido = \DB::table('estados_comprobante')->where('nombre', 'EMITIDO')->value('estado_id');
+            $numeroCorrelativo = \App\Models\Comprobante::generarNumeroCorrelativo($tipoComprobante, 'P');
+
+            \App\Models\Comprobante::create([
+                'tipo_entidad' => $pago->getMorphClass(),
+                'entidad_id' => $pago->pagoID,
+                'usuario_id' => $userId,
+                'tipo_comprobante_id' => $tipoComprobante,
+                'numero_correlativo' => $numeroCorrelativo,
+                'fecha_emision' => now(),
+                'estado_comprobante_id' => $estadoEmitido,
+            ]);
+
             // CU-10 Paso 13: Registrar en historial de operaciones
             \App\Models\Auditoria::registrar(
                 \App\Models\Auditoria::ACCION_REGISTRAR_PAGO,

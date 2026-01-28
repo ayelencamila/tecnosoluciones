@@ -25,6 +25,7 @@ use App\Services\Reparaciones\RegistrarReparacionService;
 use App\Services\Reparaciones\ActualizarReparacionService;
 use App\Services\Reparaciones\AnularReparacionService;
 use App\Services\Comprobantes\ComprobanteService;
+use App\Services\Comprobantes\RegistrarComprobanteService;
 
 // Excepciones
 use App\Exceptions\Ventas\SinStockException;
@@ -165,6 +166,9 @@ class ReparacionController extends Controller
             'modelo.marca'
         ])->findOrFail($id);
 
+        // El comprobante ya se registra automáticamente en RegistrarReparacionService
+        // Aquí solo preparamos los datos para la vista de impresión
+
         // Preparar datos siguiendo lineamientos de Kendall
         $datos = $service->prepararDatosComprobanteIngresoReparacion($reparacion);
 
@@ -189,6 +193,9 @@ class ReparacionController extends Controller
             'modelo.marca',
             'repuestos.producto'
         ])->findOrFail($id);
+
+        // El comprobante ya se registra automáticamente en ActualizarReparacionService cuando pasa a "Entregado"
+        // Aquí solo preparamos los datos para la vista de impresión
 
         // Preparar datos siguiendo lineamientos de Kendall (Información constante vs variable)
         $datos = $service->prepararDatosComprobanteEntrega($reparacion);

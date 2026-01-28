@@ -74,6 +74,22 @@ class RegistrarReparacionService
                 $this->procesarItems($reparacion, $datosValidados['items'], $usuarioID);
             }
 
+            // 6. CU-32: Registrar comprobante de Ingreso de Reparación
+            $tipoComprobante = \DB::table('tipos_comprobante')->where('codigo', 'INGRESO_REPARACION')->value('tipo_id');
+            $estadoEmitido = \DB::table('estados_comprobante')->where('nombre', 'EMITIDO')->value('estado_id');
+
+            if ($tipoComprobante && $estadoEmitido) {
+                \App\Models\Comprobante::create([
+                    'tipo_entidad' => $reparacion->getMorphClass(),
+                    'entidad_id' => $reparacion->reparacionID,
+                    'usuario_id' => $usuarioID,
+                    'tipo_comprobante_id' => $tipoComprobante,
+                    'numero_correlativo' => 'ING-' . $codigoReparacion,
+                    'fecha_emision' => now(),
+                    'estado_comprobante_id' => $estadoEmitido,
+                ]);
+            }
+
             Log::info("Reparación registrada con éxito: ID {$reparacion->reparacionID} - Código: {$codigoReparacion}");
 
             return $reparacion;

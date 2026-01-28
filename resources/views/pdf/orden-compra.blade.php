@@ -375,7 +375,7 @@
     <!-- OBSERVACIONES -->
     @if($orden->observaciones)
         <div class="observations">
-            <div class="observations-title">📝 Instrucciones / Observaciones</div>
+            <div class="observations-title">Instrucciones / Observaciones</div>
             <div class="observations-content">{{ $orden->observaciones }}</div>
         </div>
     @endif

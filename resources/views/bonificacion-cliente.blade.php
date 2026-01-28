@@ -278,7 +278,7 @@
                 
                 <div class="discount-info">
                     <p>
-                        <strong>🎉 ¡Tenemos una bonificación para usted!</strong><br>
+                        <strong>¡Tenemos una bonificación para usted!</strong><br>
                         Debido a la demora en su reparación, aplicaremos un descuento del <strong>{{ $bonificacion->porcentaje_aprobado }}%</strong> sobre el costo final.
                     </p>
                 </div>
@@ -289,11 +289,13 @@
                 </div>
                 
                 <div class="buttons">
-                    <button class="btn btn-success" onclick="responder('aceptar')">
-                        <span>✅</span> Aceptar y Continuar con la Reparación
+                    <button class="btn btn-success" onclick="responder('aceptar')" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        Aceptar y Continuar con la Reparación
                     </button>
-                    <button class="btn btn-danger" onclick="responder('cancelar')">
-                        <span>❌</span> Cancelar y Retirar mi Equipo
+                    <button class="btn btn-danger" onclick="responder('cancelar')" style="display: inline-flex; align-items: center; gap: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        Cancelar y Retirar mi Equipo
                     </button>
                 </div>
             </div>
@@ -340,7 +342,10 @@
         function mostrarExito(mensaje) {
             document.getElementById('messageArea').innerHTML = `
                 <div class="message success">
-                    <h3 style="margin-bottom: 10px;">✅ ¡Respuesta Registrada!</h3>
+                    <h3 style="margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                        ¡Respuesta Registrada!
+                    </h3>
                     <p>${mensaje}</p>
                 </div>
             `;
@@ -349,7 +354,10 @@
         function mostrarError(mensaje) {
             document.getElementById('messageArea').innerHTML = `
                 <div class="message error">
-                    <h3 style="margin-bottom: 10px;">⚠️ Error</h3>
+                    <h3 style="margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        Error
+                    </h3>
                     <p>${mensaje}</p>
                 </div>
             `;

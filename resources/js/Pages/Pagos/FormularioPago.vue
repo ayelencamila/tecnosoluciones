@@ -307,7 +307,10 @@ onMounted(() => {
                             <!-- CU-10 Paso 6 y 7: Documentos Pendientes e Imputación -->
                             <div v-if="clienteSeleccionado && documentosPendientes.length > 0" class="md:col-span-2 border-t pt-6 mt-4">
                                 <div class="flex justify-between items-center mb-4">
-                                    <h4 class="text-lg font-semibold text-gray-700">📋 Documentos Pendientes de Pago</h4>
+                                    <h4 class="text-lg font-semibold text-gray-700 flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        Documentos Pendientes de Pago
+                                    </h4>
                                     <div class="flex gap-2">
                                         <button 
                                             type="button"
@@ -336,9 +339,10 @@ onMounted(() => {
                                     <button 
                                         type="button" 
                                         @click="aplicarImputacionAutomatica"
-                                        class="text-sm text-blue-600 hover:text-blue-800 underline"
+                                        class="text-sm text-blue-600 hover:text-blue-800 underline flex items-center gap-1"
                                     >
-                                        👁️ Ver sugerencia de imputación
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        Ver sugerencia de imputación
                                     </button>
                                     
                                     <div v-if="imputacionesSeleccionadas.length > 0" class="mt-3 space-y-1">
@@ -403,7 +407,7 @@ onMounted(() => {
                                                 @click="removerDocumentoDeImputacion(imp.venta_id)"
                                                 class="text-red-500 hover:text-red-700"
                                             >
-                                                ✕
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                                             </button>
                                         </div>
                                         
@@ -413,9 +417,10 @@ onMounted(() => {
                                         </div>
                                         
                                         <!-- CU-10 Excepción 5a: Alerta de Anticipo -->
-                                        <div v-if="montoRemanente > 0" class="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs">
-                                            <strong class="text-yellow-800">⚠️ Anticipo:</strong> 
-                                            <span class="text-yellow-700">El remanente de ${{ montoRemanente.toFixed(2) }} se registrará como anticipo a favor del cliente.</span>
+                                        <div v-if="montoRemanente > 0" class="mt-2 p-2 bg-yellow-100 border border-yellow-300 rounded text-xs flex items-start gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-yellow-700 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                                            <span><strong class="text-yellow-800">Anticipo:</strong> 
+                                            <span class="text-yellow-700">El remanente de ${{ montoRemanente.toFixed(2) }} se registrará como anticipo a favor del cliente.</span></span>
                                         </div>
                                         
                                         <InputError :message="form.errors.imputaciones" class="mt-2" />
@@ -425,9 +430,10 @@ onMounted(() => {
 
                             <!-- CU-10 Excepción 3a: Cliente sin documentos pendientes -->
                             <div v-else-if="clienteSeleccionado && !cargandoDocumentos && documentosPendientes.length === 0" class="md:col-span-2 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                                <p class="text-sm text-yellow-800">
-                                    ℹ️ <strong>El cliente no tiene documentos pendientes.</strong><br>
-                                    El pago se registrará como <strong>anticipo a favor del cliente</strong>.
+                                <p class="text-sm text-yellow-800 flex items-start gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    <span><strong>El cliente no tiene documentos pendientes.</strong><br>
+                                    El pago se registrará como <strong>anticipo a favor del cliente</strong>.</span>
                                 </p>
                             </div>
 

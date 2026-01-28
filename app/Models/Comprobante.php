@@ -106,8 +106,7 @@ class Comprobante extends Model
      */
     public function tipoComprobante(): BelongsTo
     {
-        return $this->belongsTo(\Illuminate\Database\Eloquent\Model::class, 'tipo_comprobante_id', 'tipo_id')
-            ->setTable('tipos_comprobante');
+        return $this->belongsTo(TipoComprobante::class, 'tipo_comprobante_id', 'tipo_id');
     }
 
     /**
@@ -115,8 +114,7 @@ class Comprobante extends Model
      */
     public function estadoComprobante(): BelongsTo
     {
-        return $this->belongsTo(\Illuminate\Database\Eloquent\Model::class, 'estado_comprobante_id', 'estado_id')
-            ->setTable('estados_comprobante');
+        return $this->belongsTo(EstadoComprobante::class, 'estado_comprobante_id', 'estado_id');
     }
 
     /**
@@ -203,8 +201,12 @@ class Comprobante extends Model
 
     /**
      * Reemite el comprobante (genera uno nuevo vinculado)
+     * 
+     * @param int $usuarioId ID del usuario que reemite
+     * @param string|null $motivo Motivo de la reemisión (CU-32)
+     * @return self Nuevo comprobante generado
      */
-    public function reemitir(int $usuarioId): self
+    public function reemitir(int $usuarioId, ?string $motivo = null): self
     {
         // Obtener estado_comprobante_id para ANULADO y EMITIDO
         $estadoAnulado = \DB::table('estados_comprobante')->where('nombre', 'ANULADO')->value('estado_comprobante_id');
@@ -227,10 +229,14 @@ class Comprobante extends Model
             'original_id' => $this->comprobante_id,
         ]);
 
-        // Marcar el actual como reemplazado
+        // Marcar el actual como reemplazado con motivo
+        $motivoFinal = $motivo 
+            ? "Reemitido como {$nuevoComprobante->numero_correlativo}. Motivo: {$motivo}"
+            : "Reemitido como {$nuevoComprobante->numero_correlativo}";
+            
         $this->update([
             'estado_comprobante_id' => $estadoReemplazado,
-            'motivo_estado' => 'Reemitido como ' . $nuevoComprobante->numero_correlativo,
+            'motivo_estado' => $motivoFinal,
         ]);
 
         return $nuevoComprobante;

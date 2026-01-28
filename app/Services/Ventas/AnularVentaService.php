@@ -32,7 +32,23 @@ class AnularVentaService
             // 2. Revertir Stock
             $this->revertirStock($venta, $userID);
 
-            // 3. Disparar Evento
+            // 3. CU-32: Registrar comprobante de Nota de Crédito Interna
+            $tipoComprobante = \DB::table('tipos_comprobante')->where('codigo', 'NOTA_CREDITO_INTERNA')->value('tipo_id');
+            $estadoEmitido = \DB::table('estados_comprobante')->where('nombre', 'EMITIDO')->value('estado_id');
+
+            if ($tipoComprobante && $estadoEmitido) {
+                \App\Models\Comprobante::create([
+                    'tipo_entidad' => $venta->getMorphClass(),
+                    'entidad_id' => $venta->venta_id,
+                    'usuario_id' => $userID,
+                    'tipo_comprobante_id' => $tipoComprobante,
+                    'numero_correlativo' => 'NC-' . $venta->numero_comprobante,
+                    'fecha_emision' => now(),
+                    'estado_comprobante_id' => $estadoEmitido,
+                ]);
+            }
+
+            // 4. Disparar Evento
             event(new VentaAnulada($venta, $userID));
 
             Log::info("Venta anulada con éxito: ID {$venta->venta_id} por Usuario ID {$userID}");

@@ -281,7 +281,10 @@
 </head>
 <body>
     <!-- Botón de impresión (no se imprime) -->
-    <button onclick="window.print()" class="print-button no-print">🖨️ Imprimir</button>
+    <button onclick="window.print()" class="print-button no-print" style="display: inline-flex; align-items: center; gap: 6px;">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+        Imprimir
+    </button>
 
     <!-- ENCABEZADO - Información CONSTANTE de la empresa -->
     <div class="header">
@@ -304,7 +307,7 @@
 
     <!-- TÍTULO DEL DOCUMENTO -->
     <div class="titulo-documento">
-        📱 COMPROBANTE DE INGRESO - SERVICIO TÉCNICO 🔧
+        COMPROBANTE DE INGRESO - SERVICIO TÉCNICO
     </div>
 
     <!-- INFORMACIÓN DEL COMPROBANTE - Información VARIABLE -->
@@ -343,7 +346,7 @@
 
     <!-- INFORMACIÓN DEL EQUIPO - Lineamiento: Evitar códigos confusos -->
     <div class="equipo-section">
-        <div class="title">📱 Datos del Equipo Recibido</div>
+        <div class="title">Datos del Equipo Recibido</div>
         <table>
             <tr>
                 <td class="label">MARCA:</td>
@@ -384,7 +387,10 @@
 
     <!-- CONDICIONES DEL SERVICIO -->
     <div class="condiciones-section">
-        <div class="title">⚠️ CONDICIONES IMPORTANTES:</div>
+        <div class="title" style="display: flex; align-items: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            CONDICIONES IMPORTANTES:
+        </div>
         <ul>
             <li>El cliente declara que el equipo ingresó en las condiciones descritas anteriormente.</li>
             <li>El presupuesto será informado una vez realizado el diagnóstico técnico.</li>

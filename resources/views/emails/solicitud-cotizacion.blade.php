@@ -123,9 +123,9 @@
         <!-- Header -->
         <div class="header">
             @if($esRecordatorio)
-                <h1>🔔 Recordatorio de Cotización</h1>
+                <h1>Recordatorio de Cotización</h1>
             @else
-                <h1>📋 Solicitud de Cotización</h1>
+                <h1>Solicitud de Cotización</h1>
             @endif
             <div class="badge">#{{ $solicitud->codigo_solicitud }}</div>
         </div>
@@ -134,7 +134,7 @@
         <div class="content">
             @if($esRecordatorio)
                 <div class="alert-recordatorio">
-                    <strong>⏰ Recordatorio:</strong> Aún no hemos recibido su cotización. 
+                    <strong>Recordatorio:</strong> Aún no hemos recibido su cotización. 
                     Le recordamos que tiene hasta el <strong>{{ \Carbon\Carbon::parse($solicitud->fecha_vencimiento)->format('d/m/Y') }}</strong> 
                     para responder.
                 </div>
@@ -170,7 +170,7 @@
 
             <!-- Info Box -->
             <div class="info-box">
-                <strong>ℹ️ Información importante:</strong>
+                <strong>Información importante:</strong>
                 <ul style="margin: 10px 0; padding-left: 20px;">
                     <li>Haga clic en el botón de abajo para responder la cotización</li>
                     <li>No necesita crear una cuenta ni iniciar sesión</li>
@@ -182,13 +182,13 @@
             <!-- CTA Button -->
             <center>
                 <a href="{{ $url }}" class="cta-button">
-                    📝 RESPONDER COTIZACIÓN
+                    RESPONDER COTIZACIÓN
                 </a>
             </center>
 
             <!-- Vencimiento -->
             <div class="vencimiento">
-                <strong>⏱️ Fecha límite:</strong> 
+                <strong>Fecha límite:</strong> 
                 {{ \Carbon\Carbon::parse($solicitud->fecha_vencimiento)->format('d/m/Y H:i') }}
                 @if($diasParaVencer > 0)
                     ({{ $diasParaVencer }} día{{ $diasParaVencer > 1 ? 's' : '' }} restante{{ $diasParaVencer > 1 ? 's' : '' }})

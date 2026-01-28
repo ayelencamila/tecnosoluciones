@@ -9,6 +9,7 @@ use App\Models\Venta;
 use App\Services\Pagos\AnularPagoService;
 use App\Services\Pagos\RegistrarPagoService;
 use App\Services\Comprobantes\ComprobanteService;
+use App\Services\Comprobantes\RegistrarComprobanteService;
 use App\Http\Requests\Pagos\StorePagoRequest;
 use Illuminate\Http\Request;
 use Illuminate\Database\Eloquent\Builder;
@@ -174,6 +175,9 @@ class PagoController extends Controller
      */
     public function imprimirRecibo(Pago $pago, ComprobanteService $comprobanteService)
     {
+        // El comprobante ya se registra automáticamente en RegistrarPagoService
+        // Aquí solo preparamos los datos para la vista de impresión
+
         // Control (BCE): El servicio prepara los datos de la entidad
         $datos = $comprobanteService->prepararDatosReciboPago($pago);
         

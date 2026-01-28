@@ -22,6 +22,21 @@
             padding: 20mm;
         }
         
+        /* Marca de agua: comprobante interno no fiscal */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-25deg);
+            font-size: 48px;
+            color: rgba(220,0,0,0.13);
+            font-weight: bold;
+            z-index: 0;
+            pointer-events: none;
+            user-select: none;
+            white-space: pre;
+        }
+        
         /* Información CONSTANTE - Encabezado de la empresa */
         .header {
             text-align: center;
@@ -172,12 +187,13 @@
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 120px;
+            transform: translate(-50%, -50%) rotate(-25deg);
+            font-size: 72px;
+            color: rgba(220, 0, 0, 0.2);
             font-weight: bold;
-            color: rgba(255, 0, 0, 0.2);
-            z-index: 1000;
+            z-index: 0;
             pointer-events: none;
+            user-select: none;
         }
         
         /* Footer */
@@ -208,6 +224,10 @@
     </style>
 </head>
 <body>
+    <!-- Marca de agua: Comprobante Interno No Fiscal (Kendall: claridad del propósito) -->
+    <div class="watermark">COMPROBANTE INTERNO
+NO FISCAL</div>
+    
     <!-- Marca de agua ANULADO si corresponde (Kendall: claridad visual) -->
     @if($es_anulado)
         <div class="anulado-watermark">ANULADO</div>
@@ -237,7 +257,8 @@
     
     <!-- ALERTA LEGAL: No válido como factura (Riesgo detectado por Kendall) -->
     <div class="legal-notice">
-        ⚠️ DOCUMENTO NO VÁLIDO COMO FACTURA<br>
+        <svg xmlns="http://www.w3.org/2000/svg" style="display: inline-block; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        DOCUMENTO NO VÁLIDO COMO FACTURA<br>
         COMPROBANTE INTERNO NO FISCAL
     </div>
     
@@ -347,7 +368,8 @@
         @if($totales['anticipo_generado'] > 0)
             <div class="anticipo-box">
                 <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">
-                    💰 ANTICIPO GENERADO
+                    <svg xmlns="http://www.w3.org/2000/svg" style="display: inline-block; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    ANTICIPO GENERADO
                 </div>
                 <div class="amount">
                     ${{ number_format($totales['anticipo_generado'], 2, ',', '.') }}
@@ -363,7 +385,8 @@
     @if(count($imputaciones) == 0)
         <div class="anticipo-box">
             <div style="font-size: 12px; font-weight: bold; margin-bottom: 5px;">
-                ℹ️ PAGO REGISTRADO COMO ANTICIPO COMPLETO
+                <svg xmlns="http://www.w3.org/2000/svg" style="display: inline-block; width: 16px; height: 16px; vertical-align: middle; margin-right: 4px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                PAGO REGISTRADO COMO ANTICIPO COMPLETO
             </div>
             <div style="font-size: 10px; color: #666;">
                 El cliente no tenía documentos pendientes al momento del pago.
@@ -381,11 +404,13 @@
     
     <!-- Botón para imprimir (solo visible en pantalla) -->
     <div class="no-print" style="text-align: center; margin-top: 20px;">
-        <button onclick="window.print()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px;">
-            🖨️ Imprimir Recibo
+        <button onclick="window.print()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 5px; display: inline-flex; align-items: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
+            Imprimir Recibo
         </button>
-        <button onclick="window.close()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #999; color: white; border: none; border-radius: 5px; margin-left: 10px;">
-            ✕ Cerrar
+        <button onclick="window.close()" style="padding: 10px 30px; font-size: 14px; cursor: pointer; background: #999; color: white; border: none; border-radius: 5px; margin-left: 10px; display: inline-flex; align-items: center; gap: 6px;">
+            <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            Cerrar
         </button>
     </div>
 </body>

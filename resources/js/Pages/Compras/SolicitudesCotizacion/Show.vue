@@ -255,7 +255,7 @@ function formatCurrency(value) {
                                                         class="text-orange-600 hover:text-orange-800 text-xs font-medium"
                                                         title="Enviar recordatorio"
                                                     >
-                                                        🔔
+                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
                                                     </button>
                                                 </div>
                                             </td>
@@ -305,7 +305,10 @@ function formatCurrency(value) {
                         <!-- Ranking de ofertas (lateral) -->
                         <div v-if="ranking.length > 0" class="bg-white shadow rounded-lg overflow-hidden">
                             <div class="px-6 py-4 border-b border-green-200 bg-green-50">
-                                <h3 class="text-sm font-bold text-green-800 uppercase">🏆 Ranking de Respuestas</h3>
+                                <h3 class="text-sm font-bold text-green-800 uppercase flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                                    Ranking de Respuestas
+                                </h3>
                                 <p class="text-xs text-green-600 mt-1">
                                     {{ ranking.length }} {{ ranking.length === 1 ? 'proveedor respondió' : 'proveedores respondieron' }}
                                 </p>
@@ -343,7 +346,10 @@ function formatCurrency(value) {
                         <!-- Mensaje cuando no hay respuestas -->
                         <div v-else class="bg-white shadow rounded-lg overflow-hidden">
                             <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                                <h3 class="text-sm font-bold text-gray-800 uppercase">📋 Respuestas</h3>
+                                <h3 class="text-sm font-bold text-gray-800 uppercase flex items-center gap-2">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                    Respuestas
+                                </h3>
                             </div>
                             <div class="p-6 text-center text-gray-500">
                                 <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -359,7 +365,10 @@ function formatCurrency(value) {
                 <!-- Ranking completo (debajo, si hay más de 3) -->
                 <div v-if="ranking.length > 3" id="ranking-completo" class="bg-white rounded-xl shadow-sm overflow-hidden">
                     <div class="px-6 py-4 border-b bg-green-50">
-                        <h3 class="font-semibold text-green-800">🏆 Ranking Completo de Ofertas</h3>
+                        <h3 class="font-semibold text-green-800 flex items-center gap-2">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
+                            Ranking Completo de Ofertas
+                        </h3>
                         <p class="text-sm text-green-600">Ordenado por menor precio total</p>
                     </div>
                     <div class="p-6 space-y-4">
@@ -443,7 +452,10 @@ function formatCurrency(value) {
                                :class="{ 'border-indigo-500 bg-indigo-50': formEnvio.canal === 'whatsapp' }">
                             <input type="radio" v-model="formEnvio.canal" value="whatsapp" class="text-indigo-600" />
                             <span class="ml-3">
-                                <span class="font-medium">📱 WhatsApp</span>
+                                <span class="font-medium flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    WhatsApp
+                                </span>
                                 <span class="text-sm text-gray-500 block">Envío inmediato por mensajería</span>
                             </span>
                         </label>
@@ -451,7 +463,10 @@ function formatCurrency(value) {
                                :class="{ 'border-indigo-500 bg-indigo-50': formEnvio.canal === 'email' }">
                             <input type="radio" v-model="formEnvio.canal" value="email" class="text-indigo-600" />
                             <span class="ml-3">
-                                <span class="font-medium">📧 Email</span>
+                                <span class="font-medium flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                    Email
+                                </span>
                                 <span class="text-sm text-gray-500 block">Correo electrónico formal</span>
                             </span>
                         </label>
@@ -459,7 +474,11 @@ function formatCurrency(value) {
                                :class="{ 'border-indigo-500 bg-indigo-50': formEnvio.canal === 'ambos' }">
                             <input type="radio" v-model="formEnvio.canal" value="ambos" class="text-indigo-600" />
                             <span class="ml-3">
-                                <span class="font-medium">📱📧 Ambos canales</span>
+                                <span class="font-medium flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                    Ambos canales
+                                </span>
                                 <span class="text-sm text-gray-500 block">WhatsApp y Email simultáneamente</span>
                             </span>
                         </label>
@@ -491,8 +510,9 @@ function formatCurrency(value) {
             <div class="flex items-center justify-center min-h-screen px-4">
                 <div class="fixed inset-0 bg-black/50" @click="mostrarModalReenvio = false"></div>
                 <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">
-                        🔔 Enviar Recordatorio
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
+                        Enviar Recordatorio
                     </h3>
                     <p class="text-sm text-gray-600 mb-4">
                         Enviar recordatorio a: <strong>{{ cotizacionReenviar?.proveedor?.razon_social }}</strong>
@@ -503,21 +523,31 @@ function formatCurrency(value) {
                                :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'whatsapp' }">
                             <input type="radio" v-model="formReenvio.canal" value="whatsapp" class="text-orange-600" />
                             <span class="ml-3">
-                                <span class="font-medium">📱 WhatsApp</span>
+                                <span class="font-medium flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    WhatsApp
+                                </span>
                             </span>
                         </label>
                         <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
                                :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'email' }">
                             <input type="radio" v-model="formReenvio.canal" value="email" class="text-orange-600" />
                             <span class="ml-3">
-                                <span class="font-medium">📧 Email</span>
+                                <span class="font-medium flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                    Email
+                                </span>
                             </span>
                         </label>
                         <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
                                :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'ambos' }">
                             <input type="radio" v-model="formReenvio.canal" value="ambos" class="text-orange-600" />
                             <span class="ml-3">
-                                <span class="font-medium">📱📧 Ambos</span>
+                                <span class="font-medium flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                    Ambos
+                                </span>
                             </span>
                         </label>
                     </div>
