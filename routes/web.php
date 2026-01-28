@@ -272,6 +272,26 @@ Route::middleware(['auth'])->group(function () {
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
 Route::middleware(['auth'])->group(function () {
+    // --- MÓDULO DE REPORTES Y ESTADÍSTICAS (CU-33 a CU-37) ---
+    // Acceso restringido solo a Administradores (y Gerentes si existiera el rol)
+    Route::prefix('reportes')->name('reportes.')->middleware(['role:administrador'])->group(function () {
+        
+        // CU-33: Reporte de Ventas
+        Route::get('/ventas', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'index'])->name('ventas');
+        Route::get('/ventas/exportar', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'exportar'])->name('ventas.exportar');
+
+        // CU-34: Reporte de Reparaciones
+        Route::get('/reparaciones', [\App\Http\Controllers\Reportes\ReporteReparacionController::class, 'index'])->name('reparaciones');
+        Route::get('/reparaciones/exportar', [\App\Http\Controllers\Reportes\ReporteReparacionController::class, 'exportar'])->name('reparaciones.exportar');
+
+        // CU-35: Reporte de Compras
+        Route::get('/compras', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'index'])->name('compras');
+        Route::get('/compras/exportar', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'exportar'])->name('compras.exportar');
+
+        // CU-36 y CU-37: Reporte de Stock y Uso de Repuestos
+        Route::get('/stock', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'index'])->name('stock');
+        Route::get('/stock/exportar', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'exportar'])->name('stock.exportar');
+    });
 
     // --- MÓDULO DE VENTAS ---
     Route::post('/ventas/{venta}/anular', [VentaController::class, 'anular'])
@@ -332,6 +352,14 @@ Route::middleware(['auth'])->group(function () {
     // API Interna para buscar clientes (Buscador Asíncrono)
     Route::get('/api/clientes/buscar', [App\Http\Controllers\ClienteController::class, 'buscar'])
         ->name('api.clientes.buscar');
+
+    // API: Buscar usuarios/técnicos (para autocomplete)
+    Route::get('/api/usuarios/buscar', [App\Http\Controllers\Admin\UserController::class, 'buscar'])
+        ->name('api.usuarios.buscar');
+
+    // API: Buscar proveedores (para autocomplete)
+    Route::get('/api/proveedores/buscar', [App\Http\Controllers\ProveedorController::class, 'buscar'])
+        ->name('api.proveedores.buscar');
 
     // API: Buscar productos (para autocomplete)
     Route::get('/api/productos/buscar', [ProductoController::class, 'buscar'])
