@@ -56,17 +56,18 @@ class NormalizarCuentaCorrientePorPago implements ShouldQueue
             // Recalcular saldo vencido
             $saldoVencido = $cc->calcularSaldoVencido();
             $saldoTotal = $cc->saldo;
-            $limiteCredito = $cc->getLimiteCreditoAplicable();
             
-            // Verificar si cumple condiciones para normalizar
-            $cumpleCondiciones = ($saldoVencido == 0) && ($saldoTotal <= $limiteCredito);
+            // El bloqueo es por MORA (saldo vencido > 0)
+            // Se desbloquea cuando saldo vencido = 0 (deuda saldada)
+            // Nota: El límite de crédito ya se valida al momento de la venta
+            $sinMora = ($saldoVencido == 0);
             
-            if ($cumpleCondiciones) {
+            if ($sinMora) {
                 $estadoActual = $cc->estadoCuentaCorriente->nombreEstado ?? 'Desconocido';
                 
                 // Si estaba bloqueada o en otro estado problemático, normalizar
                 if (in_array($estadoActual, ['Bloqueada', 'Vencida', 'Pendiente de Aprobación'])) {
-                    $cc->desbloquear("Automático: Pago recibido - Ref: {$pago->referencia}", null);
+                    $cc->desbloquear("Automático: Pago cancela mora - Ref: {$pago->referencia}", null);
                     
                     Log::info("✅ [Normalización CC] Cuenta corriente normalizada automáticamente", [
                         'cuentaCorrienteID' => $cc->cuentaCorrienteID,
@@ -77,11 +78,10 @@ class NormalizarCuentaCorrientePorPago implements ShouldQueue
                     ]);
                 }
             } else {
-                Log::info("⚠️ [Normalización CC] Aún no cumple condiciones para normalizar", [
+                Log::info("⚠️ [Normalización CC] Aún tiene mora pendiente", [
                     'clienteID' => $cliente->clienteID,
                     'saldoVencido' => $saldoVencido,
                     'saldoTotal' => $saldoTotal,
-                    'limiteCredito' => $limiteCredito,
                 ]);
             }
             

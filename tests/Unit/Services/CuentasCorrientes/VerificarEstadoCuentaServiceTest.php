@@ -35,17 +35,17 @@ class VerificarEstadoCuentaServiceTest extends TestCase
         // Crear estados necesarios
         $this->estadoActiva = EstadoCuentaCorriente::factory()->create([
             'nombreEstado' => 'Activa',
-            'descripcionEstado' => 'Cuenta activa',
+            'descripcion' => 'Cuenta activa',
         ]);
         
         $this->estadoBloqueada = EstadoCuentaCorriente::factory()->create([
             'nombreEstado' => 'Bloqueada',
-            'descripcionEstado' => 'Cuenta bloqueada',
+            'descripcion' => 'Cuenta bloqueada',
         ]);
         
         $this->estadoRevision = EstadoCuentaCorriente::factory()->create([
             'nombreEstado' => 'Pendiente de Aprobación',
-            'descripcionEstado' => 'Pendiente de revisión',
+            'descripcion' => 'Pendiente de revisión',
         ]);
         
         // Crear tipo cliente

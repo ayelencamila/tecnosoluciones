@@ -170,10 +170,8 @@ class VerificarEstadoCuentaService
                 $estadoActual
             );
 
-            // Paso 6: Comunicación al Cliente (Mora/Recordatorio)
-            if ($accionTomada === 'ninguna') {
-                 NotificarIncumplimientoCC::dispatch($cc, $evaluacion['motivo'], 'recordatorio');
-            }
+            // Nota: No se envían recordatorios repetidos si ya está bloqueada/en revisión
+            // El cliente fue notificado al momento de la acción inicial
 
         } else {
             // Paso 7: Normalización automática
@@ -289,17 +287,47 @@ class VerificarEstadoCuentaService
 
     /**
      * Paso 7: Normaliza cuenta si corresponde (Responsabilidad: Normalización)
+     * 
+     * Condiciones para normalizar:
+     * - Saldo vencido = 0 (sin mora)
+     * - Saldo total <= límite de crédito
+     * 
+     * Nota: El límite de crédito ya se valida en RegistrarVentaService,
+     * por lo que el bloqueo principal es por MORA (saldo vencido > 0).
      */
     private function normalizarCuentaSiCorresponde(
         CuentaCorriente $cc, 
         string $estadoActual, 
         float $saldoTotal
     ): string {
-        // Si la cuenta estaba castigada y ya cumple las condiciones, la liberamos
-        if (in_array($estadoActual, ['Bloqueada', 'Pendiente de Aprobación'])) {
-            $cc->desbloquear("Automático: Condiciones normalizadas (Saldo: $$saldoTotal)", null);
-            Log::info("[CU-09] CC {$cc->cuentaCorrienteID} NORMALIZADA automáticamente.");
+        // Solo procesar si está bloqueada o pendiente de aprobación
+        if (!in_array($estadoActual, ['Bloqueada', 'Pendiente de Aprobación'])) {
+            return 'ninguna';
+        }
+
+        // Recalcular saldo vencido para verificar normalización
+        $saldoVencido = $cc->calcularSaldoVencido();
+        $limiteCredito = $cc->getLimiteCreditoAplicable();
+
+        // Condición de normalización: sin mora Y dentro del límite
+        $sinMora = ($saldoVencido == 0);
+        $dentroLimite = ($saldoTotal <= $limiteCredito);
+
+        if ($sinMora && $dentroLimite) {
+            $motivoNormalizacion = "Automático: Condiciones normalizadas. " .
+                "Saldo vencido: \$0, Saldo total: \${$saldoTotal} ≤ Límite: \${$limiteCredito}";
+            
+            $cc->desbloquear($motivoNormalizacion, null);
+            Log::info("[CU-09] CC {$cc->cuentaCorrienteID} NORMALIZADA automáticamente. $motivoNormalizacion");
             return 'normalizada';
+        }
+
+        // Log por qué no se normalizó
+        if (!$sinMora) {
+            Log::info("[CU-09] CC {$cc->cuentaCorrienteID} NO normalizada: Aún tiene saldo vencido (\${$saldoVencido})");
+        }
+        if (!$dentroLimite) {
+            Log::info("[CU-09] CC {$cc->cuentaCorrienteID} NO normalizada: Supera límite (\${$saldoTotal} > \${$limiteCredito})");
         }
 
         return 'ninguna';

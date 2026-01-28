@@ -139,7 +139,6 @@ class NotificarIncumplimientoCC implements ShouldQueue
             'admin_alert' => 'admin_alert_cc',
             'bloqueo' => 'bloqueo_cc',
             'revision' => 'revision_cc',
-            'recordatorio' => 'recordatorio_cc',
             default => null,
         };
 

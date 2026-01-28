@@ -39,12 +39,15 @@ class VerificarNormalizacionCC
         $saldoTotal = $cc->saldo;
         $limiteCredito = $cc->getLimiteCreditoAplicable();
 
-        // CU-09 Paso 7: Condiciones de normalización
-        $cumpleCondiciones = ($saldoVencido == 0) && ($saldoTotal <= $limiteCredito);
+        // CU-09 Paso 7: Condición de normalización
+        // El bloqueo es por MORA, así que se desbloquea cuando saldo vencido = 0
+        // Nota: El límite de crédito ya se valida al momento de la venta,
+        // por lo que el principal motivo de bloqueo es la mora (saldo vencido > 0)
+        $sinMora = ($saldoVencido == 0);
 
-        if ($cumpleCondiciones) {
-            $motivoNormalizacion = "Automático: Pago ID {$pago->pagoID} normaliza situación. " .
-                                   "Saldo vencido: $0, Saldo total: \${$saldoTotal} ≤ Límite: \${$limiteCredito}";
+        if ($sinMora) {
+            $motivoNormalizacion = "Automático: Pago ID {$pago->pagoID} cancela mora. " .
+                                   "Saldo vencido: \$0, Saldo total: \${$saldoTotal}";
             
             $cc->desbloquear($motivoNormalizacion, $event->userID);
             
@@ -53,8 +56,7 @@ class VerificarNormalizacionCC
             // Opcional: Notificar al cliente que su cuenta fue reactivada
             // NotificarIncumplimientoCC::dispatch($cc, "Su cuenta ha sido habilitada", 'habilitacion');
         } else {
-            Log::info("⚠️ Pago ID {$pago->pagoID}: Aún no cumple condiciones para normalización. " .
-                     "Saldo vencido: \${$saldoVencido}, Saldo total: \${$saldoTotal}, Límite: \${$limiteCredito}");
+            Log::info("⚠️ Pago ID {$pago->pagoID}: Aún tiene saldo vencido (\${$saldoVencido}). No se normaliza.");
         }
     }
 }

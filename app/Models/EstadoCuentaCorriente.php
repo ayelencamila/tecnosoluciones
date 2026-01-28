@@ -33,30 +33,36 @@ class EstadoCuentaCorriente extends Model
 
     /**
      * Métodos estáticos helper para obtener estados
+     * Buscan por nombre para compatibilidad con tests y diferentes entornos
      */
     public static function activa()
     {
-        return static::find(static::ACTIVA);
+        return static::where('nombreEstado', 'Activa')->first() 
+            ?? static::find(static::ACTIVA);
     }
 
     public static function bloqueada()
     {
-        return static::find(static::BLOQUEADA);
+        return static::where('nombreEstado', 'Bloqueada')->first() 
+            ?? static::find(static::BLOQUEADA);
     }
     
     public static function vencida()
     {
-        return static::find(static::VENCIDA);
+        return static::where('nombreEstado', 'Vencida')->first() 
+            ?? static::find(static::VENCIDA);
     }
     
     public static function cerrada()
     {
-        return static::find(static::CERRADA);
+        return static::where('nombreEstado', 'Cerrada')->first() 
+            ?? static::find(static::CERRADA);
     }
 
     public static function pendienteAprobacion()
     {
-        return static::find(static::PENDIENTE_APROBACION);
+        return static::where('nombreEstado', 'Pendiente de Aprobación')->first() 
+            ?? static::find(static::PENDIENTE_APROBACION);
     }
 
     /**

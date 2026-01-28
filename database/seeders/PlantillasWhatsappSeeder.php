@@ -15,7 +15,7 @@ class PlantillasWhatsappSeeder extends Seeder
      * - Alertas SLA a técnicos (CU-14)
      * - Bloqueos de cuenta corriente (CU-09)
      * - Revisiones de cuenta corriente (CU-09)
-     * - Recordatorios de mora (CU-09)
+     * - Alertas al administrador (CU-09)
      */
     public function run(): void
     {
@@ -126,27 +126,6 @@ class PlantillasWhatsappSeeder extends Seeder
                     "Su cuenta corriente está actualmente en *REVISIÓN* debido a:\n\n" .
                     "{motivo}\n\n" .
                     "Le recomendamos ponerse en contacto con nosotros para evitar inconvenientes.\n\n" .
-                    "Gracias.",
-                'variables_disponibles' => [
-                    'nombre_cliente',
-                    'motivo',
-                ],
-                'horario_inicio' => '09:00',
-                'horario_fin' => '18:00',
-                'activo' => true,
-                'motivo_modificacion' => 'Plantilla inicial del sistema',
-                'usuario_modificacion' => null,
-            ],
-
-            // ===== CUENTA CORRIENTE: RECORDATORIO =====
-            [
-                'tipo_evento' => 'recordatorio_cc',
-                'nombre' => 'Recordatorio de saldo pendiente',
-                'contenido_plantilla' => "💳 *RECORDATORIO DE PAGO - TecnoSoluciones*\n\n" .
-                    "Hola {nombre_cliente},\n\n" .
-                    "Le recordamos que tiene un saldo pendiente en su cuenta:\n\n" .
-                    "{motivo}\n\n" .
-                    "Agradecemos su pronta atención para regularizar su situación.\n\n" .
                     "Gracias.",
                 'variables_disponibles' => [
                     'nombre_cliente',
