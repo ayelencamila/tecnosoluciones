@@ -111,12 +111,19 @@ class PlantillaWhatsapp extends Model
     {
         $ahora = Carbon::now();
         
-        // Obtener horarios: primero de la plantilla, si no de configuración global
-        $inicioStr = $this->horario_inicio ?? Configuracion::get('whatsapp_horario_inicio', '09:00');
-        $finStr = $this->horario_fin ?? Configuracion::get('whatsapp_horario_fin', '20:00');
-        
-        $inicio = Carbon::createFromTimeString($inicioStr);
-        $fin = Carbon::createFromTimeString($finStr);
+        // Los horarios ya son Carbon gracias al cast, pero pueden ser null
+        // En ese caso usamos configuración global como fallback
+        if ($this->horario_inicio && $this->horario_fin) {
+            // Usar directamente los Carbon del cast (ya tienen la fecha de hoy)
+            $inicio = $this->horario_inicio;
+            $fin = $this->horario_fin;
+        } else {
+            // Fallback a configuración global
+            $inicioStr = Configuracion::get('whatsapp_horario_inicio', '09:00');
+            $finStr = Configuracion::get('whatsapp_horario_fin', '20:00');
+            $inicio = Carbon::createFromTimeString($inicioStr);
+            $fin = Carbon::createFromTimeString($finStr);
+        }
 
         return $ahora->between($inicio, $fin);
     }
@@ -131,9 +138,13 @@ class PlantillaWhatsapp extends Model
     {
         $ahora = Carbon::now();
         
-        // Obtener horario inicio: primero de la plantilla, si no de configuración global
-        $inicioStr = $this->horario_inicio ?? Configuracion::get('whatsapp_horario_inicio', '09:00');
-        $inicio = Carbon::createFromTimeString($inicioStr);
+        // Los horarios ya son Carbon gracias al cast
+        if ($this->horario_inicio) {
+            $inicio = $this->horario_inicio->copy();
+        } else {
+            $inicioStr = Configuracion::get('whatsapp_horario_inicio', '09:00');
+            $inicio = Carbon::createFromTimeString($inicioStr);
+        }
 
         // Si ya pasó el horario de inicio hoy, esperar hasta mañana
         if ($ahora->gt($inicio)) {

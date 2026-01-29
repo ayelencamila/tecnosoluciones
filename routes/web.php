@@ -219,6 +219,23 @@ Route::middleware(['auth'])->group(function () {
             ->take(20)
             ->get();
     });
+    
+    // Marcar alerta individual como leída
+    Route::patch('/api/tecnico/alertas/{id}/marcar-leida', function ($id) {
+        $alerta = \App\Models\AlertaReparacion::where('alertaReparacionID', $id)
+            ->where('tecnicoID', auth()->id())
+            ->firstOrFail();
+        $alerta->update(['leida' => true, 'fecha_lectura' => now()]);
+        return response()->json(['success' => true]);
+    });
+    
+    // Marcar todas las alertas como leídas
+    Route::post('/api/tecnico/alertas/marcar-todas-leidas', function () {
+        \App\Models\AlertaReparacion::where('tecnicoID', auth()->id())
+            ->where('leida', false)
+            ->update(['leida' => true, 'fecha_lectura' => now()]);
+        return response()->json(['success' => true]);
+    });
 
     // API de Motivos de Demora (para técnicos y admins)
     Route::get('/api/motivos-demora', function () {

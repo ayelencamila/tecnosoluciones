@@ -6,7 +6,7 @@ use App\Models\Reparacion;
 use App\Models\AlertaReparacion;
 use App\Models\TipoAlertaReparacion;
 use App\Models\Configuracion;
-use App\Jobs\NotificarAlertaSLATecnico;
+use App\Notifications\ReparacionDemoradaNotification;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -112,17 +112,35 @@ class MonitoreoSLAReparacionService
 
         $resultado['alerta_generada'] = true;
 
-        // Despachar notificación WhatsApp al técnico
-        NotificarAlertaSLATecnico::dispatch($alerta);
+        // CU-14 Paso 6: Notificar al técnico SOLO por campanita (NO WhatsApp)
+        $this->notificarTecnicoCampanita($reparacion, $estadoSLA['dias_excedidos'], $alerta->alertaReparacionID);
 
-        Log::info("Alerta de SLA excedido generada y notificación despachada", [
+        Log::info("Alerta de SLA excedido generada y notificación campanita enviada al técnico", [
             'reparacion_id' => $reparacion->reparacionID,
             'codigo' => $reparacion->codigo_reparacion,
             'tecnico_id' => $reparacion->tecnico_id,
             'dias_excedidos' => $estadoSLA['dias_excedidos'],
+            'alerta_id' => $alerta->alertaReparacionID,
         ]);
 
         return $resultado;
+    }
+
+    /**
+     * Notifica al técnico por campanita (notificación interna)
+     */
+    protected function notificarTecnicoCampanita(Reparacion $reparacion, int $diasExcedidos, int $alertaId): void
+    {
+        $tecnico = $reparacion->tecnico;
+        
+        if ($tecnico) {
+            $tecnico->notify(new ReparacionDemoradaNotification($reparacion, $diasExcedidos, 'tecnico', $alertaId));
+            Log::info("Notificación campanita enviada a técnico", [
+                'tecnico_id' => $tecnico->id,
+                'reparacion_id' => $reparacion->reparacionID,
+                'alerta_id' => $alertaId,
+            ]);
+        }
     }
 
     /**

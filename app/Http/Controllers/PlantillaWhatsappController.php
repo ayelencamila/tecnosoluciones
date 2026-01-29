@@ -27,8 +27,8 @@ class PlantillaWhatsappController extends Controller
                     'nombre' => $plantilla->nombre,
                     'contenido_preview' => $plantilla->contenido_plantilla, // Mostrar contenido completo
                     'activo' => $plantilla->activo,
-                    'horario_inicio' => $plantilla->horario_inicio,
-                    'horario_fin' => $plantilla->horario_fin,
+                    'horario_inicio' => $plantilla->horario_inicio?->format('H:i'),
+                    'horario_fin' => $plantilla->horario_fin?->format('H:i'),
                     'cantidad_variables' => count($plantilla->variables_disponibles),
                     'usuario_modificacion' => $plantilla->usuarioModificador?->name ?? 'Sistema',
                     'updated_at' => $plantilla->updated_at->format('d/m/Y H:i'),
@@ -54,8 +54,8 @@ class PlantillaWhatsappController extends Controller
                 'nombre' => $plantilla->nombre,
                 'contenido_plantilla' => $plantilla->contenido_plantilla,
                 'variables_disponibles' => $plantilla->variables_disponibles,
-                'horario_inicio' => $plantilla->horario_inicio,
-                'horario_fin' => $plantilla->horario_fin,
+                'horario_inicio' => $plantilla->horario_inicio?->format('H:i'),
+                'horario_fin' => $plantilla->horario_fin?->format('H:i'),
                 'activo' => $plantilla->activo,
                 'motivo_modificacion' => $plantilla->motivo_modificacion,
                 'usuario_modificacion' => $plantilla->usuarioModificador?->name ?? 'Sistema',
@@ -74,30 +74,37 @@ class PlantillaWhatsappController extends Controller
         // CU-30 Paso 9: Validaciones
         $validated = $request->validate([
             'contenido_plantilla' => 'required|string|min:10',
-            'horario_inicio' => 'required|date_format:H:i',
-            'horario_fin' => 'required|date_format:H:i|after:horario_inicio',
+            'horario_inicio' => 'nullable|date_format:H:i',
+            'horario_fin' => 'nullable|date_format:H:i',
             'activo' => 'required|boolean',
             'motivo_modificacion' => 'required|string|min:10|max:500', // CU-30 Paso 7-8
         ], [
             'contenido_plantilla.required' => 'El contenido de la plantilla es obligatorio.',
             'contenido_plantilla.min' => 'El contenido debe tener al menos 10 caracteres.',
-            'horario_inicio.required' => 'El horario de inicio es obligatorio.',
             'horario_inicio.date_format' => 'Formato de horario inválido. Use HH:MM.',
-            'horario_fin.required' => 'El horario de fin es obligatorio.',
             'horario_fin.date_format' => 'Formato de horario inválido. Use HH:MM.',
-            'horario_fin.after' => 'El horario de fin debe ser posterior al de inicio.',
             'motivo_modificacion.required' => 'Se requiere un motivo para la configuración (CU-30).',
             'motivo_modificacion.min' => 'El motivo debe tener al menos 10 caracteres.',
             'motivo_modificacion.max' => 'El motivo no puede exceder 500 caracteres.',
         ]);
+
+        // Validar que horario_fin sea posterior a horario_inicio si ambos están definidos
+        if (!empty($validated['horario_inicio']) && !empty($validated['horario_fin'])) {
+            if ($validated['horario_fin'] <= $validated['horario_inicio']) {
+                return back()->withErrors([
+                    'horario_fin' => 'El horario de fin debe ser posterior al de inicio.',
+                ])->withInput();
+            }
+        }
 
         try {
             DB::beginTransaction();
 
             // Actualizar campos
             $plantilla->contenido_plantilla = $validated['contenido_plantilla'];
-            $plantilla->horario_inicio = $validated['horario_inicio'];
-            $plantilla->horario_fin = $validated['horario_fin'];
+            // Guardar horarios solo si tienen valor, null si están vacíos
+            $plantilla->horario_inicio = !empty($validated['horario_inicio']) ? $validated['horario_inicio'] : null;
+            $plantilla->horario_fin = !empty($validated['horario_fin']) ? $validated['horario_fin'] : null;
             $plantilla->activo = $validated['activo'];
 
             // CU-30 Excepción 9a: Validar sintaxis de variables

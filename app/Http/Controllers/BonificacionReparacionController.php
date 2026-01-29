@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\BonificacionReparacion;
 use App\Jobs\NotificarBonificacionCliente;
+use App\Jobs\NotificarRechazoCliente;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -110,8 +111,11 @@ class BonificacionReparacionController extends Controller
 
         $bonificacion->rechazar(Auth::id(), $validated['motivo_rechazo']);
 
+        // Despachar notificación al cliente sobre el rechazo
+        NotificarRechazoCliente::dispatch($bonificacion->fresh(), $validated['motivo_rechazo']);
+
         return redirect()->route('bonificaciones.index')
-            ->with('success', 'Bonificación rechazada.');
+            ->with('success', 'Bonificación rechazada. Se notificará al cliente para que retire su equipo.');
     }
 
     /**

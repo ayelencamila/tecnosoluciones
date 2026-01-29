@@ -16,6 +16,8 @@ const notificationTypes = {
     'cliente': { color: 'purple', label: 'Cliente', iconType: 'user' },
     'alerta': { color: 'red', label: 'Alerta', iconType: 'alert' },
     'sistema': { color: 'slate', label: 'Sistema', iconType: 'cog' },
+    'bonificacion': { color: 'yellow', label: 'Bonificación', iconType: 'gift' },
+    'sla_excedido': { color: 'red', label: 'SLA Excedido', iconType: 'alert' },
     'default': { color: 'indigo', label: 'Notificación', iconType: 'bell' }
 };
 
@@ -101,8 +103,9 @@ const loadNotifications = async () => {
     }
 };
 
-// Marcar como leída
-const markAsRead = async (notificationId) => {
+// Marcar como leída (sin navegar)
+const markAsRead = async (notificationId, event) => {
+    event?.stopPropagation();
     try {
         await window.axios.post(`/api/notifications/${notificationId}/read`);
         const notification = notifications.value.find(n => n.id === notificationId);
@@ -114,13 +117,20 @@ const markAsRead = async (notificationId) => {
     }
 };
 
-// Ir a la notificación
-const goToNotification = (notification) => {
-    markAsRead(notification.id);
+// Ir a la notificación (marca como leída y navega)
+const goToNotification = async (notification) => {
+    // Marcar como leída antes de navegar
+    if (!notification.read_at) {
+        try {
+            await window.axios.post(`/api/notifications/${notification.id}/read`);
+        } catch (error) {
+            console.error('Error marcando notificación:', error);
+        }
+    }
+    showDropdown.value = false;
     if (notification.data.url) {
         router.visit(notification.data.url);
     }
-    showDropdown.value = false;
 };
 
 // Marcar todas como leídas
@@ -294,6 +304,7 @@ onUnmounted(() => {
                                         'bg-red-100 text-red-600': getTypeConfig(notification).color === 'red',
                                         'bg-slate-100 text-slate-600': getTypeConfig(notification).color === 'slate',
                                         'bg-indigo-100 text-indigo-600': getTypeConfig(notification).color === 'indigo',
+                                        'bg-yellow-100 text-yellow-600': getTypeConfig(notification).color === 'yellow',
                                     }"
                                 >
                                     <!-- Icono Venta/Dinero -->
@@ -320,6 +331,10 @@ onUnmounted(() => {
                                     <!-- Icono Alerta -->
                                     <svg v-else-if="getTypeConfig(notification).iconType === 'alert'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                    </svg>
+                                    <!-- Icono Gift/Bonificación -->
+                                    <svg v-else-if="getTypeConfig(notification).iconType === 'gift'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v13m0-13V6a2 2 0 112 2h-2zm0 0V5.5A2.5 2.5 0 109.5 8H12zm-7 4h14M5 12a2 2 0 110-4h14a2 2 0 110 4M5 12v7a2 2 0 002 2h10a2 2 0 002-2v-7"/>
                                     </svg>
                                     <!-- Icono Sistema/Config -->
                                     <svg v-else-if="getTypeConfig(notification).iconType === 'cog'" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -366,8 +381,19 @@ onUnmounted(() => {
                                     </div>
                                 </div>
 
-                                <!-- Indicador de estado -->
+                                <!-- Indicador de estado y acciones -->
                                 <div class="flex-shrink-0 flex items-center gap-2">
+                                    <!-- Botón marcar como leída -->
+                                    <button
+                                        v-if="!notification.read_at"
+                                        @click="markAsRead(notification.id, $event)"
+                                        class="p-1 rounded hover:bg-gray-200 opacity-0 group-hover:opacity-100 transition-all"
+                                        title="Marcar como leída"
+                                    >
+                                        <svg class="w-4 h-4 text-gray-400 hover:text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                        </svg>
+                                    </button>
                                     <span 
                                         v-if="!notification.read_at" 
                                         class="w-2 h-2 bg-blue-600 rounded-full"
