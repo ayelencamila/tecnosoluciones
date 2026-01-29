@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Models\Configuracion;
 use App\Services\Compras\MonitoreoStockService;
 use App\Services\Compras\SolicitudCotizacionService;
 use Illuminate\Console\Command;
@@ -28,8 +29,8 @@ class MonitorearStockCommand extends Command
     protected $signature = 'stock:monitorear 
                             {--generar : Generar solicitudes de cotización automáticas}
                             {--enviar : Enviar solicitudes generadas a proveedores}
-                            {--canal=email : Canal de envío (email|whatsapp)}
-                            {--dias=7 : Días de vencimiento para las solicitudes}';
+                            {--canal=inteligente : Canal de envío (email|whatsapp|ambos|inteligente)}
+                            {--dias= : Días de vencimiento para las solicitudes (default: config global)}';
 
     /**
      * The console command description.
@@ -91,7 +92,10 @@ class MonitorearStockCommand extends Command
         if ($this->option('generar')) {
             $this->info('📋 Generando solicitudes de cotización automáticas...');
             
-            $diasVencimiento = (int) $this->option('dias');
+            // Usar parámetro de comando o configuración global
+            $diasVencimiento = $this->option('dias') 
+                ? (int) $this->option('dias') 
+                : (int) Configuracion::get('solicitud_cotizacion_dias_vencimiento', 7);
             
             try {
                 $resultado = $this->monitoreoService->generarSolicitudesAutomaticas(
@@ -104,7 +108,7 @@ class MonitorearStockCommand extends Command
                     
                     // 3. Enviar si se solicitó
                     if ($this->option('enviar') && isset($resultado['solicitudes'])) {
-                        $canal = $this->option('canal') ?? 'email'; // Email por defecto para evitar restricciones horarias
+                        $canal = $this->option('canal') ?? 'inteligente';
                         $this->info("📤 Enviando solicitudes a proveedores por {$canal}...");
                         
                         foreach ($resultado['solicitudes'] as $solicitud) {

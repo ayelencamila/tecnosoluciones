@@ -4,7 +4,9 @@ namespace App\Console\Commands;
 
 use App\Models\SolicitudCotizacion;
 use App\Models\CotizacionProveedor;
+use App\Models\Configuracion;
 use App\Jobs\EnviarSolicitudCotizacionWhatsApp;
+use App\Jobs\EnviarSolicitudCotizacionEmail;
 use App\Notifications\SolicitudCotizacionProveedor;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
@@ -31,8 +33,8 @@ class EnviarRecordatoriosCotizacionCommand extends Command
      * The name and signature of the console command.
      */
     protected $signature = 'cotizaciones:enviar-recordatorios 
-                            {--dias=2 : Días desde el envío para considerar recordatorio}
-                            {--canal=whatsapp : Canal de envío (whatsapp, email, ambos)}';
+                            {--dias= : Días desde el envío para considerar recordatorio (default: config global)}
+                            {--canal=inteligente : Canal de envío (whatsapp, email, ambos, inteligente)}';
 
     /**
      * The console command description.
@@ -44,7 +46,12 @@ class EnviarRecordatoriosCotizacionCommand extends Command
      */
     public function handle(): int
     {
-        $diasDesdeEnvio = (int) $this->option('dias');
+        // Usar parámetro de comando o configuración global
+        $diasDesdeEnvio = $this->option('dias') 
+            ? (int) $this->option('dias') 
+            : (int) Configuracion::get('solicitud_cotizacion_dias_recordatorio', 2);
+        
+        $maxRecordatorios = (int) Configuracion::get('solicitud_cotizacion_max_recordatorios', 3);
         $canal = $this->option('canal');
 
         $this->info("📬 Buscando proveedores sin respuesta (enviados hace más de {$diasDesdeEnvio} días)...");
@@ -59,7 +66,7 @@ class EnviarRecordatoriosCotizacionCommand extends Command
                 ->where('estado_envio', 'Enviado')
                 ->whereNull('fecha_respuesta')
                 ->whereNull('motivo_rechazo')
-                ->where('recordatorios_enviados', '<', 3) // Máximo 3 recordatorios
+                ->where('recordatorios_enviados', '<', $maxRecordatorios)
                 ->whereHas('solicitud', function ($query) {
                     // Solo solicitudes que NO están vencidas ni cerradas
                     $query->where('fecha_vencimiento', '>', now())
@@ -95,13 +102,36 @@ class EnviarRecordatoriosCotizacionCommand extends Command
                     $this->line("  📤 Enviando recordatorio a: {$proveedor->razon_social}");
                     $this->line("     Solicitud: {$solicitud->codigo_solicitud} - Vence en {$diasRestantes} días");
 
-                    // Enviar por el canal seleccionado
-                    if ($canal === 'whatsapp' || $canal === 'ambos') {
-                        EnviarSolicitudCotizacionWhatsApp::dispatch($cotizacion, true); // true = es recordatorio
+                    // Determinar canales según modo inteligente o forzado
+                    $tieneWhatsApp = $proveedor->tieneWhatsApp();
+                    $tieneEmail = $proveedor->tieneEmail();
+                    
+                    $enviarWhatsApp = false;
+                    $enviarEmail = false;
+                    
+                    if ($canal === 'inteligente') {
+                        // Enviar por todos los canales disponibles
+                        $enviarWhatsApp = $tieneWhatsApp;
+                        $enviarEmail = $tieneEmail;
+                    } elseif ($canal === 'ambos') {
+                        $enviarWhatsApp = true;
+                        $enviarEmail = true;
+                    } elseif ($canal === 'whatsapp') {
+                        $enviarWhatsApp = true;
+                    } elseif ($canal === 'email') {
+                        $enviarEmail = true;
                     }
 
-                    if ($canal === 'email' || $canal === 'ambos') {
-                        $proveedor->notify(new SolicitudCotizacionProveedor($cotizacion, true)); // true = es recordatorio
+                    // Enviar por WhatsApp si corresponde
+                    if ($enviarWhatsApp && $tieneWhatsApp) {
+                        EnviarSolicitudCotizacionWhatsApp::dispatch($cotizacion, true); // true = es recordatorio
+                        $this->line("       → WhatsApp enviado");
+                    }
+
+                    // Enviar por Email si corresponde  
+                    if ($enviarEmail && $tieneEmail) {
+                        EnviarSolicitudCotizacionEmail::dispatch($cotizacion, true); // true = es recordatorio
+                        $this->line("       → Email enviado");
                     }
 
                     // Actualizar contadores

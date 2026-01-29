@@ -48,12 +48,13 @@ Schedule::command('cotizaciones:cerrar-vencidas --force')
     });
 
 // Envía recordatorios automáticos diariamente a las 09:00
-Schedule::command('cotizaciones:enviar-recordatorios --canal=ambos')
+// Modo INTELIGENTE: envía por WhatsApp Y Email según lo que tenga cada proveedor
+Schedule::command('cotizaciones:enviar-recordatorios --canal=inteligente')
     ->dailyAt('09:00')
     ->timezone('America/Argentina/Buenos_Aires')
     ->withoutOverlapping()
     ->onSuccess(function () {
-        \Log::info('Envío de recordatorios de cotización ejecutado con éxito.');
+        \Log::info('Envío de recordatorios de cotización ejecutado con éxito (modo inteligente).');
     })
     ->onFailure(function () {
         \Log::error('Error al ejecutar envío de recordatorios de cotización.');
@@ -65,12 +66,13 @@ Schedule::command('cotizaciones:enviar-recordatorios --canal=ambos')
 
 // --- 1. Monitoreo de Stock (diario a las 8:00 AM) ---
 // Detecta productos bajo stock y alta rotación, genera y envía solicitudes
-Schedule::command('stock:monitorear --generar --enviar')
+// Modo INTELIGENTE: envía por WhatsApp Y Email según lo que tenga cada proveedor
+Schedule::command('stock:monitorear --generar --enviar --canal=inteligente')
     ->dailyAt('08:00')
     ->timezone('America/Argentina/Buenos_Aires')
     ->withoutOverlapping()
     ->onSuccess(function () {
-        \Log::info('✅ Monitoreo de stock ejecutado con éxito - Solicitudes generadas y enviadas.');
+        \Log::info('✅ Monitoreo de stock ejecutado con éxito - Solicitudes generadas y enviadas (modo inteligente).');
     })
     ->onFailure(function () {
         \Log::error('❌ Error al ejecutar monitoreo de stock.');

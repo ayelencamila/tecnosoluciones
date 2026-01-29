@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\OrdenCompra;
 use App\Models\Configuracion;
+use App\Models\PlantillaWhatsapp;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -17,6 +18,8 @@ use Exception;
 
 /**
  * Job para enviar Orden de Compra por WhatsApp al proveedor (CU-22)
+ * 
+ * Usa plantillas configurables (CU-30) con horarios específicos.
  * 
  * Lineamientos aplicados:
  * - Larman: Separación de responsabilidades (envío asíncrono)
@@ -47,21 +50,34 @@ class EnviarOrdenCompraWhatsApp implements ShouldQueue
      */
     public function handle(): void
     {
-        // 1. Control de Ventana Horaria (igual que otros Jobs de WhatsApp)
-        $inicioStr = Configuracion::get('whatsapp_horario_inicio', '09:00');
-        $finStr = Configuracion::get('whatsapp_horario_fin', '20:00');
+        // 1. Obtener plantilla de orden de compra
+        $plantilla = PlantillaWhatsapp::obtenerPorTipo('orden_compra');
 
-        $ahora = Carbon::now();
-        $inicio = Carbon::createFromTimeString($inicioStr);
-        $fin = Carbon::createFromTimeString($finStr);
-
-        // Horario normal (09:00 a 20:00)
-        if (!$ahora->between($inicio, $fin)) {
-            $this->posponerEnvio($ahora, $inicio);
+        // 2. Control de Ventana Horaria - Usa horario de plantilla o global
+        if ($plantilla && !$plantilla->estaEnHorarioPermitido()) {
+            $segundosEspera = $plantilla->segundosHastaProximoEnvio();
+            
+            Log::info("⏰ WhatsApp OC {$this->orden->numero_oc} pospuesto. Fuera de horario de plantilla. Reenviando en {$segundosEspera}s");
+            
+            self::dispatch($this->orden)->delay(now()->addSeconds($segundosEspera));
+            $this->delete();
             return;
+        } elseif (!$plantilla) {
+            // Fallback a horarios globales
+            $inicioStr = Configuracion::get('whatsapp_horario_inicio', '09:00');
+            $finStr = Configuracion::get('whatsapp_horario_fin', '20:00');
+
+            $ahora = Carbon::now();
+            $inicio = Carbon::createFromTimeString($inicioStr);
+            $fin = Carbon::createFromTimeString($finStr);
+
+            if (!$ahora->between($inicio, $fin)) {
+                $this->posponerEnvio($ahora, $inicio);
+                return;
+            }
         }
 
-        // 2. Preparar datos del proveedor
+        // 3. Preparar datos del proveedor
         $proveedor = $this->orden->proveedor;
         
         $telefonoDestino = $proveedor->whatsapp ?? $proveedor->telefono;
@@ -77,13 +93,13 @@ class EnviarOrdenCompraWhatsApp implements ShouldQueue
         }
         $telefonoTwilio = 'whatsapp:' . $telefonoDestino;
 
-        // 3. Construir mensaje
-        $mensaje = $this->construirMensaje();
+        // 4. Construir mensaje usando plantilla o fallback
+        $mensaje = $this->construirMensaje($plantilla);
 
-        // 4. Log de intento
+        // 5. Log de intento
         Log::info("📱 Enviando OC {$this->orden->numero_oc} por WhatsApp a {$proveedor->razon_social}");
 
-        // 5. Envío via Twilio
+        // 6. Envío via Twilio
         try {
             $sid = config('services.twilio.sid');
             $token = config('services.twilio.token');
@@ -109,7 +125,7 @@ class EnviarOrdenCompraWhatsApp implements ShouldQueue
 
             $twilio->messages->create($telefonoTwilio, $mensajeConfig);
 
-            // 6. Marcar como enviada
+            // 7. Marcar como enviada
             $this->orden->marcarEnviada();
 
             Log::info("✅ WhatsApp enviado exitosamente - OC {$this->orden->numero_oc} a {$proveedor->razon_social}");
@@ -121,13 +137,47 @@ class EnviarOrdenCompraWhatsApp implements ShouldQueue
     }
 
     /**
-     * Construye el mensaje de WhatsApp para el proveedor
+     * Construye el mensaje de WhatsApp usando plantilla configurable (CU-30)
      */
-    protected function construirMensaje(): string
+    protected function construirMensaje(?PlantillaWhatsapp $plantilla): string
     {
         $orden = $this->orden->load(['detalles.producto', 'usuario']);
         $proveedor = $this->orden->proveedor;
 
+        // Preparar lista de productos
+        $listaProductos = [];
+        foreach ($orden->detalles as $detalle) {
+            $producto = $detalle->producto;
+            $nombreProducto = $producto ? $producto->nombre : "Producto #{$detalle->producto_id}";
+            $listaProductos[] = "• {$nombreProducto} x{$detalle->cantidad_pedida} - \${$detalle->precio_unitario}";
+        }
+
+        // Datos para compilar plantilla
+        $datos = [
+            'numero_oc' => $orden->numero_oc,
+            'razon_social' => $proveedor->razon_social,
+            'lista_productos' => implode("\n", $listaProductos),
+            'total' => number_format($orden->total_final, 2, ',', '.'),
+            'fecha_entrega' => $orden->fecha_entrega_esperada 
+                ? $orden->fecha_entrega_esperada->format('d/m/Y') 
+                : 'A coordinar',
+            'observaciones' => $orden->observaciones ?? '',
+        ];
+
+        // Si hay plantilla activa, usarla
+        if ($plantilla) {
+            return $plantilla->compilar($datos);
+        }
+
+        // Fallback: mensaje hardcodeado si no hay plantilla
+        return $this->construirMensajeFallback($orden, $proveedor, $listaProductos);
+    }
+
+    /**
+     * Mensaje de fallback si no hay plantilla configurada
+     */
+    protected function construirMensajeFallback(OrdenCompra $orden, $proveedor, array $listaProductos): string
+    {
         $lineas = [
             "📋 *ORDEN DE COMPRA*",
             "",
@@ -138,11 +188,7 @@ class EnviarOrdenCompraWhatsApp implements ShouldQueue
             "*Productos solicitados:*",
         ];
 
-        foreach ($orden->detalles as $detalle) {
-            $producto = $detalle->producto;
-            $nombreProducto = $producto ? $producto->nombre : "Producto #{$detalle->producto_id}";
-            $lineas[] = "• {$nombreProducto} x{$detalle->cantidad_pedida} - \${$detalle->precio_unitario}";
-        }
+        $lineas = array_merge($lineas, $listaProductos);
 
         $lineas[] = "";
         $lineas[] = "*Total:* \${$orden->total_final}";

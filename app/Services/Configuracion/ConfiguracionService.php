@@ -220,6 +220,10 @@ class ConfiguracionService
                 str_starts_with($c->clave, 'bonificacion_')
             )->values(),
             
+            'Compras y Cotizaciones' => $todas->filter(fn($c) => 
+                str_starts_with($c->clave, 'solicitud_cotizacion_')
+            )->values(),
+            
             'Comunicación (WhatsApp)' => $todas->filter(fn($c) => 
                 str_starts_with($c->clave, 'whatsapp_') && 
                 !str_contains($c->clave, 'template') // Excluir templates viejos

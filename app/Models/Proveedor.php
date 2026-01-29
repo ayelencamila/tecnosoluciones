@@ -56,6 +56,8 @@ class Proveedor extends Model
         'razon_social',
         'cuit',
         'telefono',
+        'whatsapp',
+        'canal_preferido',
         'email',
         'forma_pago_preferida',
         'plazo_entrega_estimado',
@@ -183,5 +185,41 @@ class Proveedor extends Model
     public function estaActivo(): bool
     {
         return $this->activo === true;
+    }
+
+    /**
+     * Verifica si el proveedor tiene WhatsApp configurado
+     */
+    public function tieneWhatsApp(): bool
+    {
+        return !empty($this->whatsapp) || !empty($this->telefono);
+    }
+
+    /**
+     * Verifica si el proveedor tiene Email configurado
+     */
+    public function tieneEmail(): bool
+    {
+        return !empty($this->email);
+    }
+
+    /**
+     * Obtiene el número de WhatsApp a usar (prioriza campo whatsapp, luego telefono)
+     */
+    public function getNumeroWhatsApp(): ?string
+    {
+        return $this->whatsapp ?: $this->telefono;
+    }
+
+    /**
+     * Determina los canales disponibles para comunicación
+     * @return array ['whatsapp' => bool, 'email' => bool]
+     */
+    public function canalesDisponibles(): array
+    {
+        return [
+            'whatsapp' => $this->tieneWhatsApp(),
+            'email' => $this->tieneEmail(),
+        ];
     }
 }

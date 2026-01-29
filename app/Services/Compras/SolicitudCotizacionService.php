@@ -120,12 +120,12 @@ class SolicitudCotizacionService
      * Envía los Magic Links a todos los proveedores pendientes
      * 
      * @param SolicitudCotizacion $solicitud
-     * @param string $canal 'whatsapp', 'email' o 'ambos'
+     * @param string $canal 'whatsapp', 'email', 'ambos' o 'inteligente'
      * @return array Resultado del envío
      */
     public function enviarSolicitudAProveedores(
         SolicitudCotizacion $solicitud, 
-        string $canal = 'whatsapp'
+        string $canal = 'inteligente'
     ): array {
         if (!$solicitud->puedeEnviarse() && !$solicitud->estaEnviada()) {
             throw new \Exception('La solicitud no puede enviarse (sin productos, vencida o ya cerrada)');
@@ -137,21 +137,50 @@ class SolicitudCotizacionService
             ->get();
 
         $enviados = 0;
+        $enviadosWhatsApp = 0;
+        $enviadosEmail = 0;
         $errores = [];
 
         foreach ($cotizacionesPendientes as $cotizacion) {
             try {
-                if ($canal === 'whatsapp' || $canal === 'ambos') {
-                    // Despachar Job de WhatsApp
+                $proveedor = $cotizacion->proveedor;
+                $tieneWhatsApp = $proveedor->tieneWhatsApp();
+                $tieneEmail = $proveedor->tieneEmail();
+                
+                // Determinar canales a usar según modo
+                $enviarWhatsApp = false;
+                $enviarEmail = false;
+                
+                if ($canal === 'inteligente') {
+                    // Modo inteligente: enviar por todos los canales disponibles del proveedor
+                    $enviarWhatsApp = $tieneWhatsApp;
+                    $enviarEmail = $tieneEmail;
+                    
+                    // Si no tiene ninguno, marcar error
+                    if (!$enviarWhatsApp && !$enviarEmail) {
+                        throw new \Exception("Proveedor {$proveedor->razon_social} sin contacto válido (ni WhatsApp ni email)");
+                    }
+                } elseif ($canal === 'ambos') {
+                    // Forzar ambos canales
+                    $enviarWhatsApp = true;
+                    $enviarEmail = true;
+                } elseif ($canal === 'whatsapp') {
+                    $enviarWhatsApp = true;
+                } elseif ($canal === 'email') {
+                    $enviarEmail = true;
+                }
+
+                // Despachar Jobs según canales determinados
+                if ($enviarWhatsApp && $tieneWhatsApp) {
                     EnviarSolicitudCotizacionWhatsApp::dispatch($cotizacion);
+                    $enviadosWhatsApp++;
                 }
 
-                if ($canal === 'email' || $canal === 'ambos') {
-                    // Despachar Job de Email (reemplaza la antigua notificación)
+                if ($enviarEmail && $tieneEmail) {
                     EnviarSolicitudCotizacionEmail::dispatch($cotizacion);
+                    $enviadosEmail++;
                 }
 
-                // No marcamos como enviado aquí, lo hace el Job al ejecutarse
                 $enviados++;
 
             } catch (\Exception $e) {
@@ -171,9 +200,11 @@ class SolicitudCotizacionService
 
         return [
             'enviados' => $enviados,
+            'enviados_whatsapp' => $enviadosWhatsApp,
+            'enviados_email' => $enviadosEmail,
             'errores' => $errores,
             'mensaje' => $enviados > 0 
-                ? "Se enviaron {$enviados} solicitud(es) a proveedores"
+                ? "Se enviaron {$enviados} solicitud(es): {$enviadosWhatsApp} WhatsApp, {$enviadosEmail} Email"
                 : 'No había proveedores pendientes de envío',
         ];
     }
