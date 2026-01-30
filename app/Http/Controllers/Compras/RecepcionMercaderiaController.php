@@ -114,7 +114,7 @@ class RecepcionMercaderiaController extends Controller
 
         $ordenCompra = OrdenCompra::with([
             'proveedor:id,razon_social,cuit',
-            'detalles.producto:id,nombre,codigo,unidad_medida',
+            'detalles.producto:id,nombre,codigo',
         ])
             ->whereIn('estado_id', $estadosPermitidos)
             ->findOrFail($ordenCompraId);
@@ -167,11 +167,11 @@ class RecepcionMercaderiaController extends Controller
     {
         $recepcion->load([
             'ordenCompra:id,numero_oc,proveedor_id,fecha_emision',
-            'ordenCompra.proveedor:id,nombre,cuit',
+            'ordenCompra.proveedor:id,razon_social,cuit',
             'usuario:id,name',
             // producto se obtiene vía detalleOrden (3FN)
             'detalles.detalleOrden:id,producto_id,cantidad_pedida,precio_unitario',
-            'detalles.detalleOrden.producto:id,nombre,codigo,unidad_medida',
+            'detalles.detalleOrden.producto:id,nombre,codigo',
         ]);
 
         return Inertia::render('Compras/Recepciones/Show', [
