@@ -17,6 +17,36 @@
             line-height: 1.4;
             color: #333;
             padding: 20px;
+            position: relative;
+        }
+
+        /* Marca de agua diagonal */
+        .watermark {
+            position: fixed;
+            top: 45%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-35deg);
+            font-size: 42px;
+            font-weight: bold;
+            color: rgba(200, 200, 200, 0.25);
+            white-space: nowrap;
+            z-index: -1;
+            pointer-events: none;
+            letter-spacing: 3px;
+        }
+
+        /* Aviso en pie de página */
+        .documento-no-fiscal {
+            position: fixed;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 9px;
+            color: #9ca3af;
+            border-top: 1px dashed #d1d5db;
+            padding-top: 8px;
+            margin: 0 20px;
         }
 
         .header {
@@ -266,6 +296,9 @@
     </style>
 </head>
 <body>
+    <!-- MARCA DE AGUA -->
+    <div class="watermark">DOCUMENTO INTERNO - NO FISCAL</div>
+
     <!-- ENCABEZADO -->
     <div class="header">
         <div class="header-top">
@@ -298,7 +331,7 @@
                 <p>CUIT: {{ $orden->proveedor->cuit }}</p>
             @endif
             @if($orden->proveedor->direccion)
-                <p>{{ $orden->proveedor->direccion }}</p>
+                <p>{{ $orden->proveedor->direccion->direccion_completa ?? $orden->proveedor->direccion->calle ?? '' }}</p>
             @endif
             @if($orden->proveedor->telefono)
                 <p>Tel: {{ $orden->proveedor->telefono }}</p>
@@ -314,8 +347,8 @@
             @if($orden->usuario)
                 <p>Generado por: {{ $orden->usuario->name }}</p>
             @endif
-            @if($orden->oferta && $orden->oferta->solicitud)
-                <p>Ref. Solicitud: #{{ $orden->oferta->solicitud->id }}</p>
+            @if($orden->cotizacionProveedor && $orden->cotizacionProveedor->solicitud)
+                <p>Ref. Solicitud: {{ $orden->cotizacionProveedor->solicitud->codigo_solicitud }}</p>
             @endif
         </div>
     </div>
@@ -401,6 +434,11 @@
                 Impreso: {{ now()->format('d/m/Y H:i:s') }}
             </div>
         </div>
+    </div>
+
+    <!-- AVISO FIJO AL PIE -->
+    <div class="documento-no-fiscal">
+        ⚠️ DOCUMENTO INTERNO - NO FISCAL | Este documento es una orden de compra interna y no constituye factura, remito ni comprobante fiscal válido ante AFIP.
     </div>
 </body>
 </html>

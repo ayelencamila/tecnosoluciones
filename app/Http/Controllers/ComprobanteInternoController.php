@@ -6,6 +6,7 @@ use App\Models\Comprobante;
 use App\Models\Venta;
 use App\Models\Pago;
 use App\Models\Reparacion;
+use App\Models\OrdenCompra;
 use App\Services\Comprobantes\ComprobanteService;
 use App\Services\Comprobantes\RegistrarComprobanteService;
 use Illuminate\Http\Request;
@@ -126,6 +127,7 @@ class ComprobanteInternoController extends Controller
             'INGRESO_REPARACION' => route('reparaciones.imprimir-ingreso', $entidad->reparacionID ?? $entidad->reparacion_id),
             'ENTREGA_REPARACION' => route('reparaciones.imprimir-entrega', $entidad->reparacionID ?? $entidad->reparacion_id),
             'NOTA_CREDITO_INTERNA' => route('ventas.imprimir-anulacion', $entidad->ventaID ?? $entidad->venta_id),
+            'ORDEN_COMPRA' => route('ordenes.descargar-pdf', $entidad->id),
             default => null,
         };
     }
@@ -164,6 +166,9 @@ class ComprobanteInternoController extends Controller
             
             case 'NOTA_CREDITO_INTERNA':
                 return redirect()->route('ventas.imprimir-anulacion', $entidad->ventaID);
+            
+            case 'ORDEN_COMPRA':
+                return redirect()->route('ordenes.descargar-pdf', $entidad->id);
             
             default:
                 return back()->with('error', 'Tipo de comprobante no soportado para visualización.');
@@ -271,6 +276,10 @@ class ComprobanteInternoController extends Controller
                     $entidad->loadMissing('cliente');
                     return $entidad->cliente ? ($entidad->cliente->nombre . ' ' . $entidad->cliente->apellido) : null;
                 
+                case 'App\Models\OrdenCompra':
+                    $entidad->loadMissing('proveedor');
+                    return $entidad->proveedor ? $entidad->proveedor->razon_social : null;
+                
                 default:
                     return null;
             }
@@ -294,6 +303,9 @@ class ComprobanteInternoController extends Controller
                 
                 case 'App\Models\Reparacion':
                     return $entidad->costoTotal ?? null;
+                
+                case 'App\Models\OrdenCompra':
+                    return $entidad->total_final ?? null;
                 
                 default:
                     return null;
@@ -343,6 +355,16 @@ class ComprobanteInternoController extends Controller
                     $datos['costo_total'] = $entidad->costoTotal;
                     $datos['codigo'] = $entidad->codigoReparacion;
                     $datos['ruta_ver'] = route('reparaciones.show', $entidad->reparacionID);
+                    break;
+                
+                case 'App\Models\OrdenCompra':
+                    $entidad->loadMissing(['proveedor', 'estado', 'usuario']);
+                    $datos['proveedor'] = $entidad->proveedor ? $entidad->proveedor->razon_social : 'N/A';
+                    $datos['usuario'] = $entidad->usuario ? $entidad->usuario->name : 'N/A';
+                    $datos['estado'] = $entidad->estado ? $entidad->estado->nombre : 'N/A';
+                    $datos['total'] = $entidad->total_final;
+                    $datos['numero'] = $entidad->numero_oc;
+                    $datos['ruta_ver'] = route('ordenes.show', $entidad->id);
                     break;
             }
         } catch (\Exception $e) {

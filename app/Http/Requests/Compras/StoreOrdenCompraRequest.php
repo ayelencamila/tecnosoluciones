@@ -3,13 +3,14 @@
 namespace App\Http\Requests\Compras;
 
 use Illuminate\Foundation\Http\FormRequest;
-use App\Models\OfertaCompra;
+use App\Models\CotizacionProveedor;
 
 /**
  * Request de validación para generar Orden de Compra (CU-22)
  * 
+ * MODELO SIMPLIFICADO (sin tabla ofertas_compra):
  * Valida:
- * - oferta_id: debe existir y estar en estado "Elegida"
+ * - cotizacion_id: debe existir y estar marcada como elegida
  * - motivo: requerido (motivo de generación de la OC para auditoría)
  */
 class StoreOrdenCompraRequest extends FormRequest
@@ -20,7 +21,6 @@ class StoreOrdenCompraRequest extends FormRequest
     public function authorize(): bool
     {
         // Solo administradores pueden generar OC
-        // El rol en la base de datos es 'administrador' (minúscula)
         return $this->user()->role === 'administrador';
     }
 
@@ -32,25 +32,24 @@ class StoreOrdenCompraRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'oferta_id' => [
+            'cotizacion_id' => [
                 'required',
                 'integer',
-                'exists:ofertas_compra,id',
+                'exists:cotizaciones_proveedores,id',
                 function ($attribute, $value, $fail) {
-                    $oferta = OfertaCompra::with('estado')->find($value);
+                    $cotizacion = CotizacionProveedor::find($value);
                     
-                    if (!$oferta) {
-                        $fail('La oferta seleccionada no existe.');
+                    if (!$cotizacion) {
+                        $fail('La cotización seleccionada no existe.');
                         return;
                     }
                     
-                    // Usar el método del modelo para verificar el estado
-                    if (!$oferta->tieneEstado('Elegida')) {
-                        $fail('Solo se puede generar OC de ofertas en estado "Elegida". Estado actual: ' . $oferta->estado->nombre);
+                    if (!$cotizacion->elegida) {
+                        $fail('Solo se puede generar OC de cotizaciones elegidas.');
                     }
                     
-                    if ($oferta->ordenesCompra()->exists()) {
-                        $fail('Esta oferta ya tiene una Orden de Compra asociada.');
+                    if ($cotizacion->ordenCompra()->exists()) {
+                        $fail('Esta cotización ya tiene una Orden de Compra asociada.');
                     }
                 },
             ],
@@ -69,8 +68,8 @@ class StoreOrdenCompraRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'oferta_id.required' => 'Debe seleccionar una oferta.',
-            'oferta_id.exists' => 'La oferta seleccionada no existe.',
+            'cotizacion_id.required' => 'Debe seleccionar una cotización.',
+            'cotizacion_id.exists' => 'La cotización seleccionada no existe.',
             'motivo.required' => 'El motivo es obligatorio para generar la Orden de Compra.',
             'motivo.min' => 'El motivo debe tener al menos 10 caracteres.',
             'motivo.max' => 'El motivo no puede exceder 1000 caracteres.',
@@ -83,7 +82,7 @@ class StoreOrdenCompraRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'oferta_id' => 'oferta',
+            'cotizacion_id' => 'cotización',
             'motivo' => 'motivo de generación',
         ];
     }

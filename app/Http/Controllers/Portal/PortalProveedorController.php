@@ -63,9 +63,9 @@ class PortalProveedorController extends Controller
 
         // Verificar si puede responder
         if ($solicitud->haVencido()) {
-            return Inertia::render('Portal/Error', [
-                'titulo' => 'Solicitud vencida',
-                'mensaje' => 'El plazo para cotizar ha finalizado el ' . $solicitud->fecha_vencimiento->format('d/m/Y') . '.',
+            return Inertia::render('Portal/Vencida', [
+                'solicitud' => $solicitud->codigo_solicitud,
+                'fechaVencimiento' => $solicitud->fecha_vencimiento->format('d/m/Y'),
             ]);
         }
 

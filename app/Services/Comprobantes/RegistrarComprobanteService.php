@@ -132,6 +132,28 @@ class RegistrarComprobanteService
     }
 
     /**
+     * Registra una orden de compra emitida (CU-22)
+     * 
+     * @param int $ordenId ID de la orden de compra
+     * @param string $numeroOC Número de la OC (ej: OC-20260130-001)
+     * @param string|null $rutaPdf Ruta del PDF generado
+     * @param int|null $usuarioId Usuario que emite
+     * @return Comprobante
+     */
+    public function registrarOrdenCompra(int $ordenId, string $numeroOC, ?string $rutaPdf = null, ?int $usuarioId = null): Comprobante
+    {
+        return $this->registrar(
+            tipoEntidad: 'App\Models\OrdenCompra',
+            entidadId: $ordenId,
+            tipoComprobanteCodigo: self::TIPO_ORDEN_COMPRA,
+            numeroCorrelativo: $numeroOC,
+            usuarioId: $usuarioId,
+            accionAuditoria: 'EMISION_ORDEN_COMPRA',
+            rutaArchivo: $rutaPdf
+        );
+    }
+
+    /**
      * Método interno para registrar cualquier tipo de comprobante
      * 
      * @param string $tipoEntidad Clase del modelo relacionado
@@ -140,6 +162,7 @@ class RegistrarComprobanteService
      * @param string $numeroCorrelativo Número único del comprobante
      * @param int|null $usuarioId Usuario que emite
      * @param string $accionAuditoria Acción para auditoría
+     * @param string|null $rutaArchivo Ruta del archivo PDF (opcional)
      * @return Comprobante
      */
     protected function registrar(
@@ -148,9 +171,10 @@ class RegistrarComprobanteService
         string $tipoComprobanteCodigo,
         string $numeroCorrelativo,
         ?int $usuarioId,
-        string $accionAuditoria
+        string $accionAuditoria,
+        ?string $rutaArchivo = null
     ): Comprobante {
-        return DB::transaction(function () use ($tipoEntidad, $entidadId, $tipoComprobanteCodigo, $numeroCorrelativo, $usuarioId, $accionAuditoria) {
+        return DB::transaction(function () use ($tipoEntidad, $entidadId, $tipoComprobanteCodigo, $numeroCorrelativo, $usuarioId, $accionAuditoria, $rutaArchivo) {
             
             // Obtener el tipo_comprobante_id
             $tipoComprobante = DB::table('tipos_comprobante')
@@ -192,6 +216,7 @@ class RegistrarComprobanteService
                 'numero_correlativo' => $numeroCorrelativo,
                 'fecha_emision' => now(),
                 'estado_comprobante_id' => $estadoEmitido,
+                'ruta_archivo' => $rutaArchivo,
             ]);
 
             // Registrar auditoría

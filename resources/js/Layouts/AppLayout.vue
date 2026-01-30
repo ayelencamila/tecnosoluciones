@@ -148,8 +148,8 @@ const comprasItems = computed(() => {
     const items = [];
     
     if (can('compras.cotizaciones.ver')) items.push({ name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' });
-    if (canAny(['compras.ordenes.ver', 'compras.ordenes.crear'])) items.push({ name: 'Ofertas de Compra', route: 'ofertas.index' });
-    if (can('compras.ordenes.ver')) items.push({ name: 'Órdenes de Compra', route: 'ordenes.index' });
+    if (can('compras.ordenes.ver')) items.push({ name: 'Generar Órdenes', route: 'ordenes.index' });
+    if (can('compras.ordenes.ver')) items.push({ name: 'Historial de OC', route: 'ordenes.historial' });
     if (can('compras.recepciones.ver')) items.push({ name: 'Recepción de Mercadería', route: 'recepciones.index' });
     
     return items;

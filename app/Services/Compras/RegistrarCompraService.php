@@ -3,13 +3,14 @@
 namespace App\Services\Compras;
 
 use App\Models\OrdenCompra;
-use App\Models\OfertaCompra;
+use App\Models\CotizacionProveedor;
 use App\Models\EstadoOrdenCompra;
 use App\Models\Auditoria;
 use App\Models\User;
 use App\Jobs\EnviarOrdenCompraWhatsApp;
 use App\Notifications\OrdenCompraGenerada;
 use App\Notifications\OrdenCompraProveedor;
+use App\Services\Comprobantes\RegistrarComprobanteService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +19,9 @@ use Exception;
 
 /**
  * Servicio CU-22: Generar y Enviar Orden de Compra
+ * 
+ * MODELO SIMPLIFICADO (sin tabla ofertas_compra):
+ * SolicitudCotizacion → CotizacionProveedor (elegida) → OrdenCompra
  * 
  * Lineamientos aplicados:
  * - Larman: Experto en información (responsabilidad única)
@@ -29,36 +33,35 @@ use Exception;
 class RegistrarCompraService
 {
     /**
-     * Ejecuta el flujo CU-22: Genera OC desde oferta elegida.
+     * Ejecuta el flujo CU-22: Genera OC desde cotización elegida.
      * 
-     * Flujo Principal (pasos CU-22):
-     * 1-2. Validar oferta elegida
+     * Flujo Principal:
+     * 1-2. Validar cotización elegida
      * 3-4. Generar cabecera y detalles de OC
-     * 5. Generar PDF (Excepción 8a)
-     * 6. Enviar WhatsApp al proveedor (Excepción 9a)
-     * 7. Notificar por email al administrador
-     * 8. Marcar oferta como procesada (Excepción 10a)
-     * 9. Registrar auditoría (Excepción 11a)
+     * 5. Generar PDF
+     * 6. Enviar WhatsApp al proveedor
+     * 7. Notificar por email
+     * 8. Registrar auditoría
      *
-     * @param int $ofertaId ID de la oferta elegida
+     * @param int $cotizacionId ID de la cotización elegida
      * @param int $usuarioId ID del administrador que genera la OC
      * @param string $observaciones Instrucciones o notas para el proveedor
      * @return array ['orden' => OrdenCompra, 'advertencias' => array]
-     * @throws Exception Si la oferta no está elegida o ya tiene OC (Excepción 7a)
+     * @throws Exception Si la cotización no está elegida o ya tiene OC
      */
-    public function ejecutar(int $ofertaId, int $usuarioId, string $observaciones): array
+    public function ejecutar(int $cotizacionId, int $usuarioId, string $observaciones): array
     {
         $advertencias = [];
 
-        $orden = DB::transaction(function () use ($ofertaId, $usuarioId, $observaciones, &$advertencias) {
+        $orden = DB::transaction(function () use ($cotizacionId, $usuarioId, $observaciones, &$advertencias) {
             
-            // Paso 1-2: VALIDAR OFERTA (Excepción 7a - lanza Exception si falla)
-            $oferta = $this->validarOferta($ofertaId);
+            // Paso 1-2: VALIDAR COTIZACIÓN
+            $cotizacion = $this->validarCotizacion($cotizacionId);
             
-            // Paso 3-4: GENERAR ORDEN DE COMPRA (estado inicial "Enviada")
-            $orden = $this->crearOrdenDesdeOferta($oferta, $usuarioId, $observaciones);
+            // Paso 3-4: GENERAR ORDEN DE COMPRA
+            $orden = $this->crearOrdenDesdeCotizacion($cotizacion, $usuarioId, $observaciones);
             
-            // Paso 5: GENERAR PDF (Excepción 8a - no bloquea)
+            // Paso 5: GENERAR PDF
             $pdfGenerado = $this->generarPdf($orden);
             if (!$pdfGenerado) {
                 $advertencias[] = [
@@ -68,19 +71,7 @@ class RegistrarCompraService
                 ];
             }
             
-            // Paso 6: MARCAR OFERTA COMO PROCESADA (Excepción 10a - no bloquea)
-            try {
-                $oferta->marcarProcesada();
-            } catch (Exception $e) {
-                $advertencias[] = [
-                    'tipo' => 'warning',
-                    'mensaje' => 'No se pudo marcar la oferta como procesada. Revisar manualmente.',
-                    'excepcion' => '10a',
-                    'detalle' => $e->getMessage()
-                ];
-            }
-            
-            // Paso 7: ENVIAR WHATSAPP AL PROVEEDOR (Excepción 9a - no bloquea)
+            // Paso 6: ENVIAR WHATSAPP AL PROVEEDOR
             $whatsappEnviado = $this->enviarWhatsApp($orden);
             if (!$whatsappEnviado) {
                 $advertencias[] = [
@@ -90,24 +81,44 @@ class RegistrarCompraService
                 ];
             }
             
-            // Paso 8: NOTIFICAR POR EMAIL (Excepción 9b - no bloquea)
+            // Paso 7: NOTIFICAR POR EMAIL
             $emailEnviado = $this->enviarEmail($orden, $usuarioId);
             if (!$emailEnviado) {
                 $advertencias[] = [
                     'tipo' => 'warning',
-                    'mensaje' => 'El envío por Email falló. El proveedor no recibirá copia por correo. Puede reenviar manualmente.',
+                    'mensaje' => 'El envío por Email falló. El proveedor no recibirá copia por correo.',
                     'excepcion' => '9b'
                 ];
             }
             
-            // Paso 9: AUDITORÍA (Excepción 11a - no bloquea)
+            // Paso 8: REGISTRAR EN MÓDULO DE COMPROBANTES (CU-32)
+            try {
+                $comprobanteService = app(RegistrarComprobanteService::class);
+                $comprobanteService->registrarOrdenCompra(
+                    ordenId: $orden->id,
+                    numeroOC: $orden->numero_oc,
+                    rutaPdf: $orden->ruta_pdf,
+                    usuarioId: $usuarioId
+                );
+            } catch (Exception $e) {
+                // No detiene la operación, solo warning
+                Log::warning("Error al registrar OC en módulo comprobantes: {$e->getMessage()}");
+                $advertencias[] = [
+                    'tipo' => 'info',
+                    'mensaje' => 'La orden no pudo registrarse en el módulo de comprobantes.',
+                    'excepcion' => '10a',
+                    'detalle' => $e->getMessage()
+                ];
+            }
+            
+            // Paso 9: AUDITORÍA
             try {
                 Auditoria::registrar(
                     accion: Auditoria::ACCION_GENERAR_ORDEN_COMPRA,
                     tabla: 'ordenes_compra',
                     registroId: $orden->id,
                     motivo: $observaciones,
-                    detalles: "OC {$orden->numero_oc} generada. Proveedor: {$oferta->proveedor->razon_social}. Total: \${$orden->total_final}",
+                    detalles: "OC {$orden->numero_oc} generada. Proveedor: {$cotizacion->proveedor->razon_social}. Total: \${$orden->total_final}",
                     usuarioId: $usuarioId
                 );
             } catch (Exception $e) {
@@ -119,7 +130,7 @@ class RegistrarCompraService
                 ];
             }
 
-            return $orden->fresh(['proveedor', 'oferta', 'detalles', 'estado']);
+            return $orden->fresh(['proveedor', 'cotizacionProveedor', 'detalles', 'estado']);
         });
 
         return [
@@ -129,68 +140,61 @@ class RegistrarCompraService
     }
 
     /**
-     * Valida que la oferta cumpla requisitos para generar OC
-     * 
-     * Excepciones:
-     * - 10a: Oferta no encontrada
-     * - 10b: Oferta ya tiene OC asociada (integridad 1:1)
-     * - 10c: Oferta no está en estado "Elegida"
+     * Valida que la cotización cumpla requisitos para generar OC
      */
-    protected function validarOferta(int $ofertaId): OfertaCompra
+    protected function validarCotizacion(int $cotizacionId): CotizacionProveedor
     {
-        $oferta = OfertaCompra::with(['solicitud', 'proveedor', 'detalles', 'estado'])
+        $cotizacion = CotizacionProveedor::with(['solicitud.detalles', 'proveedor', 'respuestas'])
             ->lockForUpdate()
-            ->findOrFail($ofertaId);
+            ->findOrFail($cotizacionId);
 
-        // Excepción 10b: Ya tiene OC
-        if ($oferta->ordenesCompra()->exists()) {
-            throw new Exception("Esta oferta ya tiene una Orden de Compra asociada (Integridad 1:1).");
+        // Ya tiene OC
+        if ($cotizacion->ordenCompra()->exists()) {
+            throw new Exception("Esta cotización ya tiene una Orden de Compra asociada.");
         }
 
-        // Excepción 10c: No está elegida
-        if (!$oferta->tieneEstado('Elegida')) {
-            throw new Exception("Solo se puede generar OC de ofertas con estado 'Elegida'. Estado actual: {$oferta->estado->nombre}");
+        // No está elegida
+        if (!$cotizacion->elegida) {
+            throw new Exception("Solo se puede generar OC de cotizaciones elegidas.");
         }
 
-        return $oferta;
+        return $cotizacion;
     }
 
     /**
-     * Crea la orden de compra con sus detalles
+     * Crea la orden de compra con sus detalles desde la cotización
      */
-    protected function crearOrdenDesdeOferta(OfertaCompra $oferta, int $usuarioId, string $observaciones): OrdenCompra
+    protected function crearOrdenDesdeCotizacion(CotizacionProveedor $cotizacion, int $usuarioId, string $observaciones): OrdenCompra
     {
-        // Calcular el total de la oferta
-        $totalOferta = $oferta->total_estimado ?: $oferta->detalles->sum(function ($detalle) {
-            return $detalle->precio_unitario * $detalle->cantidad_ofrecida;
-        });
+        // Calcular total desde respuestas o usar total_estimado
+        $total = $cotizacion->total_estimado ?: $cotizacion->totalCotizado();
         
         // Crear cabecera
         $orden = OrdenCompra::create([
-            'numero_oc'    => OrdenCompra::generarNumeroOC(),
-            'proveedor_id' => $oferta->proveedor_id,
-            'oferta_id'    => $oferta->id,
-            'user_id'      => $usuarioId,
-            'estado_id'    => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::BORRADOR),
-            'total_final'  => $totalOferta,
-            'fecha_emision'=> now(),
-            'observaciones'=> $observaciones,
+            'numero_oc'              => OrdenCompra::generarNumeroOC(),
+            'proveedor_id'           => $cotizacion->proveedor_id,
+            'cotizacion_proveedor_id'=> $cotizacion->id,
+            'user_id'                => $usuarioId,
+            'estado_id'              => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::BORRADOR),
+            'total_final'            => $total,
+            'fecha_emision'          => now(),
+            'observaciones'          => $observaciones,
         ]);
 
-        // Crear detalles desde la oferta
-        $detallesOferta = $oferta->detalles;
+        // Crear detalles desde las respuestas del proveedor
+        $respuestas = $cotizacion->respuestas;
         
-        if ($detallesOferta->isEmpty()) {
+        if ($respuestas->isEmpty()) {
             // Fallback: usar detalles de la solicitud
-            $this->crearDetallesDesdeSolicitud($orden, $oferta);
+            $this->crearDetallesDesdeSolicitud($orden, $cotizacion);
         } else {
-            // Caso ideal: usar detalles de la oferta
-            foreach ($detallesOferta as $detalle) {
+            // Caso ideal: usar respuestas del proveedor
+            foreach ($respuestas as $respuesta) {
                 $orden->detalles()->create([
-                    'producto_id'      => $detalle->producto_id,
-                    'cantidad_pedida'  => $detalle->cantidad_ofrecida,
+                    'producto_id'      => $respuesta->producto_id,
+                    'cantidad_pedida'  => $respuesta->cantidad_disponible,
                     'cantidad_recibida'=> 0,
-                    'precio_unitario'  => $detalle->precio_unitario,
+                    'precio_unitario'  => $respuesta->precio_unitario,
                 ]);
             }
         }
@@ -201,16 +205,17 @@ class RegistrarCompraService
     /**
      * Fallback: Crear detalles desde la solicitud original
      */
-    protected function crearDetallesDesdeSolicitud(OrdenCompra $orden, OfertaCompra $oferta): void
+    protected function crearDetallesDesdeSolicitud(OrdenCompra $orden, CotizacionProveedor $cotizacion): void
     {
-        $solicitud = $oferta->solicitud;
+        $solicitud = $cotizacion->solicitud;
         
         if (!$solicitud || $solicitud->detalles->isEmpty()) {
-            throw new Exception("La oferta no tiene detalles para generar la orden.");
+            throw new Exception("La cotización no tiene detalles para generar la orden.");
         }
         
+        $total = $cotizacion->total_estimado ?: 0;
         $totalCantidad = $solicitud->detalles->sum('cantidad_sugerida');
-        $precioPromedio = $totalCantidad > 0 ? ($oferta->precio_total / $totalCantidad) : 0;
+        $precioPromedio = $totalCantidad > 0 ? ($total / $totalCantidad) : 0;
         
         foreach ($solicitud->detalles as $detalle) {
             $orden->detalles()->create([
@@ -232,7 +237,13 @@ class RegistrarCompraService
     {
         try {
             // Cargar relaciones necesarias para el PDF
-            $orden->load(['proveedor', 'detalles.producto', 'usuario']);
+            $orden->load([
+                'proveedor.direccion',
+                'cotizacionProveedor.solicitud',
+                'detalles.producto',
+                'estado',
+                'usuario',
+            ]);
             
             // Generar PDF usando la vista blade
             $pdf = Pdf::loadView('pdf.orden-compra', [

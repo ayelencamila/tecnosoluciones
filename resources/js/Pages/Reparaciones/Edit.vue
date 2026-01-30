@@ -122,10 +122,19 @@ const submit = () => {
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
+                <!-- Mensaje de error específico del servidor -->
                 <AlertMessage 
-                    v-if="Object.keys(form.errors).length > 0" 
+                    v-if="form.errors.error" 
                     type="error"
-                    :message="'Por favor revisa los errores.'"
+                    :message="form.errors.error"
+                    class="mb-4"
+                />
+                
+                <!-- Errores de validación de campos -->
+                <AlertMessage 
+                    v-else-if="Object.keys(form.errors).length > 0" 
+                    type="error"
+                    :message="'Por favor revisa los campos marcados en rojo.'"
                     class="mb-4"
                 />
 

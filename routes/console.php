@@ -35,16 +35,17 @@ Schedule::command('reparaciones:monitorear-sla')
     });
 
 // --- SCHEDULER PARA CU-20: Gestión Automática de Cotizaciones ---
-// Cierra cotizaciones vencidas diariamente a las 00:00
-Schedule::command('cotizaciones:cerrar-vencidas --force')
-    ->dailyAt('00:00')
+
+// Verifica solicitudes pendientes y envía recordatorios cada 6 horas
+Schedule::command('compras:verificar-solicitudes')
+    ->everySixHours()
     ->timezone('America/Argentina/Buenos_Aires')
     ->withoutOverlapping()
     ->onSuccess(function () {
-        \Log::info('Cierre automático de cotizaciones vencidas ejecutado con éxito.');
+        \Log::info('Verificación de solicitudes pendientes ejecutada con éxito.');
     })
     ->onFailure(function () {
-        \Log::error('Error al ejecutar cierre de cotizaciones vencidas.');
+        \Log::error('Error al ejecutar verificación de solicitudes pendientes.');
     });
 
 // Envía recordatorios automáticos diariamente a las 09:00
@@ -61,19 +62,34 @@ Schedule::command('cotizaciones:enviar-recordatorios --canal=inteligente')
     });
 
 // ============================================================================
-// SCHEDULER PARA CU-20: Monitoreo Automático de Stock
+// SCHEDULER PARA CU-20: Monitoreo Automático de Stock y Cotizaciones
 // ============================================================================
 
 // --- 1. Monitoreo de Stock (diario a las 8:00 AM) ---
-// Detecta productos bajo stock y alta rotación, genera y envía solicitudes
-// Modo INTELIGENTE: envía por WhatsApp Y Email según lo que tenga cada proveedor
-Schedule::command('stock:monitorear --generar --enviar --canal=inteligente')
+// Detecta productos bajo stock / alta rotación
+// Si automatización está ACTIVADA: genera y ENVÍA solicitudes automáticamente
+// Si automatización está DESACTIVADA: no hace nada (usuario crea manualmente)
+Schedule::command('stock:monitorear')
     ->dailyAt('08:00')
     ->timezone('America/Argentina/Buenos_Aires')
     ->withoutOverlapping()
     ->onSuccess(function () {
-        \Log::info('✅ Monitoreo de stock ejecutado con éxito - Solicitudes generadas y enviadas (modo inteligente).');
+        \Log::info('✅ Monitoreo de stock ejecutado.');
     })
     ->onFailure(function () {
-        \Log::error('❌ Error al ejecutar monitoreo de stock.');
+        \Log::error('❌ Error en monitoreo de stock.');
+    });
+
+// --- 2. Cierre de Solicitudes Vencidas (cada hora) ---
+// Verifica qué solicitudes vencieron y las cierra
+// Genera el ranking de ofertas para que el usuario elija
+Schedule::command('cotizaciones:cerrar-vencidas')
+    ->hourly()
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('✅ Verificación de vencimiento ejecutada.');
+    })
+    ->onFailure(function () {
+        \Log::error('❌ Error al verificar vencimientos.');
     });

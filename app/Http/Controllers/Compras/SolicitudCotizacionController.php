@@ -12,6 +12,7 @@ use App\Services\Compras\SolicitudCotizacionService;
 use App\Services\Compras\MonitoreoStockService;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -48,7 +49,8 @@ class SolicitudCotizacionController extends Controller
      */
     public function index(Request $request): Response
     {
-        $query = SolicitudCotizacion::with(['estado', 'usuario', 'detalles', 'cotizacionesProveedores.proveedor'])
+        $query = SolicitudCotizacion::with(['estado', 'usuario', 'detalles.producto', 'cotizacionesProveedores.proveedor'])
+            ->withCount('cotizacionesProveedores as cotizaciones_count') // Cuenta cotizaciones para estadísticas
             ->orderBy('created_at', 'desc');
 
         // Filtros
@@ -183,9 +185,24 @@ class SolicitudCotizacionController extends Controller
             ? $this->solicitudService->obtenerRankingOfertas($solicitud)
             : collect();
 
+        // Obtener cotización ganadora si existe
+        $cotizacionGanadora = $solicitud->cotizacionesProveedores()
+            ->where('elegida', true)
+            ->with('proveedor')
+            ->first();
+
+        // Buscar orden de compra asociada directamente (modelo simplificado)
+        $ordenCompra = null;
+        if ($cotizacionGanadora) {
+            $ordenCompra = \App\Models\OrdenCompra::where('cotizacion_proveedor_id', $cotizacionGanadora->id)
+                ->first(['id', 'numero_oc', 'total_final', 'estado_id', 'created_at']);
+        }
+
         return Inertia::render('Compras/SolicitudesCotizacion/Show', [
             'solicitud' => $solicitud,
             'ranking' => $ranking,
+            'cotizacionGanadora' => $cotizacionGanadora,
+            'ordenCompra' => $ordenCompra,
             'puedeEnviar' => $solicitud->puedeEnviarse() || 
                 ($solicitud->estaEnviada() && $solicitud->cotizacionesProveedores()->where('estado_envio', 'Pendiente')->exists()),
         ]);
@@ -215,6 +232,67 @@ class SolicitudCotizacionController extends Controller
     }
 
     /**
+     * Vista de comparación de ofertas con tarjetas interactivas
+     * 
+     * GET /compras/solicitudes-cotizacion/{solicitud}/comparar
+     */
+    public function comparar(SolicitudCotizacion $solicitud): Response
+    {
+        $solicitud->load([
+            'estado',
+            'detalles.producto.categoria',
+        ]);
+
+        // Obtener cotizaciones con respuestas (las que tienen fecha_respuesta)
+        $cotizaciones = $solicitud->cotizacionesProveedores()
+            ->whereNotNull('fecha_respuesta')
+            ->with(['proveedor', 'respuestas.producto'])
+            ->get()
+            ->map(function ($cotizacion) use ($solicitud) {
+                // Calcular total desde respuestas
+                $total = $cotizacion->respuestas->sum(function ($r) {
+                    return $r->precio_unitario * $r->cantidad_disponible;
+                });
+                
+                // Calcular plazo máximo de entrega (el más largo de las respuestas)
+                $tiempoEntrega = $cotizacion->respuestas->max('plazo_entrega_dias') ?? 0;
+                
+                // Calcular días de validez desde vencimiento de solicitud
+                $validezDias = $solicitud->fecha_vencimiento 
+                    ? (int) max(0, now()->diffInDays($solicitud->fecha_vencimiento, false))
+                    : null;
+                
+                return [
+                    'id' => $cotizacion->id,
+                    'proveedor' => $cotizacion->proveedor,
+                    'total' => $cotizacion->total_estimado ?: $total,
+                    'tiempo_entrega' => $tiempoEntrega,
+                    'validez_dias' => $validezDias,
+                    'condicion_pago' => 'Contado', // Por defecto, se puede extender el modelo si se necesita
+                    'fecha_respuesta' => $cotizacion->fecha_respuesta,
+                    'respuestas' => $cotizacion->respuestas,
+                    'productos_count' => $cotizacion->respuestas->count(),
+                ];
+            })
+            ->sortBy('total')
+            ->values();
+
+        // Productos solicitados
+        $productos = $solicitud->detalles->map(fn($d) => [
+            'id' => $d->producto_id,
+            'nombre' => $d->producto?->nombre,
+            'codigo' => $d->producto?->codigo,
+            'cantidad' => $d->cantidad_sugerida,
+        ]);
+
+        return Inertia::render('Compras/SolicitudesCotizacion/Comparar', [
+            'solicitud' => $solicitud->only(['id', 'codigo_solicitud', 'estado', 'fecha_vencimiento']),
+            'cotizaciones' => $cotizaciones,
+            'productos' => $productos,
+        ]);
+    }
+
+    /**
      * Enviar solicitud a proveedores
      * 
      * POST /compras/solicitudes-cotizacion/{solicitud}/enviar
@@ -222,7 +300,7 @@ class SolicitudCotizacionController extends Controller
     public function enviar(Request $request, SolicitudCotizacion $solicitud): RedirectResponse
     {
         $validated = $request->validate([
-            'canal' => 'required|in:whatsapp,email,ambos',
+            'canal' => 'required|in:whatsapp,email,ambos,inteligente',
         ]);
 
         try {
@@ -385,10 +463,8 @@ class SolicitudCotizacionController extends Controller
 
             // Si el usuario quiere generar orden directamente
             if ($request->input('generar_orden')) {
-                // Crear oferta desde la cotización para seguir el flujo CU-21/CU-22
-                $oferta = $this->crearOfertaDesdeCotizacion($cotizacion);
-                
-                return redirect()->route('ordenes-compra.create', ['oferta_id' => $oferta->id])
+                // Redirigir a crear orden de compra con la cotización elegida
+                return redirect()->route('ordenes.create', ['cotizacion_id' => $cotizacion->id])
                     ->with('success', "Cotización de {$cotizacion->proveedor->razon_social} elegida. Complete la orden de compra.");
             }
 
@@ -397,52 +473,6 @@ class SolicitudCotizacionController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Error al elegir cotización: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Crear una OfertaCompra desde una CotizacionProveedor
-     * para integrarse con el flujo existente de CU-21/CU-22
-     */
-    protected function crearOfertaDesdeCotizacion(\App\Models\CotizacionProveedor $cotizacion): \App\Models\OfertaCompra
-    {
-        $estadoElegida = \App\Models\EstadoOferta::where('nombre', 'Elegida')->first();
-        
-        // Generar código único
-        $ultimoNumero = \App\Models\OfertaCompra::whereYear('created_at', now()->year)->max('id') ?? 0;
-        $codigoOferta = 'OF-' . now()->format('Y') . '-' . str_pad($ultimoNumero + 1, 4, '0', STR_PAD_LEFT);
-
-        // Calcular total
-        $total = $cotizacion->respuestas->sum(function ($respuesta) {
-            return ($respuesta->precio_unitario ?? 0) * ($respuesta->cantidad_disponible ?? $respuesta->cantidad_solicitada ?? 1);
-        });
-
-        // Crear la oferta
-        $oferta = \App\Models\OfertaCompra::create([
-            'codigo_oferta' => $codigoOferta,
-            'proveedor_id' => $cotizacion->proveedor_id,
-            'solicitud_id' => $cotizacion->solicitud_id,
-            'cotizacion_proveedor_id' => $cotizacion->id,
-            'estado_id' => $estadoElegida->id,
-            'fecha_recepcion' => $cotizacion->fecha_respuesta,
-            'fecha_validez' => $cotizacion->solicitud->fecha_vencimiento,
-            'total_estimado' => $total,
-            'observaciones' => 'Oferta generada automáticamente desde cotización elegida',
-            'user_id' => auth()->id(),
-        ]);
-
-        // Crear detalles de la oferta
-        foreach ($cotizacion->respuestas as $respuesta) {
-            \App\Models\DetalleOferta::create([
-                'oferta_id' => $oferta->id,
-                'producto_id' => $respuesta->producto_id,
-                'cantidad' => $respuesta->cantidad_disponible ?? $respuesta->cantidad_solicitada ?? 1,
-                'precio_unitario' => $respuesta->precio_unitario ?? 0,
-                'disponibilidad' => $respuesta->disponibilidad_inmediata ? 'inmediata' : 'a_pedido',
-                'dias_entrega' => $respuesta->plazo_entrega_dias ?? 0,
-            ]);
-        }
-
-        return $oferta;
     }
 
     /**
@@ -591,14 +621,16 @@ class SolicitudCotizacionController extends Controller
         try {
             DB::beginTransaction();
             
-            // VALIDACIÓN 1: Verificar si ya hay ofertas de compra generadas desde esta solicitud
-            $ofertasGeneradas = \App\Models\OfertaCompra::where('solicitud_id', $solicitud->id)->count();
+            // VALIDACIÓN 1: Verificar si ya hay órdenes de compra generadas desde cotizaciones de esta solicitud
+            $ordenesGeneradas = \App\Models\OrdenCompra::whereHas('cotizacionProveedor', function($q) use ($solicitud) {
+                $q->where('solicitud_id', $solicitud->id);
+            })->count();
             
-            if ($ofertasGeneradas > 0) {
+            if ($ordenesGeneradas > 0) {
                 return back()->with('error', 
                     'No se puede eliminar esta solicitud porque ya tiene ' . 
-                    $ofertasGeneradas . ' oferta(s) de compra registrada(s). ' .
-                    'Debe eliminar primero las ofertas relacionadas.'
+                    $ordenesGeneradas . ' orden(es) de compra generada(s). ' .
+                    'Debe eliminar primero las órdenes relacionadas.'
                 );
             }
             

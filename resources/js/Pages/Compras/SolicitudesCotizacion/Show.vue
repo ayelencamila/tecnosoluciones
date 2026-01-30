@@ -1,31 +1,85 @@
 <script setup>
 /**
- * Vista: Detalle de Solicitud de Cotización (CU-20)
+ * Vista: Centro de Control de Solicitud (CU-20 / CU-21)
+ * Diseño: Pantalla dividida - Contexto (izquierda) + Estado Proveedores (derecha)
+ * 
+ * Flujo: Index → Show → Comparar → Ordenes/Show
  */
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { Link, useForm, router } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
+import Modal from '@/Components/Modal.vue'
 
 const props = defineProps({
     solicitud: Object,
     ranking: Array,
+    cotizacionGanadora: Object,
+    ordenCompra: Object,
     puedeEnviar: Boolean,
 })
 
+// --- Estados de UI ---
 const mostrarModalEnvio = ref(false)
 const mostrarModalReenvio = ref(false)
-const mostrarModalElegir = ref(false)
+const mostrarModalEliminar = ref(false)
 const cotizacionReenviar = ref(null)
-const cotizacionElegir = ref(null)
-const formEnvio = useForm({ canal: 'whatsapp' })
-const formReenvio = useForm({ canal: 'whatsapp' })
-const formElegir = useForm({ generar_orden: false })
 
-function enviarASProveedores() {
+// --- Formularios ---
+const formEnvio = useForm({ canal: 'inteligente' })
+const formReenvio = useForm({ canal: 'whatsapp' })
+const formEliminar = useForm({})
+
+// --- Computed ---
+const progreso = computed(() => {
+    const total = props.solicitud.cotizaciones_proveedores?.length || 0
+    const respondidos = props.solicitud.cotizaciones_proveedores?.filter(c => c.fecha_respuesta).length || 0
+    return { total, respondidos, porcentaje: total > 0 ? Math.round((respondidos / total) * 100) : 0 }
+})
+
+const tieneRespuestas = computed(() => progreso.value.respondidos > 0)
+
+// --- Helpers de Estado ---
+function esBorrador() {
+    return props.solicitud.estado?.nombre === 'Pendiente de Revisión'
+}
+
+function estaAbierta() {
+    return props.solicitud.estado?.nombre === 'Abierta'
+}
+
+function tieneProveedoresPendientes() {
+    return props.solicitud.cotizaciones_proveedores?.some(c => c.estado_envio === 'Pendiente')
+}
+
+function puedeEnviar() {
+    return (esBorrador() || estaAbierta()) && tieneProveedoresPendientes()
+}
+
+function estaCerrada() {
+    return props.solicitud.estado?.nombre === 'Cerrada'
+}
+
+function estaFinalizada() {
+    return ['Cerrada', 'Vencida', 'Cancelada'].includes(props.solicitud.estado?.nombre)
+}
+
+function puedeReenviar(cotizacion) {
+    if (estaFinalizada()) return false
+    return cotizacion.estado_envio === 'Enviado' 
+        && !cotizacion.fecha_respuesta 
+        && !cotizacion.motivo_rechazo
+        && new Date(props.solicitud.fecha_vencimiento) > new Date()
+}
+
+function puedeEliminar() {
+    const estado = props.solicitud.estado?.nombre
+    return ['Pendiente de Revisión', 'Cancelada', 'Vencida'].includes(estado)
+}
+
+// --- Acciones ---
+function aprobarYEnviar() {
     formEnvio.post(route('solicitudes-cotizacion.enviar', props.solicitud.id), {
-        onSuccess: () => {
-            mostrarModalEnvio.value = false
-        }
+        onSuccess: () => mostrarModalEnvio.value = false
     })
 }
 
@@ -43,425 +97,395 @@ function reenviarRecordatorio() {
     })
 }
 
-function abrirModalElegir(oferta) {
-    cotizacionElegir.value = oferta
-    mostrarModalElegir.value = true
-}
-
-function elegirCotizacion(generarOrden = false) {
-    formElegir.generar_orden = generarOrden
-    formElegir.post(route('solicitudes-cotizacion.elegir-cotizacion', [props.solicitud.id, cotizacionElegir.value.cotizacion_id]), {
-        onSuccess: () => {
-            mostrarModalElegir.value = false
-            cotizacionElegir.value = null
-        }
-    })
-}
-
-function puedeReenviar(cotizacion) {
-    // Puede reenviar si: está enviado, no ha respondido, no ha rechazado, solicitud no vencida
-    return cotizacion.estado_envio === 'Enviado' 
-        && !cotizacion.fecha_respuesta 
-        && !cotizacion.motivo_rechazo
-        && new Date(props.solicitud.fecha_vencimiento) > new Date()
-}
-
-function puedeElegir() {
-    // Puede elegir si la solicitud está enviada o abierta y no está cerrada/cancelada/vencida
-    return ['Abierta', 'Enviada'].includes(props.solicitud.estado?.nombre)
-}
-
 function cerrarSolicitud() {
-    if (confirm('¿Está seguro de cerrar esta solicitud?')) {
+    if (confirm('¿Cerrar esta solicitud? Ya no se recibirán más ofertas.')) {
         useForm({}).post(route('solicitudes-cotizacion.cerrar', props.solicitud.id))
     }
 }
 
 function cancelarSolicitud() {
-    if (confirm('¿Está seguro de cancelar esta solicitud?')) {
+    if (confirm('¿Cancelar esta solicitud?')) {
         useForm({}).post(route('solicitudes-cotizacion.cancelar', props.solicitud.id))
     }
 }
 
-function getEstadoClass(estado) {
-    const clases = {
-        'Abierta': 'bg-blue-100 text-blue-800',
-        'Enviada': 'bg-yellow-100 text-yellow-800',
-        'Cerrada': 'bg-green-100 text-green-800',
-        'Vencida': 'bg-gray-100 text-gray-800',
-        'Cancelada': 'bg-red-100 text-red-800',
-    }
-    return clases[estado] || 'bg-gray-100 text-gray-800'
+function eliminarSolicitud() {
+    formEliminar.delete(route('solicitudes-cotizacion.destroy', props.solicitud.id), {
+        onSuccess: () => mostrarModalEliminar.value = false
+    })
 }
 
-function getEstadoEnvioClass(estado) {
-    const clases = {
-        'Pendiente': 'bg-gray-100 text-gray-600',
-        'Enviado': 'bg-blue-100 text-blue-600',
-        'Fallido': 'bg-red-100 text-red-600',
+// --- Helpers Visuales ---
+function getEstadoConfig(estado) {
+    const configs = {
+        'Pendiente de Revisión': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', label: 'Borrador' },
+        'Abierta': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', label: 'Abierta' },
+        'Enviada': { bg: 'bg-indigo-50', text: 'text-indigo-700', border: 'border-indigo-200', label: 'Enviada' },
+        'Cerrada': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Cerrada' },
+        'Vencida': { bg: 'bg-gray-50', text: 'text-gray-500', border: 'border-gray-200', label: 'Vencida' },
+        'Cancelada': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: 'Cancelada' },
     }
-    return clases[estado] || 'bg-gray-100 text-gray-600'
+    return configs[estado] || { bg: 'bg-gray-50', text: 'text-gray-600', border: 'border-gray-200', label: estado }
+}
+
+function getEstadoEnvioConfig(estado) {
+    const configs = {
+        'Pendiente': { bg: 'bg-gray-100', text: 'text-gray-600', icon: 'clock' },
+        'Enviado': { bg: 'bg-blue-100', text: 'text-blue-700', icon: 'paper-airplane' },
+        'Entregado': { bg: 'bg-emerald-100', text: 'text-emerald-700', icon: 'check' },
+        'Leído': { bg: 'bg-emerald-100', text: 'text-emerald-800', icon: 'eye' },
+        'Fallido': { bg: 'bg-red-100', text: 'text-red-700', icon: 'x-circle' },
+    }
+    return configs[estado] || configs['Pendiente']
 }
 
 function formatDate(date) {
+    if (!date) return '-'
     return new Date(date).toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
     })
 }
 
 function formatCurrency(value) {
-    return new Intl.NumberFormat('es-AR', {
-        style: 'currency',
-        currency: 'ARS'
-    }).format(value)
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value || 0)
 }
 </script>
 
 <template>
     <AppLayout :title="`Solicitud ${solicitud.codigo_solicitud}`">
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                
-                <!-- Header con navegación y acciones principales -->
-                <div class="mb-6 flex justify-between items-center">
-                    <Link :href="route('solicitudes-cotizacion.index')" class="text-gray-600 hover:text-gray-900 flex items-center">
-                        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                        Volver
+        <template #header>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <Link :href="route('solicitudes-cotizacion.index')" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                        </svg>
                     </Link>
-                    <div class="flex items-center gap-2">
-                        <span
-                            :class="getEstadoClass(solicitud.estado?.nombre)"
-                            class="px-3 py-1 text-sm font-semibold rounded-full"
-                        >
-                            {{ solicitud.estado?.nombre }}
-                        </span>
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <h2 class="font-bold text-xl text-gray-900">{{ solicitud.codigo_solicitud }}</h2>
+                            <span 
+                                class="px-2.5 py-1 rounded-full text-xs font-semibold border"
+                                :class="[getEstadoConfig(solicitud.estado?.nombre).bg, getEstadoConfig(solicitud.estado?.nombre).text, getEstadoConfig(solicitud.estado?.nombre).border]"
+                            >
+                                {{ getEstadoConfig(solicitud.estado?.nombre).label }}
+                            </span>
+                        </div>
+                        <p class="text-sm text-gray-500 mt-0.5">Creada el {{ formatDate(solicitud.created_at) }}</p>
+                    </div>
+                </div>
+            </div>
+        </template>
+
+        <div class="py-8 bg-gray-50 min-h-screen">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                
+                <!-- Alerta: Proveedores pendientes de envío -->
+                <div v-if="puedeEnviar()" class="mb-6 bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center justify-between">
+                    <div class="flex items-start gap-3">
+                        <div class="p-2 bg-amber-100 rounded-lg">
+                            <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-amber-800">
+                                {{ esBorrador() ? 'Solicitud en Borrador' : 'Proveedores Pendientes de Envío' }}
+                            </h3>
+                            <p class="text-sm text-amber-700 mt-0.5">
+                                {{ esBorrador() 
+                                    ? 'Revise los productos y cantidades antes de enviar a los proveedores.' 
+                                    : 'Hay proveedores que aún no han recibido la solicitud de cotización.' 
+                                }}
+                            </p>
+                        </div>
+                    </div>
+                    <button 
+                        @click="mostrarModalEnvio = true"
+                        class="flex items-center gap-2 px-4 py-2.5 bg-amber-600 text-white font-semibold text-sm rounded-lg hover:bg-amber-700 transition-colors shadow-sm"
+                    >
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
+                        {{ esBorrador() ? 'Aprobar y Enviar' : 'Enviar a Proveedores' }}
+                    </button>
+                </div>
+
+                <!-- Resultado: Solicitud Cerrada con Ganador -->
+                <div v-if="estaCerrada() && cotizacionGanadora" class="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            <div class="p-3 bg-emerald-100 rounded-xl">
+                                <svg class="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-emerald-600">Proveedor Seleccionado</p>
+                                <p class="text-xl font-bold text-gray-900">{{ cotizacionGanadora.proveedor?.razon_social }}</p>
+                            </div>
+                        </div>
+                        <div v-if="ordenCompra" class="text-right">
+                            <p class="text-sm text-gray-500">Orden de Compra</p>
+                            <Link :href="route('ordenes.show', ordenCompra.id)" class="text-lg font-bold text-indigo-600 hover:text-indigo-800">
+                                {{ ordenCompra.numero_oc }}
+                            </Link>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Contenedor principal en grid -->
-                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Layout Principal: 2 columnas -->
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
                     
-                    <!-- Columna izquierda: Información principal -->
+                    <!-- Panel Izquierdo: Contexto (2/5) -->
                     <div class="lg:col-span-2 space-y-6">
                         
                         <!-- Información General -->
-                        <div class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="px-6 py-5 border-b border-gray-200">
-                                <h3 class="text-lg font-medium text-gray-900">{{ solicitud.codigo_solicitud }}</h3>
-                                <p class="text-sm text-gray-500 mt-1">Solicitud de Cotización</p>
+                        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 bg-gray-50 border-b border-gray-100">
+                                <h3 class="font-semibold text-gray-900">Información</h3>
                             </div>
-                            <div class="px-6 py-5 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-4">
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Fecha Emisión</dt>
-                                    <dd class="mt-1 text-md text-gray-900">{{ formatDate(solicitud.fecha_emision) }}</dd>
-                                </div>
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Fecha Vencimiento</dt>
-                                    <dd class="mt-1 text-md" :class="new Date(solicitud.fecha_vencimiento) < new Date() ? 'text-red-600 font-semibold' : 'text-gray-900'">
+                            <div class="p-5 space-y-4">
+                                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                                    <span class="text-sm text-gray-500">Vencimiento</span>
+                                    <span class="text-sm font-medium" :class="new Date(solicitud.fecha_vencimiento) < new Date() ? 'text-red-600' : 'text-gray-900'">
                                         {{ formatDate(solicitud.fecha_vencimiento) }}
-                                    </dd>
+                                    </span>
                                 </div>
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Creada por</dt>
-                                    <dd class="mt-1 text-md text-gray-900">{{ solicitud.usuario?.name || 'Sistema (automático)' }}</dd>
+                                <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                                    <span class="text-sm text-gray-500">Creada por</span>
+                                    <span class="text-sm font-medium text-gray-900">{{ solicitud.usuario?.name || 'Sistema' }}</span>
                                 </div>
-                                <div>
-                                    <dt class="text-sm font-medium text-gray-500">Respuestas Recibidas</dt>
-                                    <dd class="mt-1 text-md font-semibold">
-                                        <span class="text-green-600">
-                                            {{ solicitud.cotizaciones_proveedores?.filter(c => c.fecha_respuesta).length || 0 }}
-                                        </span>
-                                        <span class="text-gray-500"> / {{ solicitud.cotizaciones_proveedores?.length || 0 }}</span>
-                                    </dd>
-                                </div>
-                                <div v-if="solicitud.observaciones" class="col-span-2">
-                                    <dt class="text-sm font-medium text-gray-500">Observaciones</dt>
-                                    <dd class="mt-1 text-md text-gray-900 bg-gray-50 p-3 rounded">{{ solicitud.observaciones }}</dd>
+                                <div v-if="solicitud.observaciones" class="pt-2">
+                                    <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Observaciones</p>
+                                    <p class="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{{ solicitud.observaciones }}</p>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Productos Solicitados -->
-                        <div class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                                <h3 class="text-sm font-bold text-gray-700 uppercase">Productos Solicitados</h3>
+                        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                                <h3 class="font-semibold text-gray-900">Productos a Cotizar</h3>
+                                <span class="text-xs text-gray-500 bg-gray-200 px-2 py-0.5 rounded-full">
+                                    {{ solicitud.detalles?.length || 0 }} items
+                                </span>
                             </div>
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Observaciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
-                                        <tr v-for="detalle in solicitud.detalles" :key="detalle.id" class="hover:bg-gray-50">
-                                            <td class="px-6 py-4">
-                                                <p class="font-medium text-gray-900">{{ detalle.producto?.nombre }}</p>
-                                                <p class="text-sm text-gray-500 font-mono">{{ detalle.producto?.codigo }}</p>
-                                            </td>
-                                            <td class="px-6 py-4 text-sm text-gray-500">
-                                                {{ detalle.producto?.categoria?.nombre || '-' }}
-                                            </td>
-                                            <td class="px-6 py-4 text-center">
-                                                <span class="font-bold text-gray-900">{{ detalle.cantidad_sugerida }}</span>
-                                            </td>
-                                            <td class="px-6 py-4 text-sm text-gray-600">
-                                                {{ detalle.observaciones || '-' }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
+                            <ul class="divide-y divide-gray-100">
+                                <li v-for="detalle in solicitud.detalles" :key="detalle.id" class="p-4 hover:bg-gray-50 transition-colors">
+                                    <div class="flex items-center gap-4">
+                                        <div class="h-12 w-12 flex-shrink-0 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-600 font-bold text-sm">
+                                            {{ detalle.producto?.codigo?.substring(0, 3) || '?' }}
+                                        </div>
+                                        <div class="flex-1 min-w-0">
+                                            <p class="text-sm font-medium text-gray-900 truncate">{{ detalle.producto?.nombre }}</p>
+                                            <p class="text-xs text-gray-500">{{ detalle.producto?.categoria?.nombre || 'Sin categoría' }}</p>
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-sm font-bold bg-gray-100 text-gray-800">
+                                                {{ detalle.cantidad_sugerida }}
+                                            </span>
+                                            <p class="text-xs text-gray-500 mt-0.5">unidades</p>
+                                        </div>
+                                    </div>
+                                </li>
+                            </ul>
                         </div>
 
-                        <!-- Proveedores Invitados -->
-                        <div class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                                <h3 class="text-sm font-bold text-gray-700 uppercase">Proveedores Invitados</h3>
-                            </div>
-                            <div class="overflow-x-auto">
-                                <table class="min-w-full divide-y divide-gray-200">
-                                    <thead class="bg-gray-50">
-                                        <tr>
-                                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Proveedor</th>
-                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Estado</th>
-                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Enviado</th>
-                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Respuesta</th>
-                                            <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody class="bg-white divide-y divide-gray-200">
-                                        <tr v-for="cotizacion in solicitud.cotizaciones_proveedores" :key="cotizacion.id" class="hover:bg-gray-50">
-                                            <td class="px-6 py-4">
-                                                <p class="font-medium text-gray-900">{{ cotizacion.proveedor?.razon_social }}</p>
-                                                <p class="text-sm text-gray-500">{{ cotizacion.proveedor?.email || cotizacion.proveedor?.whatsapp }}</p>
-                                            </td>
-                                            <td class="px-6 py-4 text-center">
-                                                <span :class="getEstadoEnvioClass(cotizacion.estado_envio)" class="px-2 py-1 text-xs font-medium rounded-full">
-                                                    {{ cotizacion.estado_envio }}
-                                                </span>
-                                            </td>
-                                            <td class="px-6 py-4 text-center text-sm text-gray-600">
-                                                {{ cotizacion.fecha_envio ? formatDate(cotizacion.fecha_envio) : '-' }}
-                                            </td>
-                                            <td class="px-6 py-4 text-center text-sm">
-                                                <span v-if="cotizacion.fecha_respuesta" class="text-green-600 font-medium">
-                                                    ✓ {{ formatDate(cotizacion.fecha_respuesta) }}
-                                                </span>
-                                                <span v-else-if="cotizacion.motivo_rechazo" class="text-red-600 font-medium">
-                                                    ✗ Rechazó
-                                                </span>
-                                                <span v-else class="text-gray-400">
-                                                    Pendiente
-                                                </span>
-                                            </td>
-                                            <td class="px-6 py-4">
-                                                <div class="flex items-center justify-center gap-2">
-                                                    <a
-                                                        v-if="cotizacion.token_unico"
-                                                        :href="route('portal.cotizacion', cotizacion.token_unico)"
-                                                        target="_blank"
-                                                        class="text-indigo-600 hover:text-indigo-800 text-xs font-medium underline"
-                                                    >
-                                                        Portal
-                                                    </a>
-                                                    <button
-                                                        v-if="puedeReenviar(cotizacion)"
-                                                        @click="abrirModalReenvio(cotizacion)"
-                                                        class="text-orange-600 hover:text-orange-800 text-xs font-medium"
-                                                        title="Enviar recordatorio"
-                                                    >
-                                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Columna derecha: Acciones y estadísticas -->
-                    <div class="space-y-6">
-                        
-                        <!-- Acciones disponibles -->
-                        <div class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                                <h3 class="text-sm font-bold text-gray-700 uppercase">Acciones</h3>
-                            </div>
-                            <div class="p-6 space-y-3">
-                                <button
-                                    v-if="puedeEnviar"
-                                    @click="mostrarModalEnvio = true"
-                                    class="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium text-sm flex items-center justify-center"
-                                >
-                                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
-                                    </svg>
-                                    Enviar a Proveedores
-                                </button>
+                        <!-- Acciones de Gestión -->
+                        <div v-if="!estaFinalizada()" class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Gestión</h4>
+                            <div class="space-y-2">
                                 <button
                                     v-if="solicitud.estado?.nombre === 'Enviada'"
                                     @click="cerrarSolicitud"
-                                    class="w-full px-4 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium text-sm"
+                                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
                                 >
-                                    Cerrar Solicitud
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    Finalizar Espera
                                 </button>
                                 <button
-                                    v-if="['Abierta', 'Enviada'].includes(solicitud.estado?.nombre)"
                                     @click="cancelarSolicitud"
-                                    class="w-full px-4 py-3 border-2 border-red-300 text-red-600 rounded-lg hover:bg-red-50 font-medium text-sm"
+                                    class="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 rounded-lg text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 transition-colors"
                                 >
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                    </svg>
                                     Cancelar Solicitud
                                 </button>
                             </div>
                         </div>
 
-                        <!-- Ranking de ofertas (lateral) -->
-                        <div v-if="ranking.length > 0" class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="px-6 py-4 border-b border-green-200 bg-green-50">
-                                <h3 class="text-sm font-bold text-green-800 uppercase flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
-                                    Ranking de Respuestas
-                                </h3>
-                                <p class="text-xs text-green-600 mt-1">
-                                    {{ ranking.length }} {{ ranking.length === 1 ? 'proveedor respondió' : 'proveedores respondieron' }}
-                                </p>
+                        <!-- Eliminar (solo estados finales) -->
+                        <div v-if="puedeEliminar()" class="bg-white rounded-xl border border-dashed border-gray-200 p-4">
+                            <button
+                                @click="mostrarModalEliminar = true"
+                                class="w-full flex items-center justify-center gap-2 px-3 py-2 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors"
+                            >
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                                </svg>
+                                Eliminar Solicitud
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Panel Derecho: Estado de Proveedores (3/5) -->
+                    <div class="lg:col-span-3 space-y-6">
+                        
+                        <!-- Barra de Progreso -->
+                        <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+                            <div class="flex items-center justify-between mb-3">
+                                <h3 class="font-semibold text-gray-900">Progreso de Respuestas</h3>
+                                <span class="text-sm font-medium text-gray-500">
+                                    {{ progreso.respondidos }} de {{ progreso.total }} proveedores
+                                </span>
                             </div>
-                            <div class="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-                                <div
-                                    v-for="(oferta, index) in ranking"
-                                    :key="oferta.cotizacion_id"
-                                    class="border rounded-lg p-3"
-                                    :class="index === 0 ? 'border-green-400 bg-green-50' : 'border-gray-200'"
-                                >
-                                    <div class="flex items-start gap-2">
-                                        <span
-                                            class="w-6 h-6 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0"
-                                            :class="index === 0 ? 'bg-green-500' : index === 1 ? 'bg-gray-400' : 'bg-gray-300'"
-                                        >
-                                            {{ index + 1 }}
-                                        </span>
-                                        <div class="flex-1 min-w-0">
-                                            <p class="font-semibold text-sm text-gray-900 truncate">{{ oferta.proveedor?.razon_social }}</p>
-                                            <p class="text-lg font-bold text-gray-900 mt-1">{{ formatCurrency(oferta.total) }}</p>
-                                            <p class="text-xs text-gray-500 mt-1">
-                                                {{ oferta.productos_cotizados }}/{{ oferta.productos_requeridos }} productos
-                                                <span v-if="oferta.cotizo_completo" class="text-green-600 ml-1">✓</span>
-                                            </p>
-                                            <p class="text-xs text-gray-400 mt-1">
-                                                {{ formatDate(oferta.fecha_respuesta) }}
-                                            </p>
-                                            <!-- Botón elegir -->
-                                            <button
-                                                v-if="puedeElegir()"
-                                                @click="abrirModalElegir(oferta)"
-                                                class="mt-2 w-full px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
-                                                :class="index === 0 
-                                                    ? 'bg-green-600 text-white hover:bg-green-700' 
-                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'"
+                            <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+                                <div 
+                                    class="h-full rounded-full transition-all duration-700"
+                                    :class="progreso.porcentaje === 100 ? 'bg-emerald-500' : 'bg-indigo-500'"
+                                    :style="{ width: `${progreso.porcentaje}%` }"
+                                ></div>
+                            </div>
+                        </div>
+
+                        <!-- Lista de Proveedores -->
+                        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+                            <div class="px-5 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
+                                <h3 class="font-semibold text-gray-900">Proveedores Invitados</h3>
+                                <span v-if="tieneRespuestas && !estaFinalizada()">
+                                    <Link 
+                                        :href="route('solicitudes-cotizacion.comparar', solicitud.id)"
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                                        </svg>
+                                        Comparar Ofertas
+                                    </Link>
+                                </span>
+                            </div>
+                            
+                            <ul class="divide-y divide-gray-100">
+                                <li v-for="cotizacion in solicitud.cotizaciones_proveedores" :key="cotizacion.id" class="p-5 hover:bg-gray-50 transition-colors">
+                                    <div class="flex items-center justify-between">
+                                        <div class="flex items-center gap-4">
+                                            <!-- Avatar Proveedor -->
+                                            <div class="h-12 w-12 flex-shrink-0 bg-gray-100 rounded-xl flex items-center justify-center">
+                                                <svg class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+                                                </svg>
+                                            </div>
+                                            <div>
+                                                <p class="font-medium text-gray-900">{{ cotizacion.proveedor?.razon_social }}</p>
+                                                <p class="text-sm text-gray-500">{{ cotizacion.proveedor?.whatsapp || cotizacion.proveedor?.email || 'Sin contacto' }}</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="flex items-center gap-3">
+                                            <!-- Estado de Envío -->
+                                            <span 
+                                                class="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium"
+                                                :class="[getEstadoEnvioConfig(cotizacion.estado_envio).bg, getEstadoEnvioConfig(cotizacion.estado_envio).text]"
                                             >
-                                                {{ index === 0 ? '⭐ Elegir Mejor Oferta' : 'Elegir esta Oferta' }}
+                                                <svg v-if="cotizacion.estado_envio === 'Enviado'" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                                                </svg>
+                                                <svg v-else-if="cotizacion.estado_envio === 'Entregado' || cotizacion.estado_envio === 'Leído'" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                                <svg v-else-if="cotizacion.estado_envio === 'Fallido'" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                                <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                {{ cotizacion.estado_envio }}
+                                            </span>
+
+                                            <!-- Estado de Respuesta -->
+                                            <span 
+                                                v-if="cotizacion.fecha_respuesta"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-100 text-emerald-700"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                Respondió
+                                            </span>
+                                            <span 
+                                                v-else-if="cotizacion.motivo_rechazo"
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-red-100 text-red-700"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                Rechazó
+                                            </span>
+                                            <span 
+                                                v-else
+                                                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-500"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                                Pendiente
+                                            </span>
+
+                                            <!-- Botón Reenviar -->
+                                            <button 
+                                                v-if="puedeReenviar(cotizacion)"
+                                                @click="abrirModalReenvio(cotizacion)"
+                                                class="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                                                title="Reenviar recordatorio"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                                                </svg>
                                             </button>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Mensaje cuando no hay respuestas -->
-                        <div v-else class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-                                <h3 class="text-sm font-bold text-gray-800 uppercase flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                    Respuestas
-                                </h3>
-                            </div>
-                            <div class="p-6 text-center text-gray-500">
-                                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                                </svg>
-                                <p class="mt-2 text-sm">Sin respuestas aún</p>
-                                <p class="text-xs mt-1">Las respuestas aparecerán aquí cuando los proveedores coticen</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <!-- Ranking completo (debajo, si hay más de 3) -->
-                <div v-if="ranking.length > 3" id="ranking-completo" class="bg-white rounded-xl shadow-sm overflow-hidden">
-                    <div class="px-6 py-4 border-b bg-green-50">
-                        <h3 class="font-semibold text-green-800 flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" /></svg>
-                            Ranking Completo de Ofertas
-                        </h3>
-                        <p class="text-sm text-green-600">Ordenado por menor precio total</p>
-                    </div>
-                    <div class="p-6 space-y-4">
-                        <div
-                            v-for="(oferta, index) in ranking"
-                            :key="oferta.cotizacion_id"
-                            class="border rounded-lg p-4"
-                            :class="index === 0 ? 'border-green-500 bg-green-50' : 'border-gray-200'"
-                        >
-                            <div class="flex items-center justify-between mb-3">
-                                <div class="flex items-center gap-3">
-                                    <span
-                                        class="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold"
-                                        :class="index === 0 ? 'bg-green-500' : index === 1 ? 'bg-gray-400' : 'bg-gray-300'"
-                                    >
-                                        {{ index + 1 }}
-                                    </span>
-                                    <div>
-                                        <p class="font-semibold text-gray-900">{{ oferta.proveedor?.razon_social }}</p>
-                                        <p class="text-sm text-gray-500">
-                                            Respondió: {{ formatDate(oferta.fecha_respuesta) }}
-                                        </p>
+                                    <!-- Total Cotizado (si respondió) -->
+                                    <div v-if="cotizacion.fecha_respuesta && cotizacion.total_estimado" class="mt-3 flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                        <span class="text-sm text-gray-600">Total Cotizado</span>
+                                        <span class="text-lg font-bold text-gray-900">{{ formatCurrency(cotizacion.total_estimado) }}</span>
                                     </div>
-                                </div>
-                                <div class="text-right">
-                                    <p class="text-2xl font-bold" :class="index === 0 ? 'text-green-600' : 'text-gray-700'">
-                                        {{ formatCurrency(oferta.total) }}
-                                    </p>
-                                    <p class="text-sm text-gray-500">
-                                        {{ oferta.productos_cotizados }}/{{ oferta.productos_requeridos }} productos
-                                        <span v-if="oferta.cotizo_completo" class="text-green-600">✓ Completo</span>
-                                    </p>
-                                </div>
-                            </div>
+                                </li>
+                            </ul>
 
-                            <!-- Detalle de productos cotizados -->
-                            <div class="mt-3 border-t pt-3">
-                                <table class="min-w-full text-sm">
-                                    <thead>
-                                        <tr class="text-gray-500">
-                                            <th class="text-left py-1">Producto</th>
-                                            <th class="text-center py-1">Precio Unit.</th>
-                                            <th class="text-center py-1">Cantidad</th>
-                                            <th class="text-center py-1">Plazo</th>
-                                            <th class="text-right py-1">Subtotal</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr v-for="resp in oferta.respuestas" :key="resp.id">
-                                            <td class="py-1">{{ resp.producto?.nombre }}</td>
-                                            <td class="py-1 text-center">{{ formatCurrency(resp.precio_unitario) }}</td>
-                                            <td class="py-1 text-center">{{ resp.cantidad_disponible }}</td>
-                                            <td class="py-1 text-center">{{ resp.plazo_entrega_dias }} días</td>
-                                            <td class="py-1 text-right font-medium">
-                                                {{ formatCurrency(resp.precio_unitario * resp.cantidad_disponible) }}
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
+                            <!-- Empty State -->
+                            <div v-if="!solicitud.cotizaciones_proveedores?.length" class="p-8 text-center">
+                                <div class="mx-auto h-12 w-12 text-gray-300 bg-gray-50 rounded-full flex items-center justify-center mb-3">
+                                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5"/>
+                                    </svg>
+                                </div>
+                                <p class="text-sm text-gray-500">No hay proveedores asignados</p>
+                            </div>
+                        </div>
+
+                        <!-- CTA: Comparar Ofertas (prominente si hay respuestas) -->
+                        <div v-if="tieneRespuestas && !estaFinalizada()" class="bg-gradient-to-r from-emerald-500 to-emerald-600 rounded-xl p-6 text-white shadow-lg">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-lg font-bold">¡Hay ofertas para revisar!</h3>
+                                    <p class="text-emerald-100 text-sm mt-1">
+                                        {{ progreso.respondidos }} proveedor(es) han enviado su cotización
+                                    </p>
+                                </div>
+                                <Link 
+                                    :href="route('solicitudes-cotizacion.comparar', solicitud.id)"
+                                    class="flex items-center gap-2 px-5 py-3 bg-white text-emerald-600 font-bold rounded-lg hover:bg-emerald-50 transition-colors shadow-sm"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"/>
+                                    </svg>
+                                    Comparar y Elegir
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -469,193 +493,83 @@ function formatCurrency(value) {
             </div>
         </div>
 
-        <!-- Modal de envío -->
-        <div v-if="mostrarModalEnvio" class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50" @click="mostrarModalEnvio = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                        Enviar Solicitud a Proveedores
-                    </h3>
-                    <p class="text-sm text-gray-600 mb-4">
-                        Seleccione el canal de comunicación para enviar los Magic Links:
-                    </p>
-                    
-                    <div class="space-y-3">
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                               :class="{ 'border-indigo-500 bg-indigo-50': formEnvio.canal === 'whatsapp' }">
-                            <input type="radio" v-model="formEnvio.canal" value="whatsapp" class="text-indigo-600" />
-                            <span class="ml-3">
-                                <span class="font-medium flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                    WhatsApp
-                                </span>
-                                <span class="text-sm text-gray-500 block">Envío inmediato por mensajería</span>
-                            </span>
-                        </label>
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                               :class="{ 'border-indigo-500 bg-indigo-50': formEnvio.canal === 'email' }">
-                            <input type="radio" v-model="formEnvio.canal" value="email" class="text-indigo-600" />
-                            <span class="ml-3">
-                                <span class="font-medium flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                    Email
-                                </span>
-                                <span class="text-sm text-gray-500 block">Correo electrónico formal</span>
-                            </span>
-                        </label>
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                               :class="{ 'border-indigo-500 bg-indigo-50': formEnvio.canal === 'ambos' }">
-                            <input type="radio" v-model="formEnvio.canal" value="ambos" class="text-indigo-600" />
-                            <span class="ml-3">
-                                <span class="font-medium flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                    Ambos canales
-                                </span>
-                                <span class="text-sm text-gray-500 block">WhatsApp y Email simultáneamente</span>
-                            </span>
-                        </label>
+        <!-- Modal: Aprobar y Enviar -->
+        <Modal :show="mostrarModalEnvio" @close="mostrarModalEnvio = false">
+            <div class="p-6">
+                <div class="flex items-center gap-3 mb-4">
+                    <div class="p-2 bg-indigo-100 rounded-lg">
+                        <svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                        </svg>
                     </div>
-
-                    <div class="mt-6 flex gap-3 justify-end">
-                        <button
-                            type="button"
-                            @click="mostrarModalEnvio = false"
-                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            @click="enviarASProveedores"
-                            :disabled="formEnvio.processing"
-                            class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                        >
-                            <span v-if="formEnvio.processing">Enviando...</span>
-                            <span v-else>Enviar</span>
-                        </button>
-                    </div>
+                    <h3 class="text-lg font-semibold text-gray-900">Confirmar Envío</h3>
+                </div>
+                <p class="text-sm text-gray-600 mb-4">
+                    Se enviará un mensaje a <strong>{{ solicitud.cotizaciones_proveedores?.length || 0 }} proveedores</strong> con un enlace único para que carguen sus precios.
+                </p>
+                <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
+                    <label class="flex items-start gap-3 cursor-pointer">
+                        <input type="checkbox" v-model="formEnvio.canal" true-value="inteligente" false-value="whatsapp" class="mt-0.5 h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                        <div>
+                            <span class="font-medium text-blue-800">Envío inteligente</span>
+                            <p class="text-xs text-blue-600 mt-0.5">WhatsApp preferido, Email como respaldo</p>
+                        </div>
+                    </label>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button @click="mostrarModalEnvio = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button 
+                        @click="aprobarYEnviar" 
+                        :disabled="formEnvio.processing" 
+                        class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {{ formEnvio.processing ? 'Enviando...' : 'Confirmar y Enviar' }}
+                    </button>
                 </div>
             </div>
-        </div>
+        </Modal>
 
-        <!-- Modal de reenvío de recordatorio -->
-        <div v-if="mostrarModalReenvio" class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50" @click="mostrarModalReenvio = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-orange-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-                        Enviar Recordatorio
-                    </h3>
-                    <p class="text-sm text-gray-600 mb-4">
-                        Enviar recordatorio a: <strong>{{ cotizacionReenviar?.proveedor?.razon_social }}</strong>
-                    </p>
-                    
-                    <div class="space-y-3">
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                               :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'whatsapp' }">
-                            <input type="radio" v-model="formReenvio.canal" value="whatsapp" class="text-orange-600" />
-                            <span class="ml-3">
-                                <span class="font-medium flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                    WhatsApp
-                                </span>
-                            </span>
-                        </label>
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                               :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'email' }">
-                            <input type="radio" v-model="formReenvio.canal" value="email" class="text-orange-600" />
-                            <span class="ml-3">
-                                <span class="font-medium flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                    Email
-                                </span>
-                            </span>
-                        </label>
-                        <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50"
-                               :class="{ 'border-orange-500 bg-orange-50': formReenvio.canal === 'ambos' }">
-                            <input type="radio" v-model="formReenvio.canal" value="ambos" class="text-orange-600" />
-                            <span class="ml-3">
-                                <span class="font-medium flex items-center gap-1">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                    Ambos
-                                </span>
-                            </span>
-                        </label>
-                    </div>
-
-                    <div class="mt-6 flex gap-3 justify-end">
-                        <button
-                            type="button"
-                            @click="mostrarModalReenvio = false"
-                            class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            @click="reenviarRecordatorio"
-                            :disabled="formReenvio.processing"
-                            class="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
-                        >
-                            <span v-if="formReenvio.processing">Enviando...</span>
-                            <span v-else>Enviar Recordatorio</span>
-                        </button>
-                    </div>
+        <!-- Modal: Reenviar Recordatorio -->
+        <Modal :show="mostrarModalReenvio" @close="mostrarModalReenvio = false">
+            <div class="p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Reenviar Recordatorio</h3>
+                <p class="text-sm text-gray-600 mb-4">
+                    Enviar recordatorio a <strong>{{ cotizacionReenviar?.proveedor?.razon_social }}</strong>
+                </p>
+                <div class="flex justify-end gap-3">
+                    <button @click="mostrarModalReenvio = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button @click="reenviarRecordatorio" :disabled="formReenvio.processing" class="px-4 py-2 text-sm font-medium text-white bg-orange-600 rounded-lg hover:bg-orange-700 disabled:opacity-50">
+                        {{ formReenvio.processing ? 'Enviando...' : 'Reenviar' }}
+                    </button>
                 </div>
             </div>
-        </div>
+        </Modal>
 
-        <!-- Modal de elegir cotización -->
-        <div v-if="mostrarModalElegir" class="fixed inset-0 z-50 overflow-y-auto">
-            <div class="flex items-center justify-center min-h-screen px-4">
-                <div class="fixed inset-0 bg-black/50" @click="mostrarModalElegir = false"></div>
-                <div class="relative bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        Elegir Cotización Ganadora
-                    </h3>
-                    
-                    <div class="my-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                        <p class="font-semibold text-green-800">{{ cotizacionElegir?.proveedor?.razon_social }}</p>
-                        <p class="text-2xl font-bold text-green-700 mt-1">{{ formatCurrency(cotizacionElegir?.total || 0) }}</p>
-                        <p class="text-sm text-green-600 mt-1">
-                            {{ cotizacionElegir?.productos_cotizados }}/{{ cotizacionElegir?.productos_requeridos }} productos cotizados
-                        </p>
-                    </div>
-
-                    <p class="text-sm text-gray-600 mb-4">
-                        Al elegir esta cotización, se cerrará la solicitud y podrá generar la Orden de Compra.
-                    </p>
-
-                    <div class="flex flex-col gap-3">
-                        <button
-                            @click="elegirCotizacion(true)"
-                            :disabled="formElegir.processing"
-                            class="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
-                            <span v-if="formElegir.processing">Procesando...</span>
-                            <span v-else>Elegir y Generar Orden de Compra</span>
-                        </button>
-                        <button
-                            @click="elegirCotizacion(false)"
-                            :disabled="formElegir.processing"
-                            class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
-                        >
-                            Solo marcar como elegida (generar orden después)
-                        </button>
-                        <button
-                            type="button"
-                            @click="mostrarModalElegir = false"
-                            class="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm"
-                        >
-                            Cancelar
-                        </button>
-                    </div>
+        <!-- Modal: Eliminar -->
+        <Modal :show="mostrarModalEliminar" @close="mostrarModalEliminar = false">
+            <div class="p-6">
+                <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-900 text-center mb-2">¿Eliminar definitivamente?</h3>
+                <p class="text-center text-sm text-gray-500 mb-6">
+                    Esta acción borrará la solicitud <strong>{{ solicitud.codigo_solicitud }}</strong> y todos sus datos.
+                </p>
+                <div class="flex justify-center gap-3">
+                    <button @click="mostrarModalEliminar = false" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Cancelar
+                    </button>
+                    <button @click="eliminarSolicitud" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700">
+                        Sí, eliminar
+                    </button>
                 </div>
             </div>
-        </div>
+        </Modal>
     </AppLayout>
 </template>

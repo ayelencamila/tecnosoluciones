@@ -4,7 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
-    oferta: Object,
+    cotizacion: Object,
     resultado: {
         type: Object,
         default: null
@@ -15,17 +15,19 @@ const props = defineProps({
 const mostrarFormulario = computed(() => !props.resultado);
 const mostrarResultado = computed(() => !!props.resultado);
 
-// Calcular total de la oferta
-const totalOferta = computed(() => {
-    if (!props.oferta?.detalles) return 0;
-    return props.oferta.detalles.reduce((sum, d) => sum + (d.cantidad_ofrecida * d.precio_unitario), 0);
+// Calcular total de la cotización desde respuestas
+const totalCotizacion = computed(() => {
+    if (!props.cotizacion?.respuestas) return 0;
+    return props.cotizacion.respuestas.reduce((sum, r) => {
+        return sum + ((r.precio_unitario || 0) * (r.cantidad_disponible || 0));
+    }, 0);
 });
 
-// Obtener moneda de la oferta
-const moneda = computed(() => props.oferta?.moneda || 'ARS');
+// Moneda por defecto ARS
+const moneda = computed(() => 'ARS');
 
 const form = useForm({
-    oferta_id: props.oferta?.id,
+    cotizacion_id: props.cotizacion?.id,
     motivo: '',
 });
 
@@ -56,10 +58,10 @@ const formatCurrency = (value, currency = 'USD') => {
     }).format(value);
 };
 
-// Formatear código de oferta
-const codigoOferta = computed(() => {
-    if (!props.oferta) return '';
-    return props.oferta.codigo_oferta || `#OF-${String(props.oferta.id).padStart(4, '0')}`;
+// Código de la cotización
+const codigoCotizacion = computed(() => {
+    if (!props.cotizacion) return '';
+    return props.cotizacion.solicitud?.codigo_solicitud || `COT-${String(props.cotizacion.id).padStart(4, '0')}`;
 });
 
 const irAOrden = () => {
@@ -167,12 +169,12 @@ const descargarPdf = () => {
                                 <span class="text-gray-700">Enviado por Email a <span class="text-indigo-600 font-medium">{{ resultado.email_destino }}</span>.</span>
                             </div>
                             
-                            <!-- Oferta marcada -->
+                            <!-- Cotización marcada -->
                             <div class="flex items-start">
                                 <svg class="w-5 h-5 text-emerald-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                 </svg>
-                                <span class="text-gray-700">Oferta {{ resultado.codigo_oferta || `#OF-${resultado.orden.id}` }} marcada como "<span class="font-bold">Procesada</span>".</span>
+                                <span class="text-gray-700">Cotización vinculada a la Orden de Compra.</span>
                             </div>
                             
                             <!-- Historial actualizado -->
@@ -198,7 +200,7 @@ const descargarPdf = () => {
                         <button 
                             @click="irAListado" 
                             class="inline-flex items-center px-5 py-2.5 bg-slate-600 hover:bg-slate-700 text-white font-medium rounded-md transition-colors">
-                            Volver al Listado de Ofertas
+                            Volver al Listado
                         </button>
                     </div>
                 </div>
@@ -294,12 +296,12 @@ const descargarPdf = () => {
                                 </div>
                             </template>
                             
-                            <!-- Oferta marcada -->
+                            <!-- Cotización vinculada -->
                             <div class="flex items-start">
                                 <svg class="w-5 h-5 text-emerald-500 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                                     <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
                                 </svg>
-                                <span class="text-gray-700">Oferta {{ resultado.codigo_oferta || `#OF-${resultado.orden.id}` }} marcada como "<span class="font-bold">Procesada</span>".</span>
+                                <span class="text-gray-700">Cotización vinculada a la Orden de Compra.</span>
                             </div>
                             
                             <!-- Error registrado -->
@@ -407,7 +409,7 @@ const descargarPdf = () => {
                             Generar y Enviar Orden de Compra
                         </h1>
                         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            Basada en Oferta {{ codigoOferta }}
+                            Basada en Cotización de {{ cotizacion?.proveedor?.razon_social || 'Proveedor' }}
                         </p>
                     </div>
 
@@ -447,19 +449,19 @@ const descargarPdf = () => {
                                     <div>
                                         <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Empresa:</span>
                                         <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1">
-                                            {{ oferta.proveedor.razon_social }}
+                                            {{ cotizacion?.proveedor?.razon_social || 'Sin proveedor' }}
                                         </p>
-                                        <p v-if="oferta.proveedor.cuit" class="text-xs text-gray-500 dark:text-gray-400">
-                                            CUIT: {{ oferta.proveedor.cuit }}
+                                        <p v-if="cotizacion?.proveedor?.cuit" class="text-xs text-gray-500 dark:text-gray-400">
+                                            CUIT: {{ cotizacion.proveedor.cuit }}
                                         </p>
                                     </div>
-                                    <div v-if="oferta.proveedor.telefono">
+                                    <div v-if="cotizacion?.proveedor?.telefono">
                                         <span class="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">WhatsApp:</span>
                                         <p class="text-sm font-semibold text-gray-900 dark:text-white mt-1 flex items-center">
                                             <svg class="w-4 h-4 mr-1 text-green-600" fill="currentColor" viewBox="0 0 24 24">
                                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/>
                                             </svg>
-                                            {{ oferta.proveedor.telefono }}
+                                            {{ cotizacion.proveedor.telefono }}
                                         </p>
                                     </div>
                                 </div>
@@ -478,16 +480,16 @@ const descargarPdf = () => {
                                         </tr>
                                     </thead>
                                     <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                        <tr v-for="detalle in oferta.detalles" :key="detalle.id" class="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
-                                            <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{{ detalle.producto?.codigo || '-' }}</td>
+                                        <tr v-for="respuesta in cotizacion?.respuestas" :key="respuesta.id" class="hover:bg-indigo-50 dark:hover:bg-indigo-900/10 transition-colors">
+                                            <td class="px-6 py-4 text-sm text-gray-600 dark:text-gray-400 font-mono">{{ respuesta.producto?.codigo || '-' }}</td>
                                             <td class="px-6 py-4">
-                                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ detalle.producto?.nombre || 'Producto' }}</div>
-                                                <span v-if="detalle.disponibilidad" class="text-xs text-gray-500 dark:text-gray-400">({{ detalle.disponibilidad }})</span>
+                                                <div class="text-sm font-medium text-gray-900 dark:text-white">{{ respuesta.producto?.nombre || 'Producto' }}</div>
+                                                <span v-if="respuesta.plazo_entrega_dias" class="text-xs text-gray-500 dark:text-gray-400">(Entrega: {{ respuesta.plazo_entrega_dias }} días)</span>
                                             </td>
-                                            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-white">{{ detalle.cantidad_ofrecida }}</td>
-                                            <td class="px-6 py-4 text-sm text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(detalle.precio_unitario, moneda) }}</td>
+                                            <td class="px-6 py-4 text-sm text-center font-semibold text-gray-900 dark:text-white">{{ respuesta.cantidad_disponible }}</td>
+                                            <td class="px-6 py-4 text-sm text-right text-gray-700 dark:text-gray-300">{{ formatCurrency(respuesta.precio_unitario, moneda) }}</td>
                                             <td class="px-6 py-4 text-sm text-right font-bold text-gray-900 dark:text-white">
-                                                {{ formatCurrency(detalle.cantidad_ofrecida * detalle.precio_unitario, moneda) }}
+                                                {{ formatCurrency(respuesta.cantidad_disponible * respuesta.precio_unitario, moneda) }}
                                             </td>
                                         </tr>
                                     </tbody>
@@ -499,17 +501,17 @@ const descargarPdf = () => {
                                 <div class="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg px-6 py-4">
                                     <div class="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase mb-1">Total de la Orden</div>
                                     <div class="flex items-baseline">
-                                        <span class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{{ formatCurrency(totalOferta, moneda) }}</span>
+                                        <span class="text-3xl font-bold text-indigo-600 dark:text-indigo-400">{{ formatCurrency(totalCotizacion, moneda) }}</span>
                                         <span class="text-sm text-gray-500 dark:text-gray-400 ml-2">({{ moneda }})</span>
                                     </div>
                                 </div>
                             </div>
 
-                            <!-- Condiciones -->
-                            <div v-if="oferta.condiciones" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <!-- Referencia a Solicitud -->
+                            <div v-if="cotizacion?.solicitud" class="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
                                 <div class="bg-gray-50 dark:bg-gray-750 rounded-lg p-4">
-                                    <span class="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Condiciones:</span>
-                                    <p class="text-sm text-gray-700 dark:text-gray-300 mt-2">{{ oferta.condiciones }}</p>
+                                    <span class="text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wide">Solicitud de origen:</span>
+                                    <p class="text-sm text-gray-700 dark:text-gray-300 mt-2 font-mono">{{ cotizacion.solicitud.codigo_solicitud }}</p>
                                 </div>
                             </div>
                         </div>
@@ -539,7 +541,7 @@ const descargarPdf = () => {
                                         v-model="form.motivo"
                                         class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
                                         rows="4"
-                                        placeholder="Ej: Oferta seleccionada por mejor precio y condiciones de entrega. Autorizada por gerencia."
+                                        placeholder="Ej: Cotización seleccionada por mejor precio y plazo de entrega. Autorizada por gerencia."
                                     ></textarea>
                                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Esta justificación quedará registrada en el historial de la orden</p>
                                 </div>

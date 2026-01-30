@@ -69,22 +69,67 @@ const imprimirComprobanteEntrega = () => {
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
                 
-                <div class="flex justify-between items-center">
-                    <Link :href="route('reparaciones.index')"><SecondaryButton> &larr; Volver al Listado </SecondaryButton></Link>
-                    <div class="space-x-3">
-                        <SecondaryButton @click="imprimirComprobanteIngreso" class="bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100 inline-flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                            Comprobante de Ingreso
-                        </SecondaryButton>
-                        <SecondaryButton 
-                            v-if="['Reparado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" 
-                            @click="imprimirComprobanteEntrega" 
-                            class="bg-green-50 border-green-300 text-green-700 hover:bg-green-100 inline-flex items-center gap-1">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
-                            Comprobante de Entrega
-                        </SecondaryButton>
-                        <DangerButton v-if="!['Cancelado', 'Anulado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" @click="showDeleteModal = true">Anular Reparación</DangerButton>
-                        <Link v-if="!['Cancelado', 'Anulado'].includes(reparacion.estado?.nombreEstado)" :href="route('reparaciones.edit', reparacion.reparacionID)"><PrimaryButton> Actualizar / Diagnosticar </PrimaryButton></Link>
+                <!-- Barra de acciones reorganizada -->
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <!-- Navegación -->
+                        <Link :href="route('reparaciones.index')">
+                            <SecondaryButton class="w-full sm:w-auto">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                                </svg>
+                                Volver al Listado
+                            </SecondaryButton>
+                        </Link>
+                        
+                        <!-- Acciones agrupadas -->
+                        <div class="flex flex-col sm:flex-row gap-3">
+                            <!-- Grupo: Comprobantes -->
+                            <div class="flex items-center gap-2">
+                                <span class="hidden sm:inline text-xs text-gray-400 uppercase tracking-wide">Comprobantes:</span>
+                                <div class="flex gap-2">
+                                    <button 
+                                        @click="imprimirComprobanteIngreso" 
+                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+                                        title="Imprimir comprobante de ingreso"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                        </svg>
+                                        <span class="hidden sm:inline">Ingreso</span>
+                                    </button>
+                                    <button 
+                                        v-if="['Reparado', 'Entregado', 'Listo para entregar'].includes(reparacion.estado?.nombreEstado)" 
+                                        @click="imprimirComprobanteEntrega" 
+                                        class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+                                        title="Imprimir comprobante de entrega"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span class="hidden sm:inline">Entrega</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Separador visual -->
+                            <div class="hidden sm:block w-px bg-gray-200"></div>
+                            
+                            <!-- Grupo: Acciones principales -->
+                            <div class="flex gap-2">
+                                <DangerButton 
+                                    v-if="!['Cancelado', 'Anulado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" 
+                                    @click="showDeleteModal = true"
+                                    class="!px-3"
+                                    title="Anular reparación"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 sm:mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    <span class="hidden sm:inline">Anular</span>
+                                </DangerButton>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
