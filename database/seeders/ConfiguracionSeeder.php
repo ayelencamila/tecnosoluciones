@@ -28,6 +28,7 @@ class ConfiguracionSeeder extends Seeder
         // 4. STOCK Y COMPRAS (CU-20)
         Configuracion::set('stock_minimo_global', 5, 'Alerta stock bajo por defecto.');
         Configuracion::set('alerta_stock_bajo', 'true', 'Activar alertas visuales de stock.');
+        Configuracion::set('compras_generacion_automatica', 'false', 'Generar solicitudes de cotización automáticamente cuando se detecta stock bajo (true/false).');
         Configuracion::set('solicitud_cotizacion_dias_vencimiento', 7, '[Compras] Días de vencimiento por defecto para solicitudes de cotización.');
         Configuracion::set('solicitud_cotizacion_dias_recordatorio', 2, '[Compras] Días desde el envío para enviar recordatorio a proveedores.');
         Configuracion::set('solicitud_cotizacion_max_recordatorios', 3, '[Compras] Cantidad máxima de recordatorios a enviar por solicitud.');

@@ -39,7 +39,7 @@ class BonificacionPendienteAprobacion extends Notification implements ShouldQueu
             'tipo' => 'bonificacion',
             'icono' => 'gift',
             'color' => 'warning',
-            'url' => route('bonificaciones.show', $this->bonificacion->bonificacionID),
+            'url' => '/bonificaciones/' . $this->bonificacion->bonificacionID,
             'bonificacion_id' => $this->bonificacion->bonificacionID,
             'reparacion_codigo' => $this->bonificacion->reparacion->codigo_reparacion,
         ];

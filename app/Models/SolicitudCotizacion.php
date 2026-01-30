@@ -202,4 +202,16 @@ class SolicitudCotizacion extends Model
             ->where('estado_envio', 'Enviado')
             ->count();
     }
+
+    /**
+     * Marca la solicitud como respondida/cerrada cuando se elige una oferta
+     */
+    public function marcarRespondida(): void
+    {
+        $estadoCerrada = EstadoSolicitud::cerrada();
+        
+        if ($estadoCerrada) {
+            $this->update(['estado_id' => $estadoCerrada->id]);
+        }
+    }
 }

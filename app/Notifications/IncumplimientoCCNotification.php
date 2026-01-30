@@ -84,7 +84,7 @@ class IncumplimientoCCNotification extends Notification implements ShouldQueue
             'saldo_total' => $this->saldoTotal,
             'saldo_vencido' => $this->saldoVencido,
             'limite_credito' => $this->limiteCredito,
-            'url' => route('clientes.show', $this->cliente->clienteID),
+            'url' => '/clientes/' . $this->cliente->clienteID,
             'fecha' => now()->format('d/m/Y H:i'),
         ];
     }

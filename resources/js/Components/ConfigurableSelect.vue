@@ -7,6 +7,7 @@
             <div class="flex-1">
                 <select
                     :id="id"
+                    :name="id"
                     :value="modelValue"
                     @change="emitChange($event.target.value)"
                     class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm w-full"

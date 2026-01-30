@@ -7,6 +7,7 @@ use App\Models\SolicitudCotizacion;
 use App\Models\EstadoSolicitud;
 use App\Models\Producto;
 use App\Models\Proveedor;
+use App\Models\Configuracion;
 use App\Services\Compras\SolicitudCotizacionService;
 use App\Services\Compras\MonitoreoStockService;
 use Illuminate\Http\Request;
@@ -69,11 +70,15 @@ class SolicitudCotizacionController extends Controller
 
         $solicitudes = $query->paginate(15)->withQueryString();
 
+        // Verificar si la generación automática está habilitada
+        $generacionAutomatica = Configuracion::get('compras_generacion_automatica', 'false') === 'true';
+
         return Inertia::render('Compras/SolicitudesCotizacion/Index', [
             'solicitudes' => $solicitudes,
             'estados' => EstadoSolicitud::activos()->ordenados()->get(),
             'filtros' => $request->only(['codigo', 'estado_id', 'fecha_desde', 'fecha_hasta']),
             'resumenStock' => $this->monitoreoService->obtenerResumenStock(),
+            'generacionAutomatica' => $generacionAutomatica,
         ]);
     }
 
@@ -183,6 +188,29 @@ class SolicitudCotizacionController extends Controller
             'ranking' => $ranking,
             'puedeEnviar' => $solicitud->puedeEnviarse() || 
                 ($solicitud->estaEnviada() && $solicitud->cotizacionesProveedores()->where('estado_envio', 'Pendiente')->exists()),
+        ]);
+    }
+
+    /**
+     * Ver ranking completo de respuestas
+     * 
+     * GET /compras/solicitudes-cotizacion/{solicitud}/ranking
+     */
+    public function ranking(SolicitudCotizacion $solicitud): Response
+    {
+        $solicitud->load([
+            'estado',
+            'detalles.producto',
+            'cotizacionesProveedores.proveedor',
+            'cotizacionesProveedores.respuestas.producto',
+        ]);
+
+        // Obtener ranking ordenado de mejor a peor
+        $ranking = $this->solicitudService->obtenerRankingOfertas($solicitud);
+
+        return Inertia::render('Compras/SolicitudesCotizacion/Ranking', [
+            'solicitud' => $solicitud,
+            'ranking' => $ranking,
         ]);
     }
 
@@ -306,12 +334,194 @@ class SolicitudCotizacionController extends Controller
         $resumen = $this->monitoreoService->obtenerResumenStock();
         $porProveedor = $this->monitoreoService->agruparPorProveedor($productosBajoStock);
 
+        // Verificar si la generación automática está habilitada
+        $generacionAutomatica = Configuracion::get('compras_generacion_automatica', 'false') === 'true';
+
         return Inertia::render('Compras/MonitoreoStock/Index', [
             'productosBajoStock' => $productosBajoStock,
             'productosAltaRotacion' => $productosAltaRotacion,
             'porProveedor' => $porProveedor,
             'resumen' => $resumen,
+            'generacionAutomatica' => $generacionAutomatica,
         ]);
+    }
+
+    /**
+     * Elegir una cotización ganadora y opcionalmente generar orden de compra
+     * 
+     * POST /compras/solicitudes-cotizacion/{solicitud}/elegir-cotizacion/{cotizacion}
+     * 
+     * Lineamiento CU-20/CU-22: Permite seleccionar la mejor oferta y continuar
+     * al flujo de generación de orden de compra
+     */
+    public function elegirCotizacion(
+        Request $request,
+        SolicitudCotizacion $solicitud,
+        \App\Models\CotizacionProveedor $cotizacion
+    ): RedirectResponse {
+        // Verificar que la cotización pertenece a la solicitud
+        if ($cotizacion->solicitud_id !== $solicitud->id) {
+            return back()->with('error', 'La cotización no pertenece a esta solicitud');
+        }
+
+        // Verificar que ha respondido
+        if (!$cotizacion->fecha_respuesta) {
+            return back()->with('error', 'El proveedor aún no ha respondido');
+        }
+
+        // Verificar que no ha sido rechazada
+        if ($cotizacion->motivo_rechazo) {
+            return back()->with('error', 'El proveedor rechazó esta solicitud');
+        }
+
+        try {
+            // Marcar la cotización como elegida
+            $cotizacion->update(['elegida' => true]);
+
+            // Cerrar la solicitud si está abierta/enviada
+            if (in_array($solicitud->estado->nombre, ['Abierta', 'Enviada'])) {
+                $this->solicitudService->cerrarSolicitud($solicitud);
+            }
+
+            // Si el usuario quiere generar orden directamente
+            if ($request->input('generar_orden')) {
+                // Crear oferta desde la cotización para seguir el flujo CU-21/CU-22
+                $oferta = $this->crearOfertaDesdeCotizacion($cotizacion);
+                
+                return redirect()->route('ordenes-compra.create', ['oferta_id' => $oferta->id])
+                    ->with('success', "Cotización de {$cotizacion->proveedor->razon_social} elegida. Complete la orden de compra.");
+            }
+
+            return back()->with('success', "Cotización de {$cotizacion->proveedor->razon_social} elegida como ganadora.");
+
+        } catch (\Exception $e) {
+            return back()->with('error', 'Error al elegir cotización: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Crear una OfertaCompra desde una CotizacionProveedor
+     * para integrarse con el flujo existente de CU-21/CU-22
+     */
+    protected function crearOfertaDesdeCotizacion(\App\Models\CotizacionProveedor $cotizacion): \App\Models\OfertaCompra
+    {
+        $estadoElegida = \App\Models\EstadoOferta::where('nombre', 'Elegida')->first();
+        
+        // Generar código único
+        $ultimoNumero = \App\Models\OfertaCompra::whereYear('created_at', now()->year)->max('id') ?? 0;
+        $codigoOferta = 'OF-' . now()->format('Y') . '-' . str_pad($ultimoNumero + 1, 4, '0', STR_PAD_LEFT);
+
+        // Calcular total
+        $total = $cotizacion->respuestas->sum(function ($respuesta) {
+            return ($respuesta->precio_unitario ?? 0) * ($respuesta->cantidad_disponible ?? $respuesta->cantidad_solicitada ?? 1);
+        });
+
+        // Crear la oferta
+        $oferta = \App\Models\OfertaCompra::create([
+            'codigo_oferta' => $codigoOferta,
+            'proveedor_id' => $cotizacion->proveedor_id,
+            'solicitud_id' => $cotizacion->solicitud_id,
+            'cotizacion_proveedor_id' => $cotizacion->id,
+            'estado_id' => $estadoElegida->id,
+            'fecha_recepcion' => $cotizacion->fecha_respuesta,
+            'fecha_validez' => $cotizacion->solicitud->fecha_vencimiento,
+            'total_estimado' => $total,
+            'observaciones' => 'Oferta generada automáticamente desde cotización elegida',
+            'user_id' => auth()->id(),
+        ]);
+
+        // Crear detalles de la oferta
+        foreach ($cotizacion->respuestas as $respuesta) {
+            \App\Models\DetalleOferta::create([
+                'oferta_id' => $oferta->id,
+                'producto_id' => $respuesta->producto_id,
+                'cantidad' => $respuesta->cantidad_disponible ?? $respuesta->cantidad_solicitada ?? 1,
+                'precio_unitario' => $respuesta->precio_unitario ?? 0,
+                'disponibilidad' => $respuesta->disponibilidad_inmediata ? 'inmediata' : 'a_pedido',
+                'dias_entrega' => $respuesta->plazo_entrega_dias ?? 0,
+            ]);
+        }
+
+        return $oferta;
+    }
+
+    /**
+     * Elegir cotización y generar Orden de Compra automáticamente
+     * 
+     * POST /compras/solicitudes-cotizacion/{solicitud}/elegir-generar-orden/{cotizacion}
+     * 
+     * Este método implementa el flujo automático completo:
+     * 1. Marca la cotización como elegida
+     * 2. Crea la oferta de compra
+     * 3. Genera la orden de compra
+     * 4. Envía al proveedor por WhatsApp/Email
+     * 5. Cierra la solicitud
+     */
+    public function elegirYGenerarOrden(
+        Request $request,
+        SolicitudCotizacion $solicitud,
+        \App\Models\CotizacionProveedor $cotizacion
+    ): Response {
+        // Validaciones
+        if ($cotizacion->solicitud_id !== $solicitud->id) {
+            return back()->with('error', 'La cotización no pertenece a esta solicitud');
+        }
+
+        if (!$cotizacion->fecha_respuesta) {
+            return back()->with('error', 'El proveedor aún no ha respondido');
+        }
+
+        if ($cotizacion->motivo_rechazo) {
+            return back()->with('error', 'El proveedor rechazó esta solicitud');
+        }
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // 1. Marcar la cotización como elegida
+            $cotizacion->update(['elegida' => true]);
+
+            // 2. Crear la oferta de compra
+            $oferta = $this->crearOfertaDesdeCotizacion($cotizacion);
+
+            // 3. Generar la orden de compra automáticamente
+            $registrarCompraService = app(\App\Services\Compras\RegistrarCompraService::class);
+            $motivo = $request->input('motivo', 'Seleccionada como mejor oferta del ranking automático');
+            
+            $resultado = $registrarCompraService->ejecutar(
+                ofertaId: $oferta->id,
+                usuarioId: auth()->id(),
+                observaciones: $motivo
+            );
+
+            $orden = $resultado['orden'];
+
+            // 4. Cerrar la solicitud
+            if (in_array($solicitud->estado->nombre, ['Abierta', 'Enviada'])) {
+                $this->solicitudService->cerrarSolicitud($solicitud);
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            // Retornar con los datos de la orden generada
+            return Inertia::render('Compras/SolicitudesCotizacion/Ranking', [
+                'solicitud' => $solicitud->fresh(['detalles.producto', 'cotizacionesProveedores.proveedor', 'cotizacionesProveedores.respuestas.producto']),
+                'ranking' => $this->solicitudService->obtenerRankingOfertas($solicitud),
+                'ordenGenerada' => [
+                    'id' => $orden->id,
+                    'numero_oc' => $orden->numero_oc,
+                    'total' => $orden->total_final,
+                    'proveedor' => $orden->proveedor->razon_social,
+                    'estado' => $orden->estado->nombre,
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error("Error al generar orden automática: " . $e->getMessage());
+            
+            return back()->with('error', 'Error al generar la orden de compra: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -364,6 +574,63 @@ class SolicitudCotizacionController extends Controller
 
         } catch (\Exception $e) {
             return back()->with('error', 'Error al enviar recordatorio: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Elimina una solicitud de cotización
+     * 
+     * Validaciones:
+     * - No permitir si ya hay Ofertas de Compra formales generadas
+     * - No permitir si está en estado que requiere gestión activa
+     * 
+     * DELETE /solicitudes-cotizacion/{solicitud}
+     */
+    public function destroy(SolicitudCotizacion $solicitud): RedirectResponse
+    {
+        try {
+            DB::beginTransaction();
+            
+            // VALIDACIÓN 1: Verificar si ya hay ofertas de compra generadas desde esta solicitud
+            $ofertasGeneradas = \App\Models\OfertaCompra::where('solicitud_id', $solicitud->id)->count();
+            
+            if ($ofertasGeneradas > 0) {
+                return back()->with('error', 
+                    'No se puede eliminar esta solicitud porque ya tiene ' . 
+                    $ofertasGeneradas . ' oferta(s) de compra registrada(s). ' .
+                    'Debe eliminar primero las ofertas relacionadas.'
+                );
+            }
+            
+            // VALIDACIÓN 2: Verificar si el estado permite eliminación
+            $estadosNoEliminables = ['Completada', 'Procesada'];
+            if (in_array($solicitud->estado->nombre, $estadosNoEliminables)) {
+                return back()->with('error', 
+                    'No se puede eliminar una solicitud en estado "' . $solicitud->estado->nombre . '". ' .
+                    'Solo se permiten eliminar solicitudes en estados tempranos.'
+                );
+            }
+            
+            // Eliminar cotizaciones de proveedores y sus respuestas asociadas
+            foreach ($solicitud->cotizacionesProveedores as $cotizacion) {
+                $cotizacion->respuestas()->delete();
+                $cotizacion->delete();
+            }
+            
+            // Eliminar detalles
+            $solicitud->detalles()->delete();
+            
+            // Eliminar solicitud
+            $solicitud->delete();
+            
+            DB::commit();
+            
+            return redirect()->route('solicitudes-cotizacion.index')
+                ->with('success', 'Solicitud eliminada correctamente');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error al eliminar la solicitud: ' . $e->getMessage());
         }
     }
 }

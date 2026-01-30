@@ -381,4 +381,35 @@ class OfertaCompraController extends Controller
                 ->withErrors(['error' => 'Error al registrar la cancelación: ' . $e->getMessage()]);
         }
     }
+    /**
+     * Elimina una oferta de compra
+     * 
+     * DELETE /ofertas/{oferta}
+     */
+    public function destroy(OfertaCompra $oferta): RedirectResponse
+    {
+        try {
+            DB::beginTransaction();
+            
+            // Verificar que no tenga orden de compra asociada
+            if ($oferta->ordenesCompra()->exists()) {
+                return back()->with('error', 'No se puede eliminar esta oferta porque tiene una orden de compra asociada');
+            }
+            
+            // Eliminar detalles
+            $oferta->detalles()->delete();
+            
+            // Eliminar oferta
+            $oferta->delete();
+            
+            DB::commit();
+            
+            return redirect()->route('ofertas.index')
+                ->with('success', 'Oferta eliminada correctamente');
+                
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->with('error', 'Error al eliminar la oferta: ' . $e->getMessage());
+        }
+    }
 }

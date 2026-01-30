@@ -88,9 +88,15 @@ class MonitorearStockCommand extends Command
         
         $this->table($headers, $rows);
 
-        // 2. Generar solicitudes automáticas (si se solicitó)
-        if ($this->option('generar')) {
-            $this->info('📋 Generando solicitudes de cotización automáticas...');
+        // 2. Verificar si el proceso automático está habilitado (parámetro del sistema)
+        $generacionAutomatica = Configuracion::get('compras_generacion_automatica', 'false') === 'true';
+        $debeGenerar = $this->option('generar') || $generacionAutomatica;
+        $debeEnviar = $this->option('enviar') || $generacionAutomatica;
+
+        // 2. Generar solicitudes automáticas (si se solicitó o está habilitado en configuración)
+        if ($debeGenerar) {
+            $origen = $generacionAutomatica ? '(proceso automático habilitado)' : '(opción --generar)';
+            $this->info("📋 Generando solicitudes de cotización automáticas {$origen}...");
             
             // Usar parámetro de comando o configuración global
             $diasVencimiento = $this->option('dias') 
@@ -106,8 +112,8 @@ class MonitorearStockCommand extends Command
                 if ($resultado['solicitudes_creadas'] > 0) {
                     $this->info("✅ Se generaron {$resultado['solicitudes_creadas']} solicitud(es) de cotización");
                     
-                    // 3. Enviar si se solicitó
-                    if ($this->option('enviar') && isset($resultado['solicitudes'])) {
+                    // 3. Enviar automáticamente si está habilitado o se solicitó
+                    if ($debeEnviar && isset($resultado['solicitudes'])) {
                         $canal = $this->option('canal') ?? 'inteligente';
                         $this->info("📤 Enviando solicitudes a proveedores por {$canal}...");
                         
@@ -136,6 +142,7 @@ class MonitorearStockCommand extends Command
             $this->line('');
             $this->info('💡 Use --generar para crear solicitudes automáticas');
             $this->info('💡 Use --generar --enviar para crear y enviar por WhatsApp');
+            $this->info('💡 O active "Generación automática" en Configuración del Sistema');
         }
 
         // 4. Marcar solicitudes vencidas

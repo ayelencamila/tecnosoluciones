@@ -350,7 +350,7 @@ onUnmounted(() => {
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-2">
                                         <p class="text-sm font-medium text-gray-900 truncate">
-                                            {{ notification.data.titulo }}
+                                            {{ notification.data.titulo || notification.data.title || 'Notificación' }}
                                         </p>
                                         <span 
                                             v-if="notification.data?.urgente"
@@ -360,7 +360,7 @@ onUnmounted(() => {
                                         </span>
                                     </div>
                                     <p class="text-xs text-gray-600 mt-0.5 line-clamp-2">
-                                        {{ notification.data.mensaje }}
+                                        {{ notification.data.mensaje || notification.data.message || '' }}
                                     </p>
                                     
                                     <!-- Metadata -->

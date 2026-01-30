@@ -160,9 +160,11 @@ class Proveedor extends Model
      */
     public function actualizarCalificacion(): void
     {
+        $estadoElegidaId = \App\Models\EstadoOferta::idPorNombre('Elegida');
+        
         // Obtener ofertas elegidas de los últimos 6 meses
         $ofertas = $this->ofertas()
-            ->where('estado', OfertaCompra::ESTADO_ELEGIDA)
+            ->where('estado_id', $estadoElegidaId)
             ->where('created_at', '>=', now()->subMonths(6))
             ->get();
 

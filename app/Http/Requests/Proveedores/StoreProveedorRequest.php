@@ -20,6 +20,7 @@ class StoreProveedorRequest extends FormRequest
             'cuit' => ['nullable', 'digits:11', 'unique:proveedores,cuit'], // Opcional
             'email' => ['nullable', 'email', 'max:100'], // Opcional
             'telefono' => ['nullable', 'string', 'max:20'],
+            'whatsapp' => ['nullable', 'string', 'max:20'],
             
             // Condiciones Comerciales
             'forma_pago_preferida' => ['nullable', 'string', 'max:50'],
@@ -37,6 +38,7 @@ class StoreProveedorRequest extends FormRequest
         // Kendall: Mensajes claros para el usuario
         return [
             'cuit.digits' => 'El CUIT debe tener exactamente 11 números sin guiones.',
+            'cuit.unique' => 'Ya existe un proveedor con este CUIT.',
             'razon_social.unique' => 'Ya existe un proveedor con esta Razón Social.',
         ];
     }

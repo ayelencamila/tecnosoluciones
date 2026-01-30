@@ -3,14 +3,10 @@
 namespace App\Notifications;
 
 use App\Models\CotizacionProveedor;
-use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
-use Illuminate\Contracts\Queue\ShouldQueue;
 
-class ProveedorRespondioCotizacion extends Notification implements ShouldQueue
+class ProveedorRespondioCotizacion extends Notification
 {
-    use Queueable;
-
     public function __construct(
         public CotizacionProveedor $cotizacion
     ) {}
@@ -30,17 +26,19 @@ class ProveedorRespondioCotizacion extends Notification implements ShouldQueue
     {
         $solicitud = $this->cotizacion->solicitud;
         $proveedor = $this->cotizacion->proveedor;
-        
+        $codigo = $solicitud->codigo_solicitud ?? 'N/A';
+        $razon = $proveedor->razon_social ?? 'Proveedor';
+        $mensaje = $razon . ' respondió a la solicitud ' . $codigo;
         return [
-            'type' => 'cotizacion_respondida',
-            'title' => 'Nueva respuesta de cotización',
-            'message' => "{$proveedor->razon_social} respondió a la solicitud {$solicitud->codigo_solicitud}",
-            'icon' => '📋',
-            'action_url' => route('compras.solicitudes-cotizacion.show', $solicitud->id),
+            'titulo' => 'Nueva respuesta de cotización',
+            'mensaje' => $mensaje,
+            'tipo' => 'cotizacion_respondida',
+            'icono' => null,
+            'url' => '/solicitudes-cotizacion/' . $solicitud->id,
             'solicitud_id' => $solicitud->id,
-            'solicitud_codigo' => $solicitud->codigo_solicitud,
+            'solicitud_codigo' => $codigo,
             'proveedor_id' => $proveedor->id,
-            'proveedor_nombre' => $proveedor->razon_social,
+            'proveedor_nombre' => $razon,
             'cotizacion_id' => $this->cotizacion->id,
             'fecha_respuesta' => $this->cotizacion->fecha_respuesta?->toIso8601String(),
         ];

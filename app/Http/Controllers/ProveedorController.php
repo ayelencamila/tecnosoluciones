@@ -74,6 +74,15 @@ class ProveedorController extends Controller
     // CU-16: Registrar Proveedor
     public function store(StoreProveedorRequest $request)
     {
+        // Verificar nuevamente si ya existe (protección contra race conditions)
+        if ($request->cuit && Proveedor::where('cuit', $request->cuit)->exists()) {
+            return back()->withErrors(['cuit' => 'Ya existe un proveedor con este CUIT.'])->withInput();
+        }
+        
+        if (Proveedor::where('razon_social', $request->razon_social)->exists()) {
+            return back()->withErrors(['razon_social' => 'Ya existe un proveedor con esta Razón Social.'])->withInput();
+        }
+
         DB::transaction(function () use ($request) {
             // 1. Crear Dirección
             $direccion = Direccion::create([
@@ -88,6 +97,7 @@ class ProveedorController extends Controller
                 'cuit' => $request->cuit,
                 'email' => $request->email,
                 'telefono' => $request->telefono,
+                'whatsapp' => $request->whatsapp,
                 'forma_pago_preferida' => $request->forma_pago_preferida,
                 'plazo_entrega_estimado' => $request->plazo_entrega_estimado,
                 'direccion_id' => $direccion->direccionID,

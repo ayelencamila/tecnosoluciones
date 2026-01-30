@@ -3,9 +3,12 @@
  * Vista: Listado de Solicitudes de Cotización (CU-20)
  */
 import { ref, watch } from 'vue'
-import { router, Link } from '@inertiajs/vue3'
+import { router, Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import Pagination from '@/Components/Pagination.vue'
+import Modal from '@/Components/Modal.vue'
+import DangerButton from '@/Components/DangerButton.vue'
+import SecondaryButton from '@/Components/SecondaryButton.vue'
 import debounce from 'lodash/debounce'
 
 const props = defineProps({
@@ -49,6 +52,29 @@ function getEstadoClass(estado) {
 function formatDate(date) {
     return new Date(date).toLocaleDateString('es-AR')
 }
+
+// Modal de eliminación
+const confirmingDeletion = ref(false)
+const solicitudToDelete = ref(null)
+
+function confirmDelete(solicitud) {
+    solicitudToDelete.value = solicitud
+    confirmingDeletion.value = true
+}
+
+function closeModal() {
+    confirmingDeletion.value = false
+    solicitudToDelete.value = null
+}
+
+function deleteSolicitud() {
+    if (!solicitudToDelete.value) return
+    
+    router.delete(route('solicitudes-cotizacion.destroy', solicitudToDelete.value.id), {
+        preserveScroll: true,
+        onSuccess: () => closeModal(),
+    })
+}
 </script>
 
 <template>
@@ -66,18 +92,7 @@ function formatDate(date) {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 
                 <!-- Barra de acciones -->
-                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-                    <div class="flex items-center gap-3">
-                        <Link
-                            :href="route('monitoreo-stock.index')"
-                            class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                        >
-                            <svg class="w-4 h-4 mr-2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
-                            </svg>
-                            Monitoreo de Stock
-                        </Link>
-                    </div>
+                <div class="flex items-center justify-end mb-6">
                     <Link
                         :href="route('solicitudes-cotizacion.create')"
                         class="inline-flex items-center justify-center px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition-colors"
@@ -89,32 +104,20 @@ function formatDate(date) {
                     </Link>
                 </div>
 
-                <!-- Alerta de stock bajo -->
+                <!-- Alerta informativa de stock bajo -->
                 <div v-if="resumenStock?.bajo_stock > 0" class="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div class="flex items-start">
-                            <div class="flex-shrink-0">
-                                <svg class="w-5 h-5 text-amber-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                                </svg>
-                            </div>
-                            <div class="ml-3">
-                                <p class="text-sm font-medium text-amber-800">
-                                    {{ resumenStock.bajo_stock }} producto(s) bajo stock mínimo
-                                </p>
-                                <p class="text-sm text-amber-700 mt-0.5">
-                                    {{ resumenStock.sin_stock }} sin stock disponible
-                                </p>
-                            </div>
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                        <div class="ml-3">
+                            <p class="text-sm text-amber-800">
+                                <span class="font-medium">{{ resumenStock.bajo_stock }} producto(s)</span> bajo stock mínimo
+                                <span v-if="resumenStock.sin_stock > 0" class="text-amber-700">
+                                    • {{ resumenStock.sin_stock }} sin stock
+                                </span>
+                            </p>
                         </div>
-                        <Link
-                            :href="route('solicitudes-cotizacion.generar-automaticas')"
-                            method="post"
-                            as="button"
-                            class="inline-flex items-center px-3 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-md hover:bg-amber-700 transition-colors"
-                        >
-                            Generar Solicitudes Automáticas
-                        </Link>
                     </div>
                 </div>
 
@@ -241,13 +244,15 @@ function formatDate(date) {
                                             {{ solicitud.estado?.nombre }}
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-center">
-                                        <Link
-                                            :href="route('solicitudes-cotizacion.show', solicitud.id)"
-                                            class="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                                        >
-                                            Ver detalle
-                                        </Link>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right">
+                                        <div class="flex justify-end space-x-3 items-center">
+                                            <Link :href="route('solicitudes-cotizacion.show', solicitud.id)" class="text-indigo-600 hover:text-indigo-900 font-bold" title="Ver Detalle">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                            </Link>
+                                            <button @click="confirmDelete(solicitud)" class="text-red-600 hover:text-red-900 transition" title="Eliminar">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             </tbody>
@@ -276,5 +281,37 @@ function formatDate(date) {
                 <Pagination v-if="solicitudes.links && solicitudes.data?.length" :links="solicitudes.links" class="mt-6" />
             </div>
         </div>
+
+        <!-- Modal de confirmación de eliminación -->
+        <Modal :show="confirmingDeletion" @close="closeModal">
+            <div class="p-6">
+                <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">
+                    ¿Está seguro de eliminar esta solicitud?
+                </h2>
+                <p class="text-center text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    Solicitud: <strong class="text-gray-900 dark:text-white">{{ solicitudToDelete?.codigo_solicitud }}</strong>
+                </p>
+                <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Esta acción no se puede deshacer.
+                </p>
+                <div class="flex gap-3 justify-center">
+                    <button
+                        @click="closeModal"
+                        class="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600">
+                        Cancelar
+                    </button>
+                    <button
+                        @click="deleteSolicitud"
+                        class="px-6 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>

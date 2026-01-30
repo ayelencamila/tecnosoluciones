@@ -147,7 +147,6 @@ const inventarioItems = computed(() => {
 const comprasItems = computed(() => {
     const items = [];
     
-    if (can('compras.monitoreo')) items.push({ name: 'Monitoreo de Stock', route: 'monitoreo-stock.index' });
     if (can('compras.cotizaciones.ver')) items.push({ name: 'Solicitudes de Cotización', route: 'solicitudes-cotizacion.index' });
     if (canAny(['compras.ordenes.ver', 'compras.ordenes.crear'])) items.push({ name: 'Ofertas de Compra', route: 'ofertas.index' });
     if (can('compras.ordenes.ver')) items.push({ name: 'Órdenes de Compra', route: 'ordenes.index' });

@@ -221,7 +221,8 @@ class ConfiguracionService
             )->values(),
             
             'Compras y Cotizaciones' => $todas->filter(fn($c) => 
-                str_starts_with($c->clave, 'solicitud_cotizacion_')
+                str_starts_with($c->clave, 'solicitud_cotizacion_') ||
+                $c->clave === 'compras_generacion_automatica'
             )->values(),
             
             'Comunicación (WhatsApp)' => $todas->filter(fn($c) => 

@@ -512,6 +512,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cancelar-evaluacion', [\App\Http\Controllers\OfertaCompraController::class, 'cancelarEvaluacion'])->name('cancelar-evaluacion');
         Route::post('/', [\App\Http\Controllers\OfertaCompraController::class, 'store'])->name('store');
         Route::get('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'show'])->name('show');
+        Route::delete('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'destroy'])->name('destroy');
         Route::get('/{oferta}/confirmar-seleccion', [\App\Http\Controllers\OfertaCompraController::class, 'confirmarSeleccion'])->name('confirmar-seleccion');
         Route::post('/{oferta}/elegir', [\App\Http\Controllers\OfertaCompraController::class, 'elegir'])->name('elegir');
         Route::post('/{oferta}/rechazar', [\App\Http\Controllers\OfertaCompraController::class, 'rechazar'])->name('rechazar');
@@ -548,11 +549,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/create', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'store'])->name('store');
         Route::get('/{solicitud}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'show'])->name('show');
+        Route::delete('/{solicitud}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'destroy'])->name('destroy');
         Route::post('/{solicitud}/enviar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'enviar'])->name('enviar');
         Route::post('/{solicitud}/agregar-proveedor', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'agregarProveedor'])->name('agregar-proveedor');
         Route::post('/{solicitud}/cerrar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cerrar'])->name('cerrar');
         Route::post('/{solicitud}/cancelar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cancelar'])->name('cancelar');
         Route::post('/{solicitud}/reenviar/{cotizacion}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'reenviarRecordatorio'])->name('reenviar');
+        Route::post('/{solicitud}/elegir/{cotizacion}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'elegirCotizacion'])->name('elegir-cotizacion');
         Route::post('/generar-automaticas', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'generarAutomaticas'])->name('generar-automaticas');
     });
 

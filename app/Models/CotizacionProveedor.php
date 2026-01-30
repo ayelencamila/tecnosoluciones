@@ -50,6 +50,7 @@ class CotizacionProveedor extends Model
         'fecha_envio',
         'fecha_respuesta',
         'motivo_rechazo',
+        'elegida',
         'recordatorios_enviados',
         'ultimo_recordatorio',
     ];
@@ -59,6 +60,7 @@ class CotizacionProveedor extends Model
         'fecha_respuesta' => 'datetime',
         'ultimo_recordatorio' => 'datetime',
         'recordatorios_enviados' => 'integer',
+        'elegida' => 'boolean',
     ];
 
     // --- BOOT (Generar token automáticamente) ---

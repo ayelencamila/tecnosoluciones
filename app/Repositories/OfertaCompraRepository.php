@@ -83,7 +83,7 @@ class OfertaCompraRepository
             ->join('ofertas_compra', 'detalle_ofertas_compra.oferta_id', '=', 'ofertas_compra.id')
             ->whereIn('ofertas_compra.estado_id', $estadosPendientes)
             ->groupBy('productos.id', 'productos.nombre', 'productos.codigo')
-            ->havingRaw('COUNT(DISTINCT ofertas_compra.id) > 1')
+            ->havingRaw('COUNT(DISTINCT ofertas_compra.id) >= 1')
             ->selectRaw('COUNT(DISTINCT ofertas_compra.id) as ofertas_count')
             ->orderBy('ofertas_count', 'desc')
             ->limit($limite)

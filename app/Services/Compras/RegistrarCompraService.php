@@ -138,7 +138,7 @@ class RegistrarCompraService
      */
     protected function validarOferta(int $ofertaId): OfertaCompra
     {
-        $oferta = OfertaCompra::with(['solicitud', 'proveedor', 'detalles'])
+        $oferta = OfertaCompra::with(['solicitud', 'proveedor', 'detalles', 'estado'])
             ->lockForUpdate()
             ->findOrFail($ofertaId);
 
@@ -148,8 +148,8 @@ class RegistrarCompraService
         }
 
         // Excepción 10c: No está elegida
-        if ($oferta->estado !== OfertaCompra::ESTADO_ELEGIDA) {
-            throw new Exception("Solo se puede generar OC de ofertas con estado 'Elegida'. Estado actual: {$oferta->estado}");
+        if (!$oferta->tieneEstado('Elegida')) {
+            throw new Exception("Solo se puede generar OC de ofertas con estado 'Elegida'. Estado actual: {$oferta->estado->nombre}");
         }
 
         return $oferta;
@@ -160,6 +160,11 @@ class RegistrarCompraService
      */
     protected function crearOrdenDesdeOferta(OfertaCompra $oferta, int $usuarioId, string $observaciones): OrdenCompra
     {
+        // Calcular el total de la oferta
+        $totalOferta = $oferta->total_estimado ?: $oferta->detalles->sum(function ($detalle) {
+            return $detalle->precio_unitario * $detalle->cantidad_ofrecida;
+        });
+        
         // Crear cabecera
         $orden = OrdenCompra::create([
             'numero_oc'    => OrdenCompra::generarNumeroOC(),
@@ -167,7 +172,7 @@ class RegistrarCompraService
             'oferta_id'    => $oferta->id,
             'user_id'      => $usuarioId,
             'estado_id'    => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::BORRADOR),
-            'total_final'  => $oferta->precio_total,
+            'total_final'  => $totalOferta,
             'fecha_emision'=> now(),
             'observaciones'=> $observaciones,
         ]);

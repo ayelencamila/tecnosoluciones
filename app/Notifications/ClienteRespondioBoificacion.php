@@ -46,7 +46,7 @@ class ClienteRespondioBoificacion extends Notification
             'titulo' => "{$icon} Cliente {$decision} bonificación",
             'mensaje' => "El cliente {$this->bonificacion->reparacion->cliente->nombreCompleto} {$decision} la bonificación de la reparación #{$this->bonificacion->reparacion->codigo_reparacion}",
             'tipo' => $this->bonificacion->decision_cliente === 'aceptar' ? 'success' : 'warning',
-            'url' => route('bonificaciones.show', $this->bonificacion->bonificacionID),
+            'url' => '/bonificaciones/' . $this->bonificacion->bonificacionID,
             'bonificacion_id' => $this->bonificacion->bonificacionID,
             'decision' => $this->bonificacion->decision_cliente,
         ];

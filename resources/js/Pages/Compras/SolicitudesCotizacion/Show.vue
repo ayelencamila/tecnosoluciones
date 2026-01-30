@@ -14,9 +14,12 @@ const props = defineProps({
 
 const mostrarModalEnvio = ref(false)
 const mostrarModalReenvio = ref(false)
+const mostrarModalElegir = ref(false)
 const cotizacionReenviar = ref(null)
+const cotizacionElegir = ref(null)
 const formEnvio = useForm({ canal: 'whatsapp' })
 const formReenvio = useForm({ canal: 'whatsapp' })
+const formElegir = useForm({ generar_orden: false })
 
 function enviarASProveedores() {
     formEnvio.post(route('solicitudes-cotizacion.enviar', props.solicitud.id), {
@@ -40,12 +43,32 @@ function reenviarRecordatorio() {
     })
 }
 
+function abrirModalElegir(oferta) {
+    cotizacionElegir.value = oferta
+    mostrarModalElegir.value = true
+}
+
+function elegirCotizacion(generarOrden = false) {
+    formElegir.generar_orden = generarOrden
+    formElegir.post(route('solicitudes-cotizacion.elegir-cotizacion', [props.solicitud.id, cotizacionElegir.value.cotizacion_id]), {
+        onSuccess: () => {
+            mostrarModalElegir.value = false
+            cotizacionElegir.value = null
+        }
+    })
+}
+
 function puedeReenviar(cotizacion) {
     // Puede reenviar si: está enviado, no ha respondido, no ha rechazado, solicitud no vencida
     return cotizacion.estado_envio === 'Enviado' 
         && !cotizacion.fecha_respuesta 
         && !cotizacion.motivo_rechazo
         && new Date(props.solicitud.fecha_vencimiento) > new Date()
+}
+
+function puedeElegir() {
+    // Puede elegir si la solicitud está enviada o abierta y no está cerrada/cancelada/vencida
+    return ['Abierta', 'Enviada'].includes(props.solicitud.estado?.nombre)
 }
 
 function cerrarSolicitud() {
@@ -337,6 +360,17 @@ function formatCurrency(value) {
                                             <p class="text-xs text-gray-400 mt-1">
                                                 {{ formatDate(oferta.fecha_respuesta) }}
                                             </p>
+                                            <!-- Botón elegir -->
+                                            <button
+                                                v-if="puedeElegir()"
+                                                @click="abrirModalElegir(oferta)"
+                                                class="mt-2 w-full px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+                                                :class="index === 0 
+                                                    ? 'bg-green-600 text-white hover:bg-green-700' 
+                                                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-300'"
+                                            >
+                                                {{ index === 0 ? '⭐ Elegir Mejor Oferta' : 'Elegir esta Oferta' }}
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -567,6 +601,57 @@ function formatCurrency(value) {
                         >
                             <span v-if="formReenvio.processing">Enviando...</span>
                             <span v-else>Enviar Recordatorio</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de elegir cotización -->
+        <div v-if="mostrarModalElegir" class="fixed inset-0 z-50 overflow-y-auto">
+            <div class="flex items-center justify-center min-h-screen px-4">
+                <div class="fixed inset-0 bg-black/50" @click="mostrarModalElegir = false"></div>
+                <div class="relative bg-white rounded-xl shadow-xl max-w-lg w-full p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-2 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Elegir Cotización Ganadora
+                    </h3>
+                    
+                    <div class="my-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                        <p class="font-semibold text-green-800">{{ cotizacionElegir?.proveedor?.razon_social }}</p>
+                        <p class="text-2xl font-bold text-green-700 mt-1">{{ formatCurrency(cotizacionElegir?.total || 0) }}</p>
+                        <p class="text-sm text-green-600 mt-1">
+                            {{ cotizacionElegir?.productos_cotizados }}/{{ cotizacionElegir?.productos_requeridos }} productos cotizados
+                        </p>
+                    </div>
+
+                    <p class="text-sm text-gray-600 mb-4">
+                        Al elegir esta cotización, se cerrará la solicitud y podrá generar la Orden de Compra.
+                    </p>
+
+                    <div class="flex flex-col gap-3">
+                        <button
+                            @click="elegirCotizacion(true)"
+                            :disabled="formElegir.processing"
+                            class="w-full px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 font-medium flex items-center justify-center gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>
+                            <span v-if="formElegir.processing">Procesando...</span>
+                            <span v-else>Elegir y Generar Orden de Compra</span>
+                        </button>
+                        <button
+                            @click="elegirCotizacion(false)"
+                            :disabled="formElegir.processing"
+                            class="w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
+                        >
+                            Solo marcar como elegida (generar orden después)
+                        </button>
+                        <button
+                            type="button"
+                            @click="mostrarModalElegir = false"
+                            class="w-full px-4 py-2 text-gray-500 hover:text-gray-700 text-sm"
+                        >
+                            Cancelar
                         </button>
                     </div>
                 </div>

@@ -20,7 +20,8 @@ class StoreOrdenCompraRequest extends FormRequest
     public function authorize(): bool
     {
         // Solo administradores pueden generar OC
-        return $this->user()->hasRole('Administrador');
+        // El rol en la base de datos es 'administrador' (minúscula)
+        return $this->user()->role === 'administrador';
     }
 
     /**
@@ -36,15 +37,16 @@ class StoreOrdenCompraRequest extends FormRequest
                 'integer',
                 'exists:ofertas_compra,id',
                 function ($attribute, $value, $fail) {
-                    $oferta = OfertaCompra::find($value);
+                    $oferta = OfertaCompra::with('estado')->find($value);
                     
                     if (!$oferta) {
                         $fail('La oferta seleccionada no existe.');
                         return;
                     }
                     
-                    if ($oferta->estado !== OfertaCompra::ESTADO_ELEGIDA) {
-                        $fail('Solo se puede generar OC de ofertas en estado "Elegida". Estado actual: ' . $oferta->estado);
+                    // Usar el método del modelo para verificar el estado
+                    if (!$oferta->tieneEstado('Elegida')) {
+                        $fail('Solo se puede generar OC de ofertas en estado "Elegida". Estado actual: ' . $oferta->estado->nombre);
                     }
                     
                     if ($oferta->ordenesCompra()->exists()) {

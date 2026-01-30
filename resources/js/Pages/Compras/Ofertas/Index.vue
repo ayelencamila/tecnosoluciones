@@ -10,6 +10,9 @@
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
+import Modal from '@/Components/Modal.vue';
+import DangerButton from '@/Components/DangerButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
 import axios from 'axios';
 import { debounce } from 'lodash';
 
@@ -48,6 +51,30 @@ const searchResults = ref([]);
 const showDropdown = ref(false);
 const isSearching = ref(false);
 const searchContainer = ref(null);
+
+// Estado para eliminación
+const confirmingDeletion = ref(false);
+const ofertaToDelete = ref(null);
+
+// Funciones de eliminación
+const confirmDelete = (oferta) => {
+    ofertaToDelete.value = oferta;
+    confirmingDeletion.value = true;
+};
+
+const closeModal = () => {
+    confirmingDeletion.value = false;
+    ofertaToDelete.value = null;
+};
+
+const deleteOferta = () => {
+    if (ofertaToDelete.value) {
+        router.delete(route('ofertas.destroy', ofertaToDelete.value.id), {
+            preserveScroll: true,
+            onSuccess: () => closeModal()
+        });
+    }
+};
 
 // Buscar productos con debounce
 const buscarProductos = debounce(async (query) => {
@@ -179,6 +206,17 @@ const compararPorProducto = (productoId) => {
     router.get(route('ofertas.comparar', { producto_id: productoId }));
 };
 
+// Ver ofertas de una solicitud
+const verOfertas = (solicitud) => {
+    // Comparar ofertas del primer producto de la solicitud
+    if (solicitud.detalles && solicitud.detalles.length > 0) {
+        const primerProducto = solicitud.detalles[0].producto;
+        if (primerProducto) {
+            router.get(route('ofertas.comparar', { producto_id: primerProducto.id }));
+        }
+    }
+};
+
 // Traducir labels de paginación (sin hardcodeo de idioma en backend)
 const traducirPaginacion = (label) => {
     const traducciones = {
@@ -233,7 +271,7 @@ const traducirPaginacion = (label) => {
                         </svg>
                         <div class="flex-1">
                             <p class="text-sm font-semibold text-purple-800 dark:text-purple-200">
-                                Productos con múltiples ofertas para comparar:
+                                Productos con ofertas disponibles:
                             </p>
                             <div class="mt-2 flex flex-wrap gap-2">
                                 <button v-for="prod in productosConOfertas" :key="prod.id"
@@ -425,14 +463,29 @@ const traducirPaginacion = (label) => {
                                         
                                         <!-- Acciones -->
                                         <td class="px-4 py-3 text-center">
-                                            <Link v-if="idx === 0"
-                                                  :href="route('ofertas.create', { solicitud_id: solicitud.id })"
-                                                  class="inline-flex items-center px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-md shadow-sm transition-colors">
-                                                <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
-                                                </svg>
-                                                Registrar
-                                            </Link>
+                                            <div v-if="idx === 0" class="flex items-center justify-center gap-2">
+                                                <!-- Ver ofertas existentes -->
+                                                <button
+                                                    v-if="solicitud.ofertas_count > 0"
+                                                    @click="verOfertas(solicitud)"
+                                                    class="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/30 rounded-md transition-colors"
+                                                    title="Ver ofertas">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                    </svg>
+                                                </button>
+                                                
+                                                <!-- Registrar nueva oferta -->
+                                                <Link
+                                                    :href="route('ofertas.create', { solicitud_id: solicitud.id })"
+                                                    class="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 dark:text-green-400 dark:hover:text-green-300 dark:hover:bg-green-900/30 rounded-md transition-colors"
+                                                    title="Registrar oferta">
+                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                                    </svg>
+                                                </Link>
+                                            </div>
                                         </td>
                                     </tr>
                                 </template>
@@ -492,5 +545,37 @@ const traducirPaginacion = (label) => {
 
             </div>
         </div>
+
+        <!-- Modal de confirmación de eliminación -->
+        <Modal :show="confirmingDeletion" @close="closeModal">
+            <div class="p-6">
+                <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">
+                    ¿Está seguro de eliminar esta oferta?
+                </h2>
+                <p class="text-center text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    Oferta: <strong class="text-gray-900 dark:text-white">{{ ofertaToDelete?.codigo_oferta }}</strong>
+                </p>
+                <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Esta acción no se puede deshacer.
+                </p>
+                <div class="flex gap-3 justify-center">
+                    <button
+                        @click="closeModal"
+                        class="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600">
+                        Cancelar
+                    </button>
+                    <button
+                        @click="deleteOferta"
+                        class="px-6 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors">
+                        Eliminar
+                    </button>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>

@@ -21,6 +21,7 @@ class UpdateProveedorRequest extends FormRequest
             'cuit' => ['nullable', 'digits:11', Rule::unique('proveedores')->ignore($proveedorId)], // Opcional
             'email' => ['nullable', 'email', 'max:100'], // Opcional
             'telefono' => ['nullable', 'string', 'max:20'],
+            'whatsapp' => ['nullable', 'string', 'max:20'],
             'forma_pago_preferida' => ['nullable', 'string', 'max:50'],
             'plazo_entrega_estimado' => ['nullable', 'integer', 'min:0'],
             

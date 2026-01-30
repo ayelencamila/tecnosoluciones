@@ -90,24 +90,29 @@ const refreshLocalidades = async () => {
             <h3 class="text-md font-semibold text-indigo-700 mb-4">Datos de Identificación</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <InputLabel value="Razón Social *" />
-                    <TextInput v-model="form.razon_social" class="w-full mt-1" autofocus />
+                    <InputLabel for="razon_social" value="Razón Social *" />
+                    <TextInput id="razon_social" name="razon_social" v-model="form.razon_social" class="w-full mt-1" autofocus />
                     <InputError :message="form.errors.razon_social" />
                 </div>
                 <div>
-                    <InputLabel value="CUIT" />
-                    <TextInput v-model="form.cuit" class="w-full mt-1" placeholder="Ej: 20123456789" maxlength="11" />
+                    <InputLabel for="cuit" value="CUIT" />
+                    <TextInput id="cuit" name="cuit" v-model="form.cuit" class="w-full mt-1" placeholder="Ej: 20123456789" maxlength="11" />
                     <InputError :message="form.errors.cuit" />
                 </div>
                 <div>
-                    <InputLabel value="Email" />
-                    <TextInput v-model="form.email" type="email" class="w-full mt-1" />
+                    <InputLabel for="email" value="Email" />
+                    <TextInput id="email" name="email" v-model="form.email" type="email" class="w-full mt-1" />
                     <InputError :message="form.errors.email" />
                 </div>
                 <div>
-                    <InputLabel value="Teléfono" />
-                    <TextInput v-model="form.telefono" class="w-full mt-1" />
+                    <InputLabel for="telefono" value="Teléfono" />
+                    <TextInput id="telefono" name="telefono" v-model="form.telefono" class="w-full mt-1" />
                     <InputError :message="form.errors.telefono" />
+                </div>
+                <div>
+                    <InputLabel for="whatsapp" value="WhatsApp" />
+                    <TextInput id="whatsapp" name="whatsapp" v-model="form.whatsapp" class="w-full mt-1" placeholder="Ej: +5493754123456" />
+                    <InputError :message="form.errors.whatsapp" />
                 </div>
             </div>
         </div>
@@ -116,13 +121,13 @@ const refreshLocalidades = async () => {
             <h3 class="text-md font-semibold text-indigo-700 mb-4">Ubicación Física</h3>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div class="md:col-span-2">
-                    <InputLabel value="Calle *" />
-                    <TextInput v-model="form.calle" class="w-full mt-1" />
+                    <InputLabel for="calle" value="Calle *" />
+                    <TextInput id="calle" name="calle" v-model="form.calle" class="w-full mt-1" />
                     <InputError :message="form.errors.calle" />
                 </div>
                 <div>
-                    <InputLabel value="Altura" />
-                    <TextInput v-model="form.altura" class="w-full mt-1" />
+                    <InputLabel for="altura" value="Altura" />
+                    <TextInput id="altura" name="altura" v-model="form.altura" class="w-full mt-1" />
                     <InputError :message="form.errors.altura" />
                 </div>
             </div>
@@ -163,22 +168,22 @@ const refreshLocalidades = async () => {
             <h3 class="text-md font-semibold text-indigo-700 mb-4">Condiciones Comerciales</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <InputLabel value="Forma de Pago Habitual" />
-                    <TextInput v-model="form.forma_pago_preferida" class="w-full mt-1" placeholder="Ej: Cheque 30 días" />
+                    <InputLabel for="forma_pago_preferida" value="Forma de Pago Habitual" />
+                    <TextInput id="forma_pago_preferida" name="forma_pago_preferida" v-model="form.forma_pago_preferida" class="w-full mt-1" placeholder="Ej: Cheque 30 días" />
                     <InputError :message="form.errors.forma_pago_preferida" />
                 </div>
                 <div>
-                    <InputLabel value="Plazo de Entrega (Días)" />
-                    <TextInput v-model="form.plazo_entrega_estimado" type="number" class="w-full mt-1" />
+                    <InputLabel for="plazo_entrega_estimado" value="Plazo de Entrega (Días)" />
+                    <TextInput id="plazo_entrega_estimado" name="plazo_entrega_estimado" v-model="form.plazo_entrega_estimado" type="number" class="w-full mt-1" />
                     <InputError :message="form.errors.plazo_entrega_estimado" />
                 </div>
             </div>
         </div>
 
         <div v-if="esEdicion" class="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-            <InputLabel value="Motivo de la Modificación (Requerido)" class="text-yellow-800 font-bold" />
+            <InputLabel for="motivo" value="Motivo de la Modificación (Requerido)" class="text-yellow-800 font-bold" />
             <p class="text-xs text-yellow-600 mb-2">Este cambio quedará registrado en la auditoría del sistema.</p>
-            <TextInput v-model="form.motivo" class="w-full" placeholder="Ingrese el motivo del cambio..." />
+            <TextInput id="motivo" name="motivo" v-model="form.motivo" class="w-full" placeholder="Ingrese el motivo del cambio..." />
             <InputError :message="form.errors.motivo" />
         </div>
 
