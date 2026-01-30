@@ -127,7 +127,7 @@ class ComprobanteInternoController extends Controller
             'INGRESO_REPARACION' => route('reparaciones.imprimir-ingreso', $entidad->reparacionID ?? $entidad->reparacion_id),
             'ENTREGA_REPARACION' => route('reparaciones.imprimir-entrega', $entidad->reparacionID ?? $entidad->reparacion_id),
             'NOTA_CREDITO_INTERNA' => route('ventas.imprimir-anulacion', $entidad->ventaID ?? $entidad->venta_id),
-            'ORDEN_COMPRA' => route('compras.ordenes.pdf', $entidad->id),
+            'ORDEN_COMPRA' => route('ordenes.descargar-pdf', $entidad->id),
             default => null,
         };
     }
@@ -168,7 +168,7 @@ class ComprobanteInternoController extends Controller
                 return redirect()->route('ventas.imprimir-anulacion', $entidad->ventaID);
             
             case 'ORDEN_COMPRA':
-                return redirect()->route('compras.ordenes.pdf', $entidad->id);
+                return redirect()->route('ordenes.descargar-pdf', $entidad->id);
             
             default:
                 return back()->with('error', 'Tipo de comprobante no soportado para visualización.');
@@ -364,7 +364,7 @@ class ComprobanteInternoController extends Controller
                     $datos['estado'] = $entidad->estado ? $entidad->estado->nombre : 'N/A';
                     $datos['total'] = $entidad->total_final;
                     $datos['numero'] = $entidad->numero_oc;
-                    $datos['ruta_ver'] = route('compras.ordenes.show', $entidad->id);
+                    $datos['ruta_ver'] = route('ordenes.show', $entidad->id);
                     break;
             }
         } catch (\Exception $e) {
