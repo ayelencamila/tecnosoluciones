@@ -205,8 +205,8 @@ class RecepcionarMercaderiaService
         try {
             // Buscar o crear stock en depósito principal (ID 1)
             $stock = Stock::firstOrCreate(
-                ['producto_id' => $productoId, 'deposito_id' => 1],
-                ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
+                ['productoID' => $productoId, 'deposito_id' => 1],
+                ['cantidad_disponible' => 0, 'stock_minimo' => 0]
             );
             
             // Incrementar stock
@@ -217,17 +217,20 @@ class RecepcionarMercaderiaService
             $tipoIngreso = TipoMovimientoStock::where('nombre', 'Entrada (Compra)')->first();
             
             MovimientoStock::create([
-                'producto_id' => $productoId,
-                'deposito_id' => 1,
+                'stock_id' => $stock->stock_id,
+                'productoID' => $productoId,
                 'tipo_movimiento_id' => $tipoIngreso?->id,
                 'cantidad' => $cantidad,
-                'stock_anterior' => $stockAnterior,
-                'stock_posterior' => $stock->cantidad_disponible,
-                'referencia_tipo' => 'recepcion_mercaderia',
-                'referencia_id' => $recepcion->id,
-                'usuario_id' => $usuarioId,
-                'observacion' => "Recepción de mercadería {$recepcion->numero_recepcion}",
+                'stockAnterior' => $stockAnterior,
+                'stockNuevo' => $stock->cantidad_disponible,
+                'referenciaTabla' => 'recepciones_mercaderia',
+                'referenciaID' => $recepcion->id,
+                'user_id' => $usuarioId,
+                'motivo' => "Recepción de mercadería {$recepcion->numero_recepcion}",
+                'fecha_movimiento' => now(),
             ]);
+            
+            Log::info("Stock actualizado para producto {$productoId}: +{$cantidad} (anterior: {$stockAnterior}, nuevo: {$stock->cantidad_disponible})");
             
         } catch (Exception $e) {
             // Excepción 10a: Registrar incidente pero continuar
@@ -236,8 +239,8 @@ class RecepcionarMercaderiaService
                 'error' => $e->getMessage(),
             ]);
             
-            // La recepción continúa, se genera alerta interna
-            // En un sistema real, esto enviaría una notificación al admin
+            // Re-lanzar la excepción para que se vea el error
+            throw $e;
         }
     }
 

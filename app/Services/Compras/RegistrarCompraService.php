@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Jobs\EnviarOrdenCompraWhatsApp;
 use App\Notifications\OrdenCompraGenerada;
 use App\Notifications\OrdenCompraProveedor;
+use App\Services\Comprobantes\RegistrarComprobanteService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
@@ -90,7 +91,27 @@ class RegistrarCompraService
                 ];
             }
             
-            // Paso 8: AUDITORÍA
+            // Paso 8: REGISTRAR EN MÓDULO DE COMPROBANTES (CU-32)
+            try {
+                $comprobanteService = app(RegistrarComprobanteService::class);
+                $comprobanteService->registrarOrdenCompra(
+                    ordenId: $orden->id,
+                    numeroOC: $orden->numero_oc,
+                    rutaPdf: $orden->ruta_pdf,
+                    usuarioId: $usuarioId
+                );
+            } catch (Exception $e) {
+                // No detiene la operación, solo warning
+                Log::warning("Error al registrar OC en módulo comprobantes: {$e->getMessage()}");
+                $advertencias[] = [
+                    'tipo' => 'info',
+                    'mensaje' => 'La orden no pudo registrarse en el módulo de comprobantes.',
+                    'excepcion' => '10a',
+                    'detalle' => $e->getMessage()
+                ];
+            }
+            
+            // Paso 9: AUDITORÍA
             try {
                 Auditoria::registrar(
                     accion: Auditoria::ACCION_GENERAR_ORDEN_COMPRA,
