@@ -282,7 +282,8 @@ class ReparacionController extends Controller
             return back()->withErrors(['repuestos' => $e->getMessage()])->withInput();
         } catch (\Exception $e) {
             Log::error("Error al actualizar reparación {$id}: " . $e->getMessage());
-            return back()->withErrors(['error' => 'Error al actualizar la reparación.'])->withInput();
+            // Mostrar el mensaje real para que el usuario entienda el problema
+            return back()->withErrors(['error' => $e->getMessage()])->withInput();
         }
     }
 

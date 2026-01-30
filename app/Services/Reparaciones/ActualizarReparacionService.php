@@ -17,25 +17,28 @@ use Illuminate\Support\Facades\Log;
 class ActualizarReparacionService
 {
     /**
-     * Mapa de Transiciones Válidas por ID de Estado (dinámico según BD)
+     * Mapa de Transiciones Válidas por ID de Estado
      * 
-     * Basado en los estados del seeder:
-     * 1 = Recibido → puede ir a cualquier estado excepto Entregado (necesita pasar por Reparado)
-     * 2 = Diagnóstico → puede avanzar en el flujo
-     * 3 = Presupuestado → puede avanzar o anularse
-     * 4 = En Reparación → puede completarse o pausarse
-     * 5 = Espera de Repuesto → puede reanudarse o anularse
-     * 6 = Reparado → solo puede entregarse
+     * FLUJO FLEXIBLE: Permite avanzar lógicamente sin forzar todos los pasos intermedios.
+     * Un técnico puede recibir, diagnosticar y reparar en una sola sesión.
+     * 
+     * Estados según BD:
+     * 1 = Recibido
+     * 2 = Diagnóstico  
+     * 3 = Presupuestado
+     * 4 = En Reparación
+     * 5 = Espera de Repuesto
+     * 6 = Reparado (listo para entregar)
      * 7 = Entregado (estado final)
      * 8 = Anulado (estado final)
      */
     private const TRANSICIONES_VALIDAS = [
-        1 => [2, 3, 4, 5, 6, 8], // Recibido → todos excepto Entregado y él mismo
-        2 => [3, 4, 5, 6, 8],    // Diagnóstico → puede avanzar o anular
-        3 => [4, 5, 6, 8],       // Presupuestado → puede avanzar o anular
-        4 => [2, 5, 6, 8],       // En Reparación → puede volver a Diagnóstico, pausarse, completarse o anular
-        5 => [4, 6, 8],          // Espera de Repuesto → puede reanudarse, completarse o anular
-        6 => [7],                // Reparado → solo Entregado
+        1 => [2, 3, 4, 5, 6, 8], // Recibido → puede avanzar a cualquiera (excepto Entregado directo)
+        2 => [1, 3, 4, 5, 6, 8], // Diagnóstico → puede volver a Recibido o avanzar
+        3 => [2, 4, 5, 6, 8],    // Presupuestado → puede retroceder a Diagnóstico o avanzar
+        4 => [2, 3, 5, 6, 8],    // En Reparación → puede retroceder o completar
+        5 => [2, 4, 6, 8],       // Espera de Repuesto → puede retomar o completar
+        6 => [4, 7, 8],          // Reparado → puede volver a reparación, entregar o anular
         7 => [],                 // Entregado (estado final)
         8 => [],                 // Anulado (estado final)
     ];
