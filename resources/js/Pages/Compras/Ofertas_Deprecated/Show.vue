@@ -15,6 +15,10 @@ const props = defineProps({
     oferta: Object, // Incluye relaciones: proveedor, detalles.producto, estado, user
 });
 
+// Modal de eliminación
+const showEliminarModal = ref(false);
+const eliminando = ref(false);
+
 // Modal de rechazo
 const showRechazarModal = ref(false);
 const formRechazar = useForm({
@@ -52,6 +56,19 @@ const generarOrdenCompra = () => {
         onSuccess: () => {
             showGenerarOCModal.value = false;
             formGenerarOC.reset('observaciones');
+        },
+    });
+};
+
+// Eliminar oferta
+const eliminarOferta = () => {
+    if (eliminando.value) return;
+    eliminando.value = true;
+    
+    router.delete(route('ofertas.destroy', props.oferta.id), {
+        onFinish: () => {
+            eliminando.value = false;
+            showEliminarModal.value = false;
         },
     });
 };
@@ -202,16 +219,27 @@ const estadoClass = (estado) => {
                     </div>
                 </div>
 
-                <div class="flex justify-end space-x-4" v-if="oferta.estado.nombre !== 'Procesada' && oferta.estado.nombre !== 'Rechazada'">
-                    <!-- Botón Rechazar (Para Pendiente, Pre-aprobada, Elegida) -->
-                    <DangerButton 
-                        v-if="oferta.estado.nombre !== 'Rechazada'"
-                        @click="showRechazarModal = true">
-                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                <div class="flex justify-between" v-if="oferta.estado.nombre !== 'Procesada' && oferta.estado.nombre !== 'Rechazada'">
+                    <!-- Botón Eliminar (izquierda) -->
+                    <button
+                        @click="showEliminarModal = true"
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-300 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
                         </svg>
-                        Rechazar Oferta
-                    </DangerButton>
+                        Eliminar Oferta
+                    </button>
+                    
+                    <div class="flex space-x-4">
+                        <!-- Botón Rechazar (Para Pendiente, Pre-aprobada, Elegida) -->
+                        <DangerButton 
+                            v-if="oferta.estado.nombre !== 'Rechazada'"
+                            @click="showRechazarModal = true">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                            Rechazar Oferta
+                        </DangerButton>
 
                     <!-- CU-21: Botón para ir a Vista de Confirmación (Kendall: Separación de vistas) -->
                     <PrimaryButton 
@@ -235,10 +263,24 @@ const estadoClass = (estado) => {
                             Generar Orden de Compra
                         </PrimaryButton>
                     </Link>
+                    </div>
                 </div>
 
                 <!-- Estado informativo si ya procesada o rechazada -->
-                <div v-else class="flex justify-end">
+                <div v-else class="flex justify-between">
+                    <!-- Botón Eliminar (izquierda) - solo para rechazada -->
+                    <button
+                        v-if="oferta.estado.nombre === 'Rechazada'"
+                        @click="showEliminarModal = true"
+                        class="inline-flex items-center px-4 py-2 text-sm font-medium text-red-700 bg-red-50 border border-red-300 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                        </svg>
+                        Eliminar Oferta
+                    </button>
+                    <div v-else></div>
+                    
+                    <div>
                     <span v-if="oferta.estado.nombre === 'Procesada'" 
                           class="inline-flex items-center px-4 py-2 text-sm font-semibold text-indigo-700 bg-indigo-100 rounded-lg">
                         <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
@@ -253,6 +295,7 @@ const estadoClass = (estado) => {
                         </svg>
                         Oferta rechazada
                     </span>
+                    </div>
                 </div>
 
             </div>
@@ -374,6 +417,41 @@ const estadoClass = (estado) => {
                         <span v-if="formGenerarOC.processing">Generando OC...</span>
                         <span v-else>Confirmar y Generar OC</span>
                     </PrimaryButton>
+                </div>
+            </div>
+        </Modal>
+
+        <!-- Modal de confirmación de eliminación -->
+        <Modal :show="showEliminarModal" @close="showEliminarModal = false">
+            <div class="p-6">
+                <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
+                    <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white text-center mb-2">
+                    ¿Está seguro de eliminar esta oferta?
+                </h2>
+                <p class="text-center text-sm text-gray-600 dark:text-gray-400 mb-1">
+                    Oferta: <strong class="text-gray-900 dark:text-white">{{ oferta.codigo_oferta }}</strong>
+                </p>
+                <p class="text-center text-sm text-gray-500 dark:text-gray-400 mb-6">
+                    Esta acción no se puede deshacer.
+                </p>
+                <div class="flex gap-3 justify-center">
+                    <button
+                        @click="showEliminarModal = false"
+                        :disabled="eliminando"
+                        class="px-6 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600 disabled:opacity-50">
+                        Cancelar
+                    </button>
+                    <button
+                        @click="eliminarOferta"
+                        :disabled="eliminando"
+                        class="px-6 py-2.5 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors disabled:opacity-50">
+                        <span v-if="eliminando">Eliminando...</span>
+                        <span v-else>Eliminar</span>
+                    </button>
                 </div>
             </div>
         </Modal>

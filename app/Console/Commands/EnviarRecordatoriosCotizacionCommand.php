@@ -49,9 +49,9 @@ class EnviarRecordatoriosCotizacionCommand extends Command
         // Usar parámetro de comando o configuración global
         $diasDesdeEnvio = $this->option('dias') 
             ? (int) $this->option('dias') 
-            : (int) Configuracion::get('solicitud_cotizacion_dias_recordatorio', 2);
+            : (int) Configuracion::get('compras_dias_recordatorio', 2);
         
-        $maxRecordatorios = (int) Configuracion::get('solicitud_cotizacion_max_recordatorios', 3);
+        $maxRecordatorios = (int) Configuracion::get('compras_max_recordatorios', 3);
         $canal = $this->option('canal');
 
         $this->info("📬 Buscando proveedores sin respuesta (enviados hace más de {$diasDesdeEnvio} días)...");

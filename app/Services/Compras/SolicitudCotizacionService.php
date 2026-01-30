@@ -7,8 +7,6 @@ use App\Models\DetalleSolicitudCotizacion;
 use App\Models\CotizacionProveedor;
 use App\Models\RespuestaCotizacion;
 use App\Models\EstadoSolicitud;
-use App\Models\EstadoOferta;
-use App\Models\OfertaCompra;
 use App\Models\Proveedor;
 use App\Jobs\EnviarSolicitudCotizacionWhatsApp;
 use App\Jobs\EnviarSolicitudCotizacionEmail;
@@ -248,8 +246,8 @@ class SolicitudCotizacionService
             // Marcar como respondida
             $cotizacion->registrarRespuesta();
 
-            // Crear OfertaCompra automáticamente para que aparezca en Comparar
-            $this->crearOfertaDesdeRespuesta($cotizacion, $respuestas);
+            // NOTA: Ya no creamos OfertaCompra - el modelo simplificado usa
+            // directamente CotizacionProveedor → RespuestaCotizacion → OrdenCompra
 
             DB::commit();
 
@@ -282,65 +280,6 @@ class SolicitudCotizacionService
             // Log error pero no fallar la operación principal
             \Log::warning("No se pudo enviar notificación de respuesta de cotización: " . $e->getMessage());
         }
-    }
-
-    /**
-     * Crea una OfertaCompra automáticamente desde la respuesta del proveedor
-     * Esto permite que las respuestas del portal aparezcan en la vista Comparar
-     * 
-     * @param CotizacionProveedor $cotizacion
-     * @param array $respuestas
-     * @return OfertaCompra
-     */
-    protected function crearOfertaDesdeRespuesta(CotizacionProveedor $cotizacion, array $respuestas): OfertaCompra
-    {
-        $solicitud = $cotizacion->solicitud;
-        
-        // Calcular total estimado
-        $totalEstimado = collect($respuestas)->sum(function ($item) {
-            return $item['cantidad_disponible'] * $item['precio_unitario'];
-        });
-
-        // Generar código único para la oferta
-        $codigo = 'OF-' . now()->format('Ym') . '-' . strtoupper(Str::random(4));
-
-        // Estado pendiente para la oferta
-        $estadoId = EstadoOferta::idPorNombre(EstadoOferta::PENDIENTE);
-
-        // Usuario del sistema para ofertas automáticas (usamos el primer admin)
-        $userIdSistema = \App\Models\User::whereHas('rol', function ($q) {
-            $q->where('nombre', 'Administrador');
-        })->value('id') ?? 1;
-
-        // Crear la oferta
-        $oferta = OfertaCompra::create([
-            'codigo_oferta' => $codigo,
-            'proveedor_id' => $cotizacion->proveedor_id,
-            'solicitud_id' => $solicitud->id,
-            'cotizacion_proveedor_id' => $cotizacion->id,
-            'user_id' => $userIdSistema,
-            'fecha_recepcion' => now(),
-            'validez_hasta' => $solicitud->fecha_vencimiento,
-            'estado_id' => $estadoId,
-            'observaciones' => 'Generada automáticamente desde portal de proveedores',
-            'total_estimado' => $totalEstimado,
-        ]);
-
-        // Crear detalles de la oferta
-        foreach ($respuestas as $respuesta) {
-            $oferta->detalles()->create([
-                'producto_id' => $respuesta['producto_id'],
-                'cantidad_ofrecida' => $respuesta['cantidad_disponible'],
-                'precio_unitario' => $respuesta['precio_unitario'],
-                'disponibilidad_inmediata' => ($respuesta['plazo_entrega_dias'] ?? 1) <= 1,
-                'dias_entrega' => $respuesta['plazo_entrega_dias'] ?? 1,
-                'observaciones' => $respuesta['observaciones'] ?? null,
-            ]);
-        }
-
-        Log::info("OfertaCompra {$codigo} creada automáticamente desde respuesta del proveedor {$cotizacion->proveedor->razon_social}");
-
-        return $oferta;
     }
 
     /**

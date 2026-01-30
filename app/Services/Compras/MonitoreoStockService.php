@@ -10,6 +10,7 @@ use App\Models\DetalleSolicitudCotizacion;
 use App\Models\CotizacionProveedor;
 use App\Models\EstadoSolicitud;
 use App\Models\DetalleVenta;
+use App\Models\Configuracion;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,33 +20,30 @@ use Carbon\Carbon;
  * Servicio: Monitoreo Automático de Stock (CU-20)
  * 
  * Responsabilidades:
- * - Detectar productos bajo punto de reorden
- * - Detectar productos con alta rotación (muchas ventas)
- * - Generar solicitudes de cotización automáticas
- * - Agrupar productos por proveedor habitual
+ * - Detectar productos bajo punto de reorden o alta rotación
+ * - Generar solicitudes de cotización
+ * - Enviar automáticamente a proveedores (cuando automatización activa)
  * 
- * Lineamientos aplicados:
+ * Flujo según configuración:
+ * - AUTOMATIZACIÓN ACTIVADA: Detecta → Genera → Envía automáticamente
+ * - AUTOMATIZACIÓN DESACTIVADA: Solo detecta (usuario crea manualmente)
+ * 
+ * Lineamientos:
  * - Larman: Creator (crea solicitudes)
- * - Kendall: Automatización de procesos de negocio
+ * - Kendall: Automatización de procesos de compras
  */
 class MonitoreoStockService
 {
-    /**
-     * Umbral de ventas para considerar alta rotación (configurable)
-     * Si un producto vendió más de X unidades en el último mes
-     */
     const UMBRAL_ALTA_ROTACION = 10;
+
     /**
      * Detecta todos los productos bajo stock mínimo
-     * 
-     * @return Collection Productos que necesitan reposición
      */
     public function detectarProductosBajoStock(): Collection
     {
-        // Busca registros de stock donde cantidad < stock_minimo
         return Stock::with(['producto.proveedorHabitual', 'deposito'])
             ->whereColumn('cantidad_disponible', '<', 'stock_minimo')
-            ->where('stock_minimo', '>', 0) // Solo si tiene mínimo configurado
+            ->where('stock_minimo', '>', 0)
             ->get()
             ->map(function ($stock) {
                 return [
@@ -62,19 +60,13 @@ class MonitoreoStockService
     }
 
     /**
-     * Detecta productos con alta rotación en el último mes
-     * Productos que vendieron mucho y podrían necesitar reposición preventiva
-     * 
-     * @param int $diasAnalizar Días hacia atrás para analizar ventas (default: 30)
-     * @param int|null $umbral Cantidad mínima de ventas para considerar alta rotación
-     * @return Collection Productos con alta rotación
+     * Detecta productos con alta rotación (muchas ventas en el último mes)
      */
     public function detectarProductosAltaRotacion(int $diasAnalizar = 30, ?int $umbral = null): Collection
     {
         $umbral = $umbral ?? self::UMBRAL_ALTA_ROTACION;
         $fechaDesde = Carbon::now()->subDays($diasAnalizar);
 
-        // Obtener productos con muchas ventas en el período
         $ventasPorProducto = DetalleVenta::select('producto_id', DB::raw('SUM(cantidad) as total_vendido'))
             ->whereHas('venta', function ($query) use ($fechaDesde) {
                 $query->where('fecha_venta', '>=', $fechaDesde)
@@ -90,7 +82,6 @@ class MonitoreoStockService
 
         $productosIds = $ventasPorProducto->pluck('producto_id')->toArray();
 
-        // Obtener información de stock de estos productos
         return Stock::with(['producto.proveedorHabitual', 'deposito'])
             ->whereIn('productoID', $productosIds)
             ->get()
@@ -98,14 +89,11 @@ class MonitoreoStockService
                 $ventasInfo = $ventasPorProducto->firstWhere('producto_id', $stock->productoID);
                 $totalVendido = $ventasInfo ? $ventasInfo->total_vendido : 0;
                 
-                // Calcular cobertura: cuántos días de stock quedan basado en ritmo de ventas
                 $ventasDiarias = $totalVendido / 30;
                 $diasCobertura = $ventasDiarias > 0 ? round($stock->cantidad_disponible / $ventasDiarias, 1) : 999;
                 
-                // Solo incluir si tiene menos de 14 días de cobertura
-                if ($diasCobertura > 14) {
-                    return null;
-                }
+                // Solo alertar si la cobertura es menor a 14 días
+                if ($diasCobertura > 14) return null;
 
                 return [
                     'producto_id' => $stock->productoID,
@@ -120,24 +108,20 @@ class MonitoreoStockService
                     'dias_cobertura' => $diasCobertura,
                 ];
             })
-            ->filter() // Eliminar nulls
+            ->filter()
             ->values();
     }
 
     /**
-     * Detecta todos los productos que necesitan reposición
-     * Combina: stock bajo + alta rotación (sin duplicados)
-     * 
-     * @return Collection Todos los productos que necesitan atención
+     * Detecta TODOS los productos que necesitan reposición
+     * (stock bajo + alta rotación sin duplicados)
      */
     public function detectarProductosNecesitanReposicion(): Collection
     {
         $bajoStock = $this->detectarProductosBajoStock();
         $altaRotacion = $this->detectarProductosAltaRotacion();
 
-        // Combinar sin duplicados (priorizando el de stock bajo si existe en ambos)
         $productosIds = $bajoStock->pluck('producto_id')->toArray();
-        
         $altaRotacionSinDuplicados = $altaRotacion->filter(function ($item) use ($productosIds) {
             return !in_array($item['producto_id'], $productosIds);
         });
@@ -146,10 +130,7 @@ class MonitoreoStockService
     }
 
     /**
-     * Agrupa productos bajo stock por proveedor habitual
-     * 
-     * @param Collection $productosBajoStock
-     * @return Collection Productos agrupados por proveedor_id
+     * Agrupa productos por proveedor habitual
      */
     public function agruparPorProveedor(Collection $productosBajoStock): Collection
     {
@@ -159,155 +140,179 @@ class MonitoreoStockService
     }
 
     /**
-     * Genera solicitudes de cotización automáticas para productos que necesitan reposición
-     * Incluye: stock bajo + productos de alta rotación
+     * MÉTODO PRINCIPAL: Ejecuta el monitoreo completo
      * 
-     * @param int|null $userId Usuario que ejecuta (null si es proceso automático)
-     * @param int $diasVencimiento Días hasta vencimiento de la solicitud
+     * Si automatización ACTIVADA: Genera solicitudes en estado "Abierta" y las ENVÍA
+     * Si automatización DESACTIVADA: No hace nada (el usuario crea manualmente)
+     * 
+     * @return array Resultado de la operación
+     */
+    public function ejecutarMonitoreoAutomatico(): array
+    {
+        // Verificar si la automatización está activada
+        $automatizacionActiva = Configuracion::get('compras_generacion_automatica', 'false') === 'true';
+        
+        if (!$automatizacionActiva) {
+            return [
+                'ejecutado' => false,
+                'mensaje' => 'Automatización desactivada. Las solicitudes deben crearse manualmente.',
+            ];
+        }
+
+        // Obtener configuración de días de vencimiento
+        $diasVencimiento = (int) Configuracion::get('compras_dias_vencimiento', 7);
+
+        // Ejecutar generación con envío automático
+        return $this->generarSolicitudesAutomaticas(
+            userId: null, // Sistema
+            diasVencimiento: $diasVencimiento,
+            incluirAltaRotacion: true,
+            enviarAutomaticamente: true // CLAVE: envía automáticamente
+        );
+    }
+
+    /**
+     * Genera solicitudes de cotización
+     * 
+     * @param int|null $userId Usuario que ejecuta (null si es sistema)
+     * @param int $diasVencimiento Días hasta vencimiento
      * @param bool $incluirAltaRotacion Incluir productos de alta rotación
-     * @return array Resultado con solicitudes creadas y errores
+     * @param bool $enviarAutomaticamente Si true, envía inmediatamente a proveedores
+     * @return array Resultado de la operación
      */
     public function generarSolicitudesAutomaticas(
         ?int $userId = null, 
-        int $diasVencimiento = 7,
-        bool $incluirAltaRotacion = true
+        int $diasVencimiento = 7, 
+        bool $incluirAltaRotacion = true,
+        bool $enviarAutomaticamente = false
     ): array {
-        // Detectar todos los productos que necesitan atención
         $productosNecesitan = $incluirAltaRotacion 
             ? $this->detectarProductosNecesitanReposicion()
             : $this->detectarProductosBajoStock();
         
         if ($productosNecesitan->isEmpty()) {
             return [
-                'solicitudes_creadas' => 0,
+                'solicitudes_creadas' => 0, 
                 'productos_procesados' => 0,
-                'productos_bajo_stock' => 0,
-                'productos_alta_rotacion' => 0,
-                'errores' => [],
+                'enviadas' => 0,
                 'mensaje' => 'No hay productos que necesiten reposición',
             ];
         }
 
-        // Conteo por motivo
-        $bajoStock = $productosNecesitan->where('motivo', 'stock_bajo')->count();
-        $altaRotacion = $productosNecesitan->where('motivo', 'alta_rotacion')->count();
-
         $porProveedor = $this->agruparPorProveedor($productosNecesitan);
         $solicitudesCreadas = [];
+        $solicitudesEnviadas = 0;
         $errores = [];
+        
+        // Excluir productos que ya están en curso
         $productosYaSolicitados = $this->obtenerProductosEnSolicitudesAbiertas();
 
         DB::beginTransaction();
-        
         try {
             foreach ($porProveedor as $proveedorId => $productos) {
-                // Filtrar productos que ya tienen solicitud abierta
-                $productosNuevos = $productos->filter(function ($item) use ($productosYaSolicitados) {
-                    return !in_array($item['producto_id'], $productosYaSolicitados);
-                });
+                $productosNuevos = $productos->filter(fn($item) => !in_array($item['producto_id'], $productosYaSolicitados));
 
-                if ($productosNuevos->isEmpty()) {
-                    continue;
-                }
+                if ($productosNuevos->isEmpty()) continue;
 
-                // Si es "sin_proveedor", buscar proveedores que tengan estos productos
                 if ($proveedorId === 'sin_proveedor') {
-                    $solicitud = $this->crearSolicitudSinProveedorHabitual(
-                        $productosNuevos, 
-                        $userId, 
-                        $diasVencimiento
-                    );
+                    $solicitud = $this->crearSolicitudSinProveedorHabitual($productosNuevos, $userId, $diasVencimiento, $enviarAutomaticamente);
                 } else {
-                    $solicitud = $this->crearSolicitudParaProveedor(
-                        $proveedorId,
-                        $productosNuevos, 
-                        $userId, 
-                        $diasVencimiento
-                    );
+                    $solicitud = $this->crearSolicitudParaProveedor($proveedorId, $productosNuevos, $userId, $diasVencimiento, $enviarAutomaticamente);
                 }
 
                 if ($solicitud) {
                     $solicitudesCreadas[] = $solicitud;
+                    
+                    // Si envío automático está activado, enviar ahora
+                    if ($enviarAutomaticamente) {
+                        try {
+                            $solicitudService = app(SolicitudCotizacionService::class);
+                            $resultado = $solicitudService->enviarSolicitudAProveedores($solicitud, 'inteligente');
+                            if ($resultado['enviados'] > 0) {
+                                $solicitudesEnviadas++;
+                            }
+                        } catch (\Exception $e) {
+                            Log::warning("Error enviando solicitud {$solicitud->id}: " . $e->getMessage());
+                            $errores[] = "Solicitud {$solicitud->codigo_solicitud}: " . $e->getMessage();
+                        }
+                    }
                 }
             }
-
             DB::commit();
+
+            $mensaje = $enviarAutomaticamente 
+                ? "Se crearon " . count($solicitudesCreadas) . " solicitud(es) y se enviaron {$solicitudesEnviadas} a proveedores."
+                : "Se crearon " . count($solicitudesCreadas) . " borrador(es). Requieren aprobación manual.";
 
             return [
                 'solicitudes_creadas' => count($solicitudesCreadas),
                 'productos_procesados' => $productosNecesitan->count(),
-                'productos_bajo_stock' => $bajoStock,
-                'productos_alta_rotacion' => $altaRotacion,
+                'enviadas' => $solicitudesEnviadas,
                 'solicitudes' => $solicitudesCreadas,
                 'errores' => $errores,
-                'mensaje' => count($solicitudesCreadas) > 0 
-                    ? 'Solicitudes generadas exitosamente'
-                    : 'No se generaron solicitudes (productos ya tienen solicitudes abiertas)',
+                'mensaje' => count($solicitudesCreadas) > 0 ? $mensaje : 'Sin novedades.',
             ];
 
         } catch (\Exception $e) {
             DB::rollBack();
-            Log::error('Error generando solicitudes automáticas: ' . $e->getMessage());
-            
-            return [
-                'solicitudes_creadas' => 0,
-                'productos_procesados' => 0,
-                'productos_bajo_stock' => 0,
-                'productos_alta_rotacion' => 0,
-                'errores' => [$e->getMessage()],
-                'mensaje' => 'Error al generar solicitudes',
-            ];
+            Log::error('Error monitoreo: ' . $e->getMessage());
+            return ['solicitudes_creadas' => 0, 'enviadas' => 0, 'errores' => [$e->getMessage()], 'mensaje' => 'Error crítico'];
         }
     }
 
-    /**
-     * Obtiene IDs de productos que ya tienen solicitudes abiertas o enviadas
-     */
     protected function obtenerProductosEnSolicitudesAbiertas(): array
     {
         return DetalleSolicitudCotizacion::whereHas('solicitud', function ($query) {
             $query->whereHas('estado', function ($q) {
-                $q->whereIn('nombre', ['Abierta', 'Enviada']);
+                // Bloquea si ya está Abierta, Enviada O Pendiente de Revisión
+                $q->whereIn('nombre', ['Abierta', 'Enviada', 'Pendiente de Revisión']);
             });
         })->pluck('producto_id')->toArray();
     }
 
     /**
-     * Crea una solicitud para un proveedor específico
+     * Crea solicitud para un proveedor específico
+     * 
+     * @param bool $enviarAutomaticamente Si true, usa estado "Abierta" para envío inmediato
      */
     protected function crearSolicitudParaProveedor(
-        int $proveedorId,
-        Collection $productos,
-        ?int $userId,
-        int $diasVencimiento
+        int $proveedorId, 
+        Collection $productos, 
+        ?int $userId, 
+        int $diasVencimiento,
+        bool $enviarAutomaticamente = false
     ): ?SolicitudCotizacion {
-        $estadoAbierta = EstadoSolicitud::abierta();
-        
-        if (!$estadoAbierta) {
-            throw new \Exception('No se encontró el estado "Abierta" en estados_solicitud');
+        // Estado según modo de operación
+        if ($enviarAutomaticamente) {
+            // Modo automático: Abierta (lista para enviar)
+            $estado = EstadoSolicitud::where('nombre', 'Abierta')->first();
+            $observaciones = 'Generada y enviada automáticamente por monitoreo de stock.';
+        } else {
+            // Modo manual: Pendiente de Revisión (requiere aprobación)
+            $estado = EstadoSolicitud::where('nombre', 'Pendiente de Revisión')->first();
+            if (!$estado) $estado = EstadoSolicitud::where('nombre', 'Abierta')->first();
+            $observaciones = 'Generada automáticamente. Esperando aprobación del usuario.';
         }
 
-        // Crear la solicitud
         $solicitud = SolicitudCotizacion::create([
             'codigo_solicitud' => SolicitudCotizacion::generarCodigoSolicitud(),
             'fecha_emision' => now(),
             'fecha_vencimiento' => now()->addDays($diasVencimiento),
-            'estado_id' => $estadoAbierta->id,
+            'estado_id' => $estado->id,
             'user_id' => $userId,
-            'observaciones' => 'Solicitud generada automáticamente por monitoreo de stock',
+            'observaciones' => $observaciones,
         ]);
 
-        // Crear detalles
         foreach ($productos as $item) {
             DetalleSolicitudCotizacion::create([
                 'solicitud_id' => $solicitud->id,
                 'producto_id' => $item['producto_id'],
                 'cantidad_sugerida' => max($item['faltante'], $item['stock_minimo']),
-                'observaciones' => "Stock actual: {$item['cantidad_actual']}, Mínimo: {$item['stock_minimo']}",
+                'observaciones' => "Stock: {$item['cantidad_actual']} (Min: {$item['stock_minimo']})",
             ]);
         }
 
-        // Crear cotización para el proveedor habitual
+        // Crear la relación con el proveedor
         CotizacionProveedor::create([
             'solicitud_id' => $solicitud->id,
             'proveedor_id' => $proveedorId,
@@ -318,49 +323,46 @@ class MonitoreoStockService
     }
 
     /**
-     * Crea solicitud para productos sin proveedor habitual
-     * Invita a todos los proveedores activos
+     * Crea solicitud para productos sin proveedor habitual (se envía a todos los activos)
      */
     protected function crearSolicitudSinProveedorHabitual(
-        Collection $productos,
-        ?int $userId,
-        int $diasVencimiento
+        Collection $productos, 
+        ?int $userId, 
+        int $diasVencimiento,
+        bool $enviarAutomaticamente = false
     ): ?SolicitudCotizacion {
-        $estadoAbierta = EstadoSolicitud::abierta();
-        
-        if (!$estadoAbierta) {
-            throw new \Exception('No se encontró el estado "Abierta" en estados_solicitud');
+        // Estado según modo de operación
+        if ($enviarAutomaticamente) {
+            $estado = EstadoSolicitud::where('nombre', 'Abierta')->first();
+            $observaciones = 'Automática (múltiples proveedores). Enviada automáticamente.';
+        } else {
+            $estado = EstadoSolicitud::where('nombre', 'Pendiente de Revisión')->first();
+            if (!$estado) $estado = EstadoSolicitud::where('nombre', 'Abierta')->first();
+            $observaciones = 'Automática (sin proveedor definido). Esperando asignación/aprobación.';
         }
 
         // Buscar proveedores activos
-        $proveedores = Proveedor::whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))
-            ->get();
+        $proveedores = Proveedor::whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))->get();
+        if ($proveedores->isEmpty()) return null;
 
-        if ($proveedores->isEmpty()) {
-            return null;
-        }
-
-        // Crear la solicitud
         $solicitud = SolicitudCotizacion::create([
             'codigo_solicitud' => SolicitudCotizacion::generarCodigoSolicitud(),
             'fecha_emision' => now(),
             'fecha_vencimiento' => now()->addDays($diasVencimiento),
-            'estado_id' => $estadoAbierta->id,
+            'estado_id' => $estado->id,
             'user_id' => $userId,
-            'observaciones' => 'Solicitud automática - Productos sin proveedor habitual asignado',
+            'observaciones' => $observaciones,
         ]);
 
-        // Crear detalles
         foreach ($productos as $item) {
             DetalleSolicitudCotizacion::create([
                 'solicitud_id' => $solicitud->id,
                 'producto_id' => $item['producto_id'],
                 'cantidad_sugerida' => max($item['faltante'], $item['stock_minimo']),
-                'observaciones' => "Stock actual: {$item['cantidad_actual']}, Mínimo: {$item['stock_minimo']}",
+                'observaciones' => "Stock: {$item['cantidad_actual']}",
             ]);
         }
 
-        // Invitar a todos los proveedores activos
         foreach ($proveedores as $proveedor) {
             CotizacionProveedor::create([
                 'solicitud_id' => $solicitud->id,
@@ -373,36 +375,31 @@ class MonitoreoStockService
     }
 
     /**
-     * Verifica si un producto específico está bajo stock
-     */
-    public function productoBajoStock(int $productoId): bool
-    {
-        return Stock::where('productoID', $productoId)
-            ->whereColumn('cantidad_disponible', '<', 'stock_minimo')
-            ->where('stock_minimo', '>', 0)
-            ->exists();
-    }
-
-    /**
-     * Obtiene resumen del estado de stock
+     * Obtiene resumen de stock para dashboard
      */
     public function obtenerResumenStock(): array
     {
-        $totalProductos = Producto::count();
-        $bajoStock = $this->detectarProductosBajoStock()->count();
-        $sinStock = Stock::where('cantidad_disponible', '<=', 0)->count();
-        $sinMinimoConfigurado = Stock::where('stock_minimo', 0)
-            ->orWhereNull('stock_minimo')
+        $bajoStock = Stock::whereColumn('cantidad_disponible', '<', 'stock_minimo')
+            ->where('stock_minimo', '>', 0)
             ->count();
 
+        $sinStock = Stock::where('cantidad_disponible', '<=', 0)
+            ->count();
+
+        $pendientesRevision = SolicitudCotizacion::whereHas('estado', function ($q) {
+            $q->where('nombre', 'Pendiente de Revisión');
+        })->count();
+
         return [
-            'total_productos' => $totalProductos,
             'bajo_stock' => $bajoStock,
             'sin_stock' => $sinStock,
-            'sin_minimo_configurado' => $sinMinimoConfigurado,
-            'porcentaje_bajo_stock' => $totalProductos > 0 
-                ? round(($bajoStock / $totalProductos) * 100, 2) 
-                : 0,
+            'pendientes_revision' => $pendientesRevision,
         ];
+    }
+
+    public function productoBajoStock(int $productoId): bool {
+        return Stock::where('productoID', $productoId)
+            ->whereColumn('cantidad_disponible', '<', 'stock_minimo')
+            ->where('stock_minimo', '>', 0)->exists();
     }
 }

@@ -100,7 +100,16 @@ class Proveedor extends Model
     }
 
     /**
+     * Cotizaciones presentadas por este proveedor (nuevo modelo simplificado)
+     */
+    public function cotizacionesProveedor(): HasMany
+    {
+        return $this->hasMany(CotizacionProveedor::class);
+    }
+
+    /**
      * Ofertas presentadas por este proveedor
+     * @deprecated Usar cotizacionesProveedor() en su lugar
      */
     public function ofertas(): HasMany
     {

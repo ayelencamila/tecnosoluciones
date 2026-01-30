@@ -274,7 +274,7 @@ const traducirPaginacion = (label) => {
                                         {{ formatearFecha(orden.fecha_emision) }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900 dark:text-white">
-                                        {{ formatCurrency(orden.total, orden.moneda) }}
+                                        {{ formatCurrency(orden.total_final) }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-center">
                                         <span 

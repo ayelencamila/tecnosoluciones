@@ -298,7 +298,7 @@
                 <p>CUIT: {{ $orden->proveedor->cuit }}</p>
             @endif
             @if($orden->proveedor->direccion)
-                <p>{{ $orden->proveedor->direccion }}</p>
+                <p>{{ $orden->proveedor->direccion->direccion_completa ?? $orden->proveedor->direccion->calle ?? '' }}</p>
             @endif
             @if($orden->proveedor->telefono)
                 <p>Tel: {{ $orden->proveedor->telefono }}</p>
@@ -314,8 +314,8 @@
             @if($orden->usuario)
                 <p>Generado por: {{ $orden->usuario->name }}</p>
             @endif
-            @if($orden->oferta && $orden->oferta->solicitud)
-                <p>Ref. Solicitud: #{{ $orden->oferta->solicitud->id }}</p>
+            @if($orden->cotizacionProveedor && $orden->cotizacionProveedor->solicitud)
+                <p>Ref. Solicitud: {{ $orden->cotizacionProveedor->solicitud->codigo_solicitud }}</p>
             @endif
         </div>
     </div>

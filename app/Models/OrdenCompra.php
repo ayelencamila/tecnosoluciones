@@ -14,14 +14,16 @@ use Illuminate\Support\Facades\DB;
  * Representa órdenes de compra generadas a proveedores.
  * 
  * Lineamientos aplicados:
- * - Larman: Trazabilidad completa (desde oferta hasta recepción)
+ * - Larman: Trazabilidad completa (desde cotización hasta recepción)
  * - Kendall: Numeración correlativa única
  * - Elmasri 3FN: estado_id FK a tabla paramétrica
+ * 
+ * Cadena simplificada: SolicitudCotizacion → CotizacionProveedor → OrdenCompra
  * 
  * @property int $id
  * @property string $numero_oc
  * @property int $proveedor_id
- * @property int $oferta_id
+ * @property int|null $cotizacion_proveedor_id FK a cotización ganadora
  * @property int $user_id
  * @property int $estado_id
  * @property float $total_final
@@ -34,7 +36,7 @@ use Illuminate\Support\Facades\DB;
  * @property \Carbon\Carbon $updated_at
  * 
  * @property-read Proveedor $proveedor
- * @property-read OfertaCompra $oferta
+ * @property-read CotizacionProveedor|null $cotizacionProveedor
  * @property-read User $usuario
  * @property-read EstadoOrdenCompra $estado
  * @property-read \Illuminate\Database\Eloquent\Collection<DetalleOrdenCompra> $detalles
@@ -48,7 +50,7 @@ class OrdenCompra extends Model
     protected $fillable = [
         'numero_oc',
         'proveedor_id',
-        'oferta_id',
+        'cotizacion_proveedor_id',
         'user_id',
         'estado_id',
         'total_final',
@@ -73,9 +75,27 @@ class OrdenCompra extends Model
         return $this->belongsTo(Proveedor::class);
     }
 
-    public function oferta(): BelongsTo
+    /**
+     * Cotización ganadora de donde se generó esta OC
+     */
+    public function cotizacionProveedor(): BelongsTo
     {
-        return $this->belongsTo(OfertaCompra::class, 'oferta_id');
+        return $this->belongsTo(CotizacionProveedor::class, 'cotizacion_proveedor_id');
+    }
+
+    /**
+     * Solicitud de cotización original (a través de la cotización)
+     */
+    public function solicitud(): \Illuminate\Database\Eloquent\Relations\HasOneThrough
+    {
+        return $this->hasOneThrough(
+            SolicitudCotizacion::class,
+            CotizacionProveedor::class,
+            'id', // FK en cotizaciones_proveedores
+            'id', // FK en solicitudes_cotizacion
+            'cotizacion_proveedor_id', // FK local en ordenes_compra
+            'solicitud_id' // FK en cotizaciones_proveedores
+        );
     }
 
     public function usuario(): BelongsTo

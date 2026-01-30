@@ -2,158 +2,140 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Configuracion;
-use App\Services\Compras\MonitoreoStockService;
-use App\Services\Compras\SolicitudCotizacionService;
 use Illuminate\Console\Command;
+use App\Services\Compras\MonitoreoStockService;
+use App\Models\Configuracion;
 use Illuminate\Support\Facades\Log;
 
 /**
  * Comando: Monitoreo Automático de Stock (CU-20)
  * 
- * Ejecuta el monitoreo de stock y genera solicitudes de cotización
- * automáticas para productos bajo el punto de reorden.
+ * Este comando se ejecuta desde el Scheduler y:
+ * 1. Detecta productos con stock bajo o alta rotación
+ * 2. Si automatización está ACTIVADA: genera solicitudes y las ENVÍA automáticamente
+ * 3. Si automatización está DESACTIVADA: solo muestra info (usuario crea manualmente)
  * 
- * Uso: php artisan stock:monitorear
- * Cron: 0 8 * * * (diario a las 8:00)
- * 
- * Lineamientos aplicados:
- * - Kendall: Automatización de procesos de negocio
- * - Laravel: Artisan Command para tareas programadas
+ * Opciones:
+ * --solo-detectar: Solo muestra productos detectados sin crear nada
+ * --forzar-envio: Ignora configuración y ejecuta con envío automático
  */
 class MonitorearStockCommand extends Command
 {
-    /**
-     * The name and signature of the console command.
-     */
     protected $signature = 'stock:monitorear 
-                            {--generar : Generar solicitudes de cotización automáticas}
-                            {--enviar : Enviar solicitudes generadas a proveedores}
-                            {--canal=inteligente : Canal de envío (email|whatsapp|ambos|inteligente)}
-                            {--dias= : Días de vencimiento para las solicitudes (default: config global)}';
+                            {--solo-detectar : Solo detecta y muestra, sin crear solicitudes}
+                            {--forzar-envio : Forzar envío automático (ignora configuración)}';
 
-    /**
-     * The console command description.
-     */
-    protected $description = 'Monitorea el stock y genera solicitudes de cotización para productos bajo mínimo';
+    protected $description = 'Monitorea el stock y genera/envía solicitudes según configuración del sistema';
 
-    protected MonitoreoStockService $monitoreoService;
-    protected SolicitudCotizacionService $solicitudService;
+    public function handle(MonitoreoStockService $monitoreoService)
+    {
+        $this->info('🔍 Iniciando monitoreo de stock...');
+        $this->newLine();
 
-    public function __construct(
-        MonitoreoStockService $monitoreoService,
-        SolicitudCotizacionService $solicitudService
-    ) {
-        parent::__construct();
-        $this->monitoreoService = $monitoreoService;
-        $this->solicitudService = $solicitudService;
+        try {
+            // 1. DETECCIÓN - Siempre se ejecuta
+            $productos = $monitoreoService->detectarProductosNecesitanReposicion();
+            
+            if ($productos->isEmpty()) {
+                $this->info('✅ Todo en orden. No hay productos que necesiten reposición.');
+                return 0;
+            }
+
+            // Mostrar productos detectados
+            $this->warn("⚠️  Se detectaron {$productos->count()} producto(s) que necesitan reposición:");
+            $this->mostrarTablaProductos($productos);
+
+            // Si solo detectar, terminar aquí
+            if ($this->option('solo-detectar')) {
+                $this->comment('ℹ️  Modo solo detección. No se crearon solicitudes.');
+                return 0;
+            }
+
+            // 2. Verificar configuración de automatización
+            $automatizacionActiva = Configuracion::get('compras_generacion_automatica', 'false') === 'true';
+            $forzarEnvio = $this->option('forzar-envio');
+
+            if (!$automatizacionActiva && !$forzarEnvio) {
+                $this->newLine();
+                $this->comment('⚙️  Automatización DESACTIVADA en configuración del sistema.');
+                $this->comment('👉 Las solicitudes deben crearse manualmente desde el panel web.');
+                $this->comment('💡 Para activar: Configuración → Compras → Generar solicitudes automáticamente');
+                return 0;
+            }
+
+            // 3. GENERACIÓN + ENVÍO AUTOMÁTICO
+            $this->newLine();
+            if ($forzarEnvio) {
+                $this->warn('🔧 Modo forzado: se ejecutará con envío automático');
+            } else {
+                $this->info('⚙️  Automatización ACTIVADA. Generando y enviando solicitudes...');
+            }
+
+            $diasVencimiento = (int) Configuracion::get('compras_dias_vencimiento', 7);
+            
+            $resultado = $monitoreoService->generarSolicitudesAutomaticas(
+                userId: null,
+                diasVencimiento: $diasVencimiento,
+                incluirAltaRotacion: true,
+                enviarAutomaticamente: true // Siempre envía cuando llega aquí
+            );
+
+            // 4. Mostrar resultados
+            $this->newLine();
+            if ($resultado['solicitudes_creadas'] > 0) {
+                $this->info("✅ {$resultado['mensaje']}");
+                $this->table(
+                    ['Métrica', 'Valor'],
+                    [
+                        ['Solicitudes creadas', $resultado['solicitudes_creadas']],
+                        ['Solicitudes enviadas', $resultado['enviadas']],
+                        ['Productos procesados', $resultado['productos_procesados']],
+                    ]
+                );
+                
+                if ($resultado['enviadas'] > 0) {
+                    $this->info('📨 Los proveedores recibirán un Magic Link para responder.');
+                }
+
+                // Mostrar errores si los hay
+                if (!empty($resultado['errores'])) {
+                    $this->newLine();
+                    $this->warn('⚠️  Algunos errores:');
+                    foreach ($resultado['errores'] as $error) {
+                        $this->error("   - {$error}");
+                    }
+                }
+            } else {
+                $this->info('ℹ️  ' . $resultado['mensaje']);
+            }
+
+        } catch (\Exception $e) {
+            $this->error('❌ Error: ' . $e->getMessage());
+            Log::error('Fallo en monitoreo stock: ' . $e->getMessage());
+            return 1;
+        }
+
+        $this->newLine();
+        $this->info('✅ Proceso finalizado.');
+        return 0;
     }
 
     /**
-     * Execute the console command.
+     * Muestra tabla con productos detectados
      */
-    public function handle(): int
+    protected function mostrarTablaProductos($productos): void
     {
-        $this->info('🔍 Iniciando monitoreo de stock...');
-        Log::info('Comando stock:monitorear ejecutado');
-
-        // 1. Detectar productos bajo stock + alta rotación
-        $productosBajoStock = $this->monitoreoService->detectarProductosBajoStock();
-        $productosAltaRotacion = $this->monitoreoService->detectarProductosAltaRotacion();
-        $todosProductos = $this->monitoreoService->detectarProductosNecesitanReposicion();
-        
-        if ($todosProductos->isEmpty()) {
-            $this->info('✅ No hay productos que necesiten reposición.');
-            $this->line('   • Stock bajo: 0');
-            $this->line('   • Alta rotación: 0');
-            return Command::SUCCESS;
-        }
-
-        $this->warn("⚠️ Se detectaron {$todosProductos->count()} producto(s) que necesitan reposición:");
-        $this->line("   • Stock bajo: {$productosBajoStock->count()}");
-        $this->line("   • Alta rotación con baja cobertura: {$productosAltaRotacion->count()}");
-        
-        // Mostrar tabla de productos
-        $headers = ['Producto', 'Depósito', 'Stock Actual', 'Mínimo', 'Motivo', 'Ventas/mes'];
-        $rows = $todosProductos->map(function ($item) {
+        $headers = ['Producto', 'Stock Actual', 'Mínimo', 'Motivo', 'Proveedor'];
+        $data = $productos->map(function ($item) {
             return [
-                $item['producto']?->nombre ?? 'N/A',
-                $item['deposito']?->nombre ?? 'Principal',
+                substr($item['producto']->nombre, 0, 30),
                 $item['cantidad_actual'],
-                $item['stock_minimo'] ?: '-',
-                $item['motivo'] === 'stock_bajo' ? '🔴 Stock bajo' : '📈 Alta rotación',
-                $item['ventas_mes'] ?? '-',
+                $item['stock_minimo'],
+                $item['motivo'] == 'stock_bajo' ? '🔴 Stock bajo' : '🟠 Alta rotación',
+                $item['proveedor_habitual']?->razon_social ?? '⚠️ Sin proveedor',
             ];
-        })->toArray();
-        
-        $this->table($headers, $rows);
+        });
 
-        // 2. Verificar si el proceso automático está habilitado (parámetro del sistema)
-        $generacionAutomatica = Configuracion::get('compras_generacion_automatica', 'false') === 'true';
-        $debeGenerar = $this->option('generar') || $generacionAutomatica;
-        $debeEnviar = $this->option('enviar') || $generacionAutomatica;
-
-        // 2. Generar solicitudes automáticas (si se solicitó o está habilitado en configuración)
-        if ($debeGenerar) {
-            $origen = $generacionAutomatica ? '(proceso automático habilitado)' : '(opción --generar)';
-            $this->info("📋 Generando solicitudes de cotización automáticas {$origen}...");
-            
-            // Usar parámetro de comando o configuración global
-            $diasVencimiento = $this->option('dias') 
-                ? (int) $this->option('dias') 
-                : (int) Configuracion::get('solicitud_cotizacion_dias_vencimiento', 7);
-            
-            try {
-                $resultado = $this->monitoreoService->generarSolicitudesAutomaticas(
-                    null, // Usuario null = proceso automático
-                    $diasVencimiento
-                );
-
-                if ($resultado['solicitudes_creadas'] > 0) {
-                    $this->info("✅ Se generaron {$resultado['solicitudes_creadas']} solicitud(es) de cotización");
-                    
-                    // 3. Enviar automáticamente si está habilitado o se solicitó
-                    if ($debeEnviar && isset($resultado['solicitudes'])) {
-                        $canal = $this->option('canal') ?? 'inteligente';
-                        $this->info("📤 Enviando solicitudes a proveedores por {$canal}...");
-                        
-                        foreach ($resultado['solicitudes'] as $solicitud) {
-                            try {
-                                $envio = $this->solicitudService->enviarSolicitudAProveedores(
-                                    $solicitud,
-                                    $canal
-                                );
-                                $this->info("  → Solicitud {$solicitud->codigo_solicitud}: {$envio['mensaje']}");
-                            } catch (\Exception $e) {
-                                $this->error("  → Error enviando {$solicitud->codigo_solicitud}: {$e->getMessage()}");
-                            }
-                        }
-                    }
-                } else {
-                    $this->warn("⚠️ {$resultado['mensaje']}");
-                }
-
-            } catch (\Exception $e) {
-                $this->error("❌ Error: {$e->getMessage()}");
-                Log::error('Error en comando stock:monitorear: ' . $e->getMessage());
-                return Command::FAILURE;
-            }
-        } else {
-            $this->line('');
-            $this->info('💡 Use --generar para crear solicitudes automáticas');
-            $this->info('💡 Use --generar --enviar para crear y enviar por WhatsApp');
-            $this->info('💡 O active "Generación automática" en Configuración del Sistema');
-        }
-
-        // 4. Marcar solicitudes vencidas
-        $this->info('⏰ Verificando solicitudes vencidas...');
-        $vencidas = $this->solicitudService->marcarSolicitudesVencidas();
-        
-        if ($vencidas > 0) {
-            $this->warn("⏰ Se marcaron {$vencidas} solicitud(es) como vencidas");
-        }
-
-        $this->info('✅ Monitoreo completado');
-        return Command::SUCCESS;
+        $this->table($headers, $data);
     }
 }

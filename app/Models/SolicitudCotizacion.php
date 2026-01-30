@@ -89,6 +89,21 @@ class SolicitudCotizacion extends Model
         return $this->hasMany(CotizacionProveedor::class, 'solicitud_id');
     }
 
+    /**
+     * Órdenes de compra generadas desde cotizaciones de esta solicitud
+     */
+    public function ordenesCompra()
+    {
+        return $this->hasManyThrough(
+            \App\Models\OrdenCompra::class,
+            CotizacionProveedor::class,
+            'solicitud_id',           // FK en cotizaciones_proveedores
+            'cotizacion_proveedor_id', // FK en ordenes_compra
+            'id',                      // PK en solicitudes_cotizacion
+            'id'                       // PK en cotizaciones_proveedores
+        );
+    }
+
     // --- SCOPES ---
 
     /**

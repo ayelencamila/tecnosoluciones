@@ -4,19 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\Compras\StoreOrdenCompraRequest;
 use App\Models\OrdenCompra;
-use App\Models\OfertaCompra;
+use App\Models\CotizacionProveedor;
 use App\Models\EstadoOrdenCompra;
 use App\Repositories\OrdenCompraRepository;
 use App\Services\Compras\RegistrarCompraService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use Exception;
 
 /**
  * Controlador de Órdenes de Compra (CU-22)
+ * 
+ * MODELO SIMPLIFICADO (sin tabla ofertas_compra):
+ * SolicitudCotizacion → CotizacionProveedor (elegida) → OrdenCompra
  * 
  * Responsabilidades:
  * - Coordinar casos de uso (GRASP: Controller)
@@ -31,56 +35,54 @@ class OrdenCompraController extends Controller
     ) {}
 
     /**
-     * CU-22 Pantalla 1: Punto de Partida - Listado de Ofertas Elegidas
+     * CU-22 Pantalla 1: Punto de Partida - Listado de Cotizaciones Elegidas
      * 
-     * Contexto: El administrador necesita encontrar las ofertas que ya han sido
-     * negociadas y seleccionadas (CU-21) y que están listas para convertirse en OC.
+     * Contexto: El administrador necesita encontrar las cotizaciones que han sido
+     * seleccionadas como ganadoras y que están listas para convertirse en OC.
      * 
      * Principio K&K (Salida de Navegación): Lista filtrada "To-do list"
      */
     public function index(Request $request): Response
     {
-        // Query base: ofertas con estado 'Elegida' o 'Pre-aprobada'
-        $query = OfertaCompra::with([
+        // Query base: cotizaciones marcadas como elegidas sin OC generada
+        $query = CotizacionProveedor::with([
             'proveedor:id,razon_social,cuit',
-            'estado:id,nombre',
-            'detalles.producto:id,nombre,codigo',
+            'solicitud:id,codigo_solicitud,fecha_vencimiento',
+            'respuestas.producto:id,nombre,codigo',
         ])
-        ->whereHas('estado', function($q) {
-            $q->whereIn('nombre', ['Elegida', 'Pre-aprobada']);
-        });
+        ->where('elegida', true)
+        ->whereDoesntHave('ordenCompra'); // Solo las que NO tienen OC aún
 
         // Filtro por proveedor
         if ($request->filled('proveedor_id')) {
             $query->where('proveedor_id', $request->proveedor_id);
         }
 
-        // Búsqueda por código de oferta o solicitud
+        // Búsqueda por código de solicitud
         if ($request->filled('busqueda')) {
             $busqueda = $request->busqueda;
             $query->where(function($q) use ($busqueda) {
-                $q->where('codigo_oferta', 'LIKE', "%{$busqueda}%")
-                  ->orWhere('id', 'LIKE', "%{$busqueda}%")
-                  ->orWhereHas('solicitud', function($sq) use ($busqueda) {
-                      $sq->where('codigo_solicitud', 'LIKE', "%{$busqueda}%");
-                  });
+                $q->whereHas('solicitud', function($sq) use ($busqueda) {
+                    $sq->where('codigo_solicitud', 'LIKE', "%{$busqueda}%");
+                })
+                ->orWhereHas('proveedor', function($pq) use ($busqueda) {
+                    $pq->where('razon_social', 'LIKE', "%{$busqueda}%");
+                });
             });
         }
 
         // Ordenar y paginar
-        $ofertas = $query->orderBy('created_at', 'desc')
-                        ->paginate(10)
-                        ->withQueryString();
+        $cotizaciones = $query->orderBy('fecha_respuesta', 'desc')
+                              ->paginate(10)
+                              ->withQueryString();
 
-        // Obtener proveedores con ofertas elegidas para el filtro
-        $proveedores = \App\Models\Proveedor::whereHas('ofertas', function($q) {
-            $q->whereHas('estado', function($sq) {
-                $sq->whereIn('nombre', ['Elegida', 'Pre-aprobada']);
-            });
+        // Obtener proveedores con cotizaciones elegidas para el filtro
+        $proveedores = \App\Models\Proveedor::whereHas('cotizacionesProveedor', function($q) {
+            $q->where('elegida', true)->whereDoesntHave('ordenCompra');
         })->select('id', 'razon_social')->orderBy('razon_social')->get();
 
         return Inertia::render('Compras/Ordenes/Index', [
-            'ofertas' => $ofertas,
+            'cotizaciones' => $cotizaciones,
             'proveedores' => $proveedores,
             'filters' => $request->only(['proveedor_id', 'busqueda']),
         ]);
@@ -159,54 +161,60 @@ class OrdenCompraController extends Controller
     }
 
     /**
-     * CU-22: Muestra formulario para generar OC desde oferta elegida
+     * CU-22: Muestra formulario para generar OC desde cotización elegida
      * Kendall P2+P3: Resumen + Ingreso de Motivo
      */
     public function create(Request $request): Response
     {
-        $ofertaId = $request->query('oferta_id');
+        $cotizacionId = $request->query('cotizacion_id');
         
-        if (!$ofertaId) {
+        if (!$cotizacionId) {
             return redirect()->route('ordenes.index')
-                ->with('error', 'Debe seleccionar una oferta para generar la Orden de Compra.');
+                ->with('error', 'Debe seleccionar una cotización para generar la Orden de Compra.');
         }
 
-        $oferta = OfertaCompra::with([
+        $cotizacion = CotizacionProveedor::with([
             'proveedor:id,razon_social,cuit,telefono,email,direccion_id',
             'proveedor.direccion',
-            'detalles.producto:id,nombre,codigo',
-            'estado:id,nombre',
-        ])->findOrFail($ofertaId);
+            'solicitud:id,codigo_solicitud,fecha_vencimiento,observaciones',
+            'respuestas.producto:id,nombre,codigo',
+        ])->findOrFail($cotizacionId);
 
-        // Validar que la oferta esté en estado correcto
-        if (!in_array($oferta->estado->nombre, ['Elegida', 'Pre-aprobada'])) {
-            return redirect()->route('ofertas.show', $oferta->id)
-                ->with('error', 'Solo se pueden generar órdenes desde ofertas Elegidas o Pre-aprobadas.');
+        // Validar que la cotización esté elegida
+        if (!$cotizacion->elegida) {
+            return redirect()->route('solicitudes-cotizacion.show', $cotizacion->solicitud_id)
+                ->with('error', 'Solo se pueden generar órdenes desde cotizaciones elegidas.');
+        }
+
+        // Validar que no tenga ya una OC
+        if ($cotizacion->ordenCompra()->exists()) {
+            return redirect()->route('ordenes.historial')
+                ->with('error', 'Esta cotización ya tiene una Orden de Compra generada.');
         }
 
         return Inertia::render('Compras/Ordenes/Create', [
-            'oferta' => $oferta,
+            'cotizacion' => $cotizacion,
         ]);
     }
 
     /**
-     * CU-22: Genera una nueva Orden de Compra desde una oferta elegida
+     * CU-22: Genera una nueva Orden de Compra desde cotización elegida
      * 
      * Implementa operación DSS: confirmarGeneracionYEnvio(motivo)
      * 
-     * Flujo Principal (pasos CU-22):
+     * Flujo Principal:
      * 1-6. Usuario confirma generación con motivo
      * 7-11. Sistema ejecuta proceso (RegistrarCompraService)
-     * 12. Sistema muestra resultado EN LA MISMA VISTA (no redirect)
+     * 12. Sistema muestra resultado EN LA MISMA VISTA
      * 
      * @return Response Devuelve Create.vue con resultado (éxito/advertencias/error)
      */
     public function store(StoreOrdenCompraRequest $request): Response
     {
         try {
-            // Ejecutar CU-22 (pasos 7-11)
+            // Ejecutar CU-22
             $resultado = $this->registrarCompraService->ejecutar(
-                ofertaId: $request->validated('oferta_id'),
+                cotizacionId: $request->validated('cotizacion_id'),
                 usuarioId: $request->user()->id,
                 observaciones: $request->validated('motivo')
             );
@@ -214,20 +222,20 @@ class OrdenCompraController extends Controller
             $orden = $resultado['orden'];
             $advertencias = $resultado['advertencias'];
 
-            // Determinar tipo de resultado según CU-22
+            // Determinar tipo de resultado
             if (empty($advertencias)) {
-                // Éxito completo: OC generada y enviada sin problemas
                 $tipoResultado = 'success';
                 $mensaje = "Orden de Compra {$orden->numero_oc} generada y enviada exitosamente al proveedor.";
             } else {
-                // Éxito con advertencias: OC generada pero con excepciones 8a, 9a, 10a u 11a
                 $tipoResultado = 'success_with_warnings';
                 $mensaje = "Orden de Compra {$orden->numero_oc} generada, pero requiere atención:";
             }
 
-            // CU-22 Paso 12: Confirmar resultado EN LA MISMA VISTA (Kendall: retroalimentación inmediata)
+            // Devolver resultado EN LA MISMA VISTA
             return Inertia::render('Compras/Ordenes/Create', [
-                'oferta' => $request->oferta, // Re-pasar para mostrar resumen
+                'cotizacion' => CotizacionProveedor::with([
+                    'proveedor', 'solicitud', 'respuestas.producto'
+                ])->find($request->validated('cotizacion_id')),
                 'resultado' => [
                     'tipo' => $tipoResultado,
                     'mensaje' => $mensaje,
@@ -243,12 +251,11 @@ class OrdenCompraController extends Controller
             ]);
 
         } catch (Exception $e) {
-            // Excepción 7a: Error crítico al generar número OC o validar oferta
-            Log::error("❌ CU-22 Excepción 7a: " . $e->getMessage());
+            Log::error("❌ CU-22 Error: " . $e->getMessage());
 
             return Inertia::render('Compras/Ordenes/Create', [
-                'oferta' => OfertaCompra::with(['proveedor', 'detalles.producto', 'estado'])
-                    ->find($request->validated('oferta_id')),
+                'cotizacion' => CotizacionProveedor::with(['proveedor', 'solicitud', 'respuestas.producto'])
+                    ->find($request->validated('cotizacion_id')),
                 'resultado' => [
                     'tipo' => 'error',
                     'mensaje' => 'No se pudo generar la Orden de Compra',
@@ -260,17 +267,16 @@ class OrdenCompraController extends Controller
 
     /**
      * CU-24: Muestra el detalle de una Orden de Compra
-     * Incluye historial de recepciones (CU-24 paso 6)
+     * Incluye historial de recepciones
      */
     public function show(int $id): Response
     {
         $orden = OrdenCompra::with([
             'proveedor',
-            'oferta.solicitud',
+            'cotizacionProveedor.solicitud',
             'detalles.producto',
             'estado',
             'usuario',
-            // CU-24: Historial de recepciones
             'recepciones' => fn($q) => $q->with('usuario:id,name')->latest('fecha_recepcion'),
         ])->findOrFail($id);
 

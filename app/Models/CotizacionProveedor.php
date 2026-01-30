@@ -53,6 +53,11 @@ class CotizacionProveedor extends Model
         'elegida',
         'recordatorios_enviados',
         'ultimo_recordatorio',
+        // Campos agregados al simplificar modelo (antes en ofertas_compra)
+        'total_estimado',
+        'validez_hasta',
+        'archivo_adjunto',
+        'observaciones_respuesta',
     ];
 
     protected $casts = [
@@ -61,6 +66,8 @@ class CotizacionProveedor extends Model
         'ultimo_recordatorio' => 'datetime',
         'recordatorios_enviados' => 'integer',
         'elegida' => 'boolean',
+        'total_estimado' => 'decimal:2',
+        'validez_hasta' => 'date',
     ];
 
     // --- BOOT (Generar token automáticamente) ---
@@ -103,11 +110,11 @@ class CotizacionProveedor extends Model
     }
 
     /**
-     * Ofertas formales generadas a partir de esta respuesta (CU-21)
+     * Orden de compra generada desde esta cotización (si fue elegida)
      */
-    public function ofertasCompra(): HasMany
+    public function ordenCompra(): \Illuminate\Database\Eloquent\Relations\HasOne
     {
-        return $this->hasMany(\App\Models\OfertaCompra::class, 'cotizacion_proveedor_id');
+        return $this->hasOne(OrdenCompra::class, 'cotizacion_proveedor_id');
     }
 
     // --- SCOPES ---

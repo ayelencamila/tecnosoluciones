@@ -503,28 +503,23 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // --- MÓDULO DE COMPRAS (CU-20 a CU-23) ---
+    // MODELO SIMPLIFICADO: SolicitudCotizacion → CotizacionProveedor → OrdenCompra
+    // (Tabla ofertas_compra eliminada - ver migración simplificar_modelo_compras)
     
-    // CU-21: Ofertas de Compra
-    Route::prefix('ofertas')->name('ofertas.')->middleware('role:administrador')->group(function () {
-        Route::get('/', [\App\Http\Controllers\OfertaCompraController::class, 'index'])->name('index');
-        Route::get('/crear', [\App\Http\Controllers\OfertaCompraController::class, 'create'])->name('create');
-        Route::get('/comparar', [\App\Http\Controllers\OfertaCompraController::class, 'comparar'])->name('comparar');
-        Route::post('/cancelar-evaluacion', [\App\Http\Controllers\OfertaCompraController::class, 'cancelarEvaluacion'])->name('cancelar-evaluacion');
-        Route::post('/', [\App\Http\Controllers\OfertaCompraController::class, 'store'])->name('store');
-        Route::get('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'show'])->name('show');
-        Route::delete('/{oferta}', [\App\Http\Controllers\OfertaCompraController::class, 'destroy'])->name('destroy');
-        Route::get('/{oferta}/confirmar-seleccion', [\App\Http\Controllers\OfertaCompraController::class, 'confirmarSeleccion'])->name('confirmar-seleccion');
-        Route::post('/{oferta}/elegir', [\App\Http\Controllers\OfertaCompraController::class, 'elegir'])->name('elegir');
-        Route::post('/{oferta}/rechazar', [\App\Http\Controllers\OfertaCompraController::class, 'rechazar'])->name('rechazar');
-    });
+    // CU-21: DEPRECADO - Las ofertas ahora son las cotizaciones del proveedor
+    // Las rutas de /ofertas se mantienen comentadas por compatibilidad temporal
+    // Route::prefix('ofertas')->name('ofertas.')->middleware('role:administrador')->group(function () {
+    //     Route::get('/', [\App\Http\Controllers\OfertaCompraController::class, 'index'])->name('index');
+    //     ... (rutas deprecadas)
+    // });
 
-    // CU-22: Órdenes de Compra (Generar OC desde ofertas elegidas)
+    // CU-22: Órdenes de Compra (Generar OC desde cotizaciones elegidas)
     // CU-24: Consultar Órdenes de Compra (Historial)
     Route::prefix('ordenes')->name('ordenes.')->middleware('role:administrador')->group(function () {
-        Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index'); // P1: Lista ofertas elegidas listas para OC
+        Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index'); // Lista cotizaciones elegidas listas para OC
         Route::get('/historial', [\App\Http\Controllers\OrdenCompraController::class, 'historial'])->name('historial'); // CU-24: Consultar OC generadas
-        Route::get('/create', [\App\Http\Controllers\OrdenCompraController::class, 'create'])->name('create'); // P2+P3+P4: Resumen + Motivo + Confirmación
-        Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store'); // P5: Resultado
+        Route::get('/create', [\App\Http\Controllers\OrdenCompraController::class, 'create'])->name('create'); // Resumen + Motivo + Confirmación
+        Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store'); // Resultado
         Route::get('/{orden}', [\App\Http\Controllers\OrdenCompraController::class, 'show'])->name('show')->whereNumber('orden');
         Route::get('/{orden}/descargar-pdf', [\App\Http\Controllers\OrdenCompraController::class, 'descargarPdf'])->name('descargar-pdf')->whereNumber('orden');
         Route::post('/{orden}/reenviar-whatsapp', [\App\Http\Controllers\OrdenCompraController::class, 'reenviarWhatsApp'])->name('reenviar-whatsapp')->whereNumber('orden');
@@ -556,6 +551,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{solicitud}/cancelar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'cancelar'])->name('cancelar');
         Route::post('/{solicitud}/reenviar/{cotizacion}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'reenviarRecordatorio'])->name('reenviar');
         Route::post('/{solicitud}/elegir/{cotizacion}', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'elegirCotizacion'])->name('elegir-cotizacion');
+        Route::get('/{solicitud}/comparar', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'comparar'])->name('comparar');
         Route::post('/generar-automaticas', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'generarAutomaticas'])->name('generar-automaticas');
     });
 
