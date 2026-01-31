@@ -91,6 +91,14 @@ class RegistrarCompraService
                 ];
             }
             
+            // Paso 7b: MARCAR COMO ENVIADA si al menos un canal fue exitoso
+            // El email es síncrono (se envía inmediatamente), 
+            // el WhatsApp es asíncrono (puede estar pospuesto por horario)
+            if ($emailEnviado && $pdfGenerado) {
+                $orden->marcarEnviada();
+                Log::info("✅ OC {$orden->numero_oc} marcada como Enviada (email enviado exitosamente)");
+            }
+            
             // Paso 8: REGISTRAR EN MÓDULO DE COMPROBANTES (CU-32)
             try {
                 $comprobanteService = app(RegistrarComprobanteService::class);
@@ -307,8 +315,7 @@ class RegistrarCompraService
             }
 
             // Dispatch del Job (envío asíncrono con reintentos)
-            EnviarOrdenCompraWhatsApp::dispatch($orden)
-                ->onQueue('whatsapp');
+            EnviarOrdenCompraWhatsApp::dispatch($orden);
 
             Log::info("📱 Job WhatsApp encolado para OC {$orden->numero_oc}");
             return true;

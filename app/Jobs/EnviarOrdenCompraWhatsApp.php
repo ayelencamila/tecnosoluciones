@@ -111,17 +111,12 @@ class EnviarOrdenCompraWhatsApp implements ShouldQueue
 
             $twilio = new Client($sid, $token);
 
-            // Enviar mensaje con PDF adjunto si está disponible
+            // Enviar mensaje de texto (sin PDF - el PDF se envía por email)
+            // Nota: En producción con dominio público, se puede habilitar mediaUrl
             $mensajeConfig = [
                 'from' => $from,
                 'body' => $mensaje,
             ];
-
-            // Si hay PDF, incluir como mediaUrl
-            if ($this->orden->archivo_pdf && Storage::disk('public')->exists($this->orden->archivo_pdf)) {
-                $pdfUrl = asset('storage/' . $this->orden->archivo_pdf);
-                $mensajeConfig['mediaUrl'] = [$pdfUrl];
-            }
 
             $twilio->messages->create($telefonoTwilio, $mensajeConfig);
 

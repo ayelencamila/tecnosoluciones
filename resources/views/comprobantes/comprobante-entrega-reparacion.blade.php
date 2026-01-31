@@ -131,16 +131,36 @@
                 margin: 0;
             }
             .no-print { display: none; }
+            .watermark {
+                position: fixed;
+                color: rgba(0, 0, 0, 0.08);
+            }
         }
 
         /* Aviso Legal */
-        .legal-notice {5mm;
+        .legal-notice {
+            margin-top: 5mm;
             padding: 2mm;
             background: #f3f4f6;
             border-left: 2mm solid #9ca3af;
-            font-size: 7 3mm solid #9ca3af;
-            font-size: 9pt;
+            font-size: 7pt;
             color: #4b5563;
+        }
+
+        /* Marca de agua diagonal */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.06);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 0;
+            text-transform: uppercase;
+            letter-spacing: 5px;
         }
     </style>
     <script>
@@ -151,6 +171,9 @@
     </script>
 </head>
 <body>
+    <!-- Marca de agua -->
+    <div class="watermark">Comprobante no fiscal</div>
+
     <!-- ENCABEZADO: Información CONSTANTE (Kendall) -->
     <div class="header">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">

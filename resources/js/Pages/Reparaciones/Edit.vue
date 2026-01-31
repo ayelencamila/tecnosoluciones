@@ -122,7 +122,7 @@ const submit = () => {
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
-                <!-- Mensaje de error específico del servidor -->
+                <!-- CU-12 Excepción 5b: Mensaje de error específico (transición inválida, estado final, etc.) -->
                 <AlertMessage 
                     v-if="form.errors.error" 
                     type="error"
@@ -130,11 +130,19 @@ const submit = () => {
                     class="mb-4"
                 />
                 
-                <!-- Errores de validación de campos -->
+                <!-- CU-12 Excepción 5c: Error de stock en repuestos -->
+                <AlertMessage 
+                    v-else-if="form.errors.repuestos" 
+                    type="error"
+                    :message="form.errors.repuestos"
+                    class="mb-4"
+                />
+                
+                <!-- CU-12 Excepción 5a: Errores de validación de campos -->
                 <AlertMessage 
                     v-else-if="Object.keys(form.errors).length > 0" 
                     type="error"
-                    :message="'Por favor revisa los campos marcados en rojo.'"
+                    :message="'Datos incompletos o inválidos. Por favor, corrija los campos marcados en rojo.'"
                     class="mb-4"
                 />
 

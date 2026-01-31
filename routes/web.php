@@ -102,8 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
         // Proveedores MOVIDO al grupo principal (es un módulo operativo)
         Route::resource('unidades-medida', \App\Http\Controllers\Admin\UnidadMedidaController::class);
-        // 2. Otras posibles rutas para  maestros
-        Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
+        // 2. Otras posibles rutas para maestros
+        // NOTA: estados-reparacion ELIMINADO - Los estados son FIJOS (no parametrizables)
         Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class);
         Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class);
         Route::resource('depositos', \App\Http\Controllers\Admin\DepositoController::class);
@@ -364,6 +364,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{cliente}/editar', [ClienteController::class, 'edit'])->name('edit');
         Route::post('/', [ClienteController::class, 'store'])->name('store');
         Route::put('/{cliente}', [ClienteController::class, 'update'])->name('update');
+        Route::get('/{cliente}/verificar-baja', [ClienteController::class, 'verificarBaja'])->name('verificarBaja');
         Route::get('/{cliente}/confirmar-baja', [ClienteController::class, 'confirmDelete'])->name('confirmDelete');   
         Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])->name('darDeBaja'); 
     });

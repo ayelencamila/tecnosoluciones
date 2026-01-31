@@ -282,8 +282,10 @@ class ComprobanteService
      * Objetivos de Kendall aplicados:
      * 1. Servir al propósito: Constancia de recepción del dispositivo
      * 2. Ajustar al usuario: Cliente necesita saber qué dejó y cuándo
-     * 3. Cantidad adecuada: Datos del dispositivo, falla, fecha promesa
+     * 3. Cantidad adecuada: Datos del dispositivo, falla, fecha promesa, PRESUPUESTO
      * 4. Proveer a tiempo: Se genera inmediatamente después del registro
+     * 
+     * NOTA: El presupuesto ahora se da al momento del ingreso (flujo simplificado)
      * 
      * @param \App\Models\Reparacion $reparacion Entidad con la información de la reparación
      * @return array Datos estructurados para la vista
@@ -300,7 +302,12 @@ class ComprobanteService
         ];
 
         // Información VARIABLE (datos de la reparación)
-        $reparacion->load(['cliente', 'tecnico', 'estado', 'modelo.marca']);
+        $reparacion->load(['cliente', 'tecnico', 'estado', 'modelo.marca', 'repuestos.producto']);
+        
+        // Calcular presupuesto inicial
+        $costoManoObra = $reparacion->costo_mano_obra ?? 0;
+        $subtotalRepuestos = $reparacion->repuestos->sum('subtotal') ?? 0;
+        $totalPresupuesto = $reparacion->total_final ?? ($costoManoObra + $subtotalRepuestos);
         
         return [
             // Información CONSTANTE
@@ -339,6 +346,22 @@ class ComprobanteService
             // Diagnóstico (Kendall: contenido del informe con detalles necesarios)
             'falla_declarada' => $reparacion->falla_declarada,
             'observaciones' => $reparacion->observaciones,
+            
+            // PRESUPUESTO INICIAL (flujo simplificado - se da al ingresar)
+            'presupuesto' => [
+                'costo_mano_obra' => $costoManoObra,
+                'repuestos' => $reparacion->repuestos->map(function ($detalle) {
+                    return [
+                        'nombre' => $detalle->producto->nombre ?? 'Producto',
+                        'cantidad' => $detalle->cantidad,
+                        'precio_unitario' => $detalle->precio_unitario,
+                        'subtotal' => $detalle->subtotal,
+                    ];
+                })->toArray(),
+                'subtotal_repuestos' => $subtotalRepuestos,
+                'total' => $totalPresupuesto,
+                'tiene_presupuesto' => $totalPresupuesto > 0,
+            ],
             
             // Estado
             'estado' => $reparacion->estado->nombreEstado ?? 'Recibido',

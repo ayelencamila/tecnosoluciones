@@ -212,8 +212,9 @@ class ConfiguracionService
             )->values(),
             
             'Reparaciones' => $todas->filter(fn($c) => 
-                str_starts_with($c->clave, 'sla_') ||
-                str_starts_with($c->clave, 'estados_pausa')
+                str_starts_with($c->clave, 'sla_')
+                // NOTA: estados_pausa_sla ahora es un valor fijo del sistema (no editable)
+                // Se eliminó de este panel al simplificar estados de reparación
             )->values(),
             
             'Bonificaciones' => $todas->filter(fn($c) => 

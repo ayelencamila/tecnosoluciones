@@ -85,7 +85,7 @@ const servicioTecnicoItems = computed(() => {
         items.push({ 
             name: 'Reparaciones', 
             route: 'reparaciones.index', 
-            icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z',
+            icon: 'M21.75 6.75a4.5 4.5 0 01-4.884 4.484c-1.076-.091-2.264.071-2.95.904l-7.152 8.684a2.548 2.548 0 11-3.586-3.586l8.684-7.152c.833-.686.995-1.874.904-2.95a4.5 4.5 0 016.336-4.486l-3.276 3.276a3.004 3.004 0 002.25 2.25l3.276-3.276c.256.565.398 1.192.398 1.852z',
         });
     }
 
@@ -197,7 +197,7 @@ const maestrosItems = computed(() => {
         { name: 'Unidades Medida', route: 'admin.unidades-medida.index' },
         { name: 'Depósitos', route: 'admin.depositos.index' },
         { name: 'Medios de Pago', route: 'admin.medios-pago.index' },
-        { name: 'Estados Reparación', route: 'admin.estados-reparacion.index' },
+        // NOTA: Estados Reparación ELIMINADO - Son fijos en el sistema (no parametrizables)
         { name: 'Motivos de Demora', route: 'admin.motivos-demora.index' },
         { name: 'Provincias', route: 'admin.provincias.index' },
         { name: 'Localidades', route: 'admin.localidades.index' },
@@ -526,23 +526,6 @@ const isActive = (routeName) => {
                         </div>
                     </div>
 
-                    <!-- Parámetros del Sistema -->
-                    <Link 
-                        v-if="can('configuracion.editar')"
-                        :href="route('configuracion.index')"
-                        class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
-                        :class="isActive('configuracion.index') 
-                            ? 'bg-gray-100 text-gray-900' 
-                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
-                    >
-                        <svg class="w-5 h-5 mr-3 transition-colors" 
-                             :class="isActive('configuracion.index') ? 'text-gray-600' : 'text-gray-400 group-hover:text-gray-500'"
-                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                        </svg>
-                        Parámetros
-                    </Link>
-
                     <!-- Plantillas WhatsApp -->
                     <Link 
                         v-if="can('configuracion.editar')"
@@ -576,6 +559,27 @@ const isActive = (routeName) => {
                              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
                         </svg>
                         {{ item.name }}
+                    </Link>
+                </div>
+
+                <!-- ============================================ -->
+                <!-- SECCIÓN 7: CONFIGURACIÓN (Al final, separado) -->
+                <!-- ============================================ -->
+                <div v-if="can('configuracion.editar')" class="mt-auto pt-4 border-t border-gray-200">
+                    <Link 
+                        :href="route('configuracion.index')"
+                        class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
+                        :class="isActive('configuracion.index') 
+                            ? 'bg-gray-100 text-gray-900' 
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
+                    >
+                        <svg class="w-5 h-5 mr-3 transition-colors" 
+                             :class="isActive('configuracion.index') ? 'text-gray-600' : 'text-gray-400 group-hover:text-gray-500'"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        Configuración
                     </Link>
                 </div>
 

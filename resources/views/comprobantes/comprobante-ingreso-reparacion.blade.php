@@ -277,9 +277,35 @@
         .print-button:hover {
             background: #2d3748;
         }
+
+        /* Marca de agua diagonal */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.06);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 0;
+            text-transform: uppercase;
+            letter-spacing: 5px;
+        }
+
+        @media print {
+            .watermark {
+                position: fixed;
+                color: rgba(0, 0, 0, 0.08);
+            }
+        }
     </style>
 </head>
 <body>
+    <!-- Marca de agua -->
+    <div class="watermark">Comprobante no fiscal</div>
+
     <!-- Botón de impresión (no se imprime) -->
     <button onclick="window.print()" class="print-button no-print" style="display: inline-flex; align-items: center; gap: 6px;">
         <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
@@ -340,7 +366,7 @@
 
     <!-- FECHA PROMESA DESTACADA -->
     <div class="info-importante">
-        <div class="title">📅 FECHA PROMESA DE ENTREGA</div>
+        <div class="title">FECHA PROMESA DE ENTREGA</div>
         <div class="contenido">{{ $comprobante['fecha_promesa'] }}</div>
     </div>
 
@@ -371,11 +397,52 @@
 
     <!-- FALLA DECLARADA - Lineamiento: Contenido del informe -->
     <div class="falla-section">
-        <div class="title">🔍 Falla Declarada por el Cliente</div>
+        <div class="title">FALLA DECLARADA POR EL CLIENTE</div>
         <div class="contenido">
             {{ $falla_declarada }}
         </div>
     </div>
+
+    <!-- PRESUPUESTO INICIAL (Flujo simplificado - se da al ingresar) -->
+    @if($presupuesto['tiene_presupuesto'])
+    <div class="presupuesto-section" style="margin-bottom: 15px; border: 2px solid #38a169; padding: 10px; background: #f0fff4;">
+        <div style="font-weight: bold; font-size: 12pt; margin-bottom: 8px; color: #276749; text-transform: uppercase;">
+            PRESUPUESTO INICIAL ACORDADO
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10pt;">
+            @if(count($presupuesto['repuestos']) > 0)
+                <tr style="background: #c6f6d5;">
+                    <td colspan="4" style="padding: 4px 8px; font-weight: bold; border-bottom: 1px solid #9ae6b4;">REPUESTOS</td>
+                </tr>
+                @foreach($presupuesto['repuestos'] as $repuesto)
+                <tr>
+                    <td style="padding: 3px 8px;">{{ $repuesto['nombre'] }}</td>
+                    <td style="padding: 3px 8px; text-align: center;">x{{ $repuesto['cantidad'] }}</td>
+                    <td style="padding: 3px 8px; text-align: right;">${{ number_format($repuesto['precio_unitario'], 2, ',', '.') }}</td>
+                    <td style="padding: 3px 8px; text-align: right; font-weight: bold;">${{ number_format($repuesto['subtotal'], 2, ',', '.') }}</td>
+                </tr>
+                @endforeach
+                <tr>
+                    <td colspan="3" style="padding: 4px 8px; text-align: right; border-top: 1px solid #9ae6b4;">Subtotal Repuestos:</td>
+                    <td style="padding: 4px 8px; text-align: right; font-weight: bold; border-top: 1px solid #9ae6b4;">${{ number_format($presupuesto['subtotal_repuestos'], 2, ',', '.') }}</td>
+                </tr>
+            @endif
+            @if($presupuesto['costo_mano_obra'] > 0)
+            <tr>
+                <td colspan="3" style="padding: 4px 8px; text-align: right;">Mano de Obra:</td>
+                <td style="padding: 4px 8px; text-align: right; font-weight: bold;">${{ number_format($presupuesto['costo_mano_obra'], 2, ',', '.') }}</td>
+            </tr>
+            @endif
+            <tr style="background: #276749; color: white;">
+                <td colspan="3" style="padding: 6px 8px; text-align: right; font-size: 11pt; font-weight: bold;">TOTAL A COBRAR:</td>
+                <td style="padding: 6px 8px; text-align: right; font-size: 12pt; font-weight: bold;">${{ number_format($presupuesto['total'], 2, ',', '.') }}</td>
+            </tr>
+        </table>
+        <div style="margin-top: 8px; font-size: 9pt; color: #276749; text-align: center; font-style: italic;">
+            * El cliente acepta el presupuesto detallado arriba al firmar este comprobante.
+        </div>
+    </div>
+    @endif
 
     <!-- OBSERVACIONES (si existen) -->
     @if($observaciones)
@@ -387,13 +454,17 @@
 
     <!-- CONDICIONES DEL SERVICIO -->
     <div class="condiciones-section">
-        <div class="title" style="display: flex; align-items: center; gap: 6px;">
-            <svg xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+        <div class="title">
             CONDICIONES IMPORTANTES:
         </div>
         <ul>
             <li>El cliente declara que el equipo ingresó en las condiciones descritas anteriormente.</li>
+            @if($presupuesto['tiene_presupuesto'])
+            <li><strong>El cliente acepta el presupuesto inicial detallado en este comprobante.</strong></li>
+            <li>Si durante la reparación se detectan fallas adicionales, se comunicará un presupuesto complementario.</li>
+            @else
             <li>El presupuesto será informado una vez realizado el diagnóstico técnico.</li>
+            @endif
             <li>El plazo de retiro es de 30 días desde la fecha de notificación de reparación finalizada.</li>
             <li>Pasados 60 días sin retiro, el equipo será considerado abandonado según normativa vigente.</li>
             <li>La empresa no se hace responsable por información contenida en el dispositivo.</li>

@@ -34,6 +34,50 @@ const form = useForm({
     observaciones: '',
     fecha_promesa: '',
     imagenes: [],
+    // Nuevo: Presupuesto al momento del ingreso (flujo simplificado)
+    costo_mano_obra: 0,
+    total_final: 0,
+    items: [], // Repuestos iniciales
+});
+
+// --- LÓGICA REPUESTOS (Presupuesto Inmediato) ---
+const repuestoSeleccionado = ref('');
+const cantidadRepuesto = ref(1);
+
+const agregarRepuesto = () => {
+    if (!repuestoSeleccionado.value || cantidadRepuesto.value < 1) return;
+    const producto = props.productos.find(p => p.id === parseInt(repuestoSeleccionado.value));
+    
+    if (producto) {
+        // Verificar si ya existe para incrementar cantidad
+        const existente = form.items.find(i => i.producto_id === producto.id);
+        if (existente) {
+            existente.cantidad += cantidadRepuesto.value;
+        } else {
+            form.items.push({
+                producto_id: producto.id,
+                nombre: producto.nombre,
+                cantidad: cantidadRepuesto.value,
+                precio_unitario: producto.precio || 0,
+            });
+        }
+        repuestoSeleccionado.value = '';
+        cantidadRepuesto.value = 1;
+    }
+};
+
+const quitarRepuesto = (index) => {
+    form.items.splice(index, 1);
+};
+
+// Computed para calcular subtotal de repuestos
+const subtotalRepuestos = computed(() => {
+    return form.items.reduce((total, item) => total + (item.precio_unitario * item.cantidad), 0);
+});
+
+// Watch para auto-calcular total
+watch([() => form.costo_mano_obra, subtotalRepuestos], ([manoObra, repuestos]) => {
+    form.total_final = parseFloat(manoObra || 0) + parseFloat(repuestos || 0);
 });
 
 // --- Computed para opciones de select ---
@@ -371,6 +415,68 @@ const submit = () => {
                                     <TextInput id="fecha_promesa" name="fecha_promesa" v-model="form.fecha_promesa" type="datetime-local" class="mt-1 block w-full" />
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- PRESUPUESTO INMEDIATO (Flujo Simplificado) -->
+                        <div class="mb-8 border-b pb-6">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                                <svg class="w-5 h-5 mr-2 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                Presupuesto (Opcional al Ingreso)
+                            </h3>
+                            <p class="text-sm text-gray-500 mb-4">Puedes agregar repuestos y costos ahora o completarlos luego al actualizar la reparación.</p>
+                            
+                            <!-- Agregar Repuestos -->
+                            <div class="flex flex-col md:flex-row gap-4 items-end bg-gray-50 p-4 rounded-lg mb-4 border border-gray-200">
+                                <div class="flex-1 w-full">
+                                    <InputLabel value="Agregar Repuesto / Insumo" />
+                                    <select v-model="repuestoSeleccionado" class="w-full border-gray-300 rounded-md shadow-sm text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                                        <option value="" disabled>Seleccionar producto...</option>
+                                        <option v-for="prod in productos" :key="prod.id" :value="prod.id">
+                                            {{ prod.nombre }} (Stock: {{ prod.stock_total ?? 0 }})
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="w-24">
+                                    <InputLabel value="Cant." />
+                                    <TextInput type="number" v-model="cantidadRepuesto" min="1" class="w-full text-center" />
+                                </div>
+                                <SecondaryButton @click="agregarRepuesto" type="button" class="whitespace-nowrap">
+                                    + Agregar
+                                </SecondaryButton>
+                            </div>
+
+                            <!-- Lista de Repuestos Agregados -->
+                            <div v-if="form.items.length > 0" class="mb-4">
+                                <p class="text-xs font-bold text-gray-500 mb-1 uppercase">Repuestos a Utilizar:</p>
+                                <ul class="border rounded-md divide-y bg-white">
+                                    <li v-for="(item, index) in form.items" :key="index" class="px-4 py-2 flex justify-between items-center text-sm">
+                                        <span>{{ item.nombre }} (x{{ item.cantidad }})</span>
+                                        <div class="flex items-center gap-4">
+                                            <span class="text-gray-500">${{ (item.precio_unitario * item.cantidad).toFixed(2) }}</span>
+                                            <button type="button" @click="quitarRepuesto(index)" class="text-red-500 font-bold hover:underline">Quitar</button>
+                                        </div>
+                                    </li>
+                                </ul>
+                                <p class="text-right text-sm font-semibold mt-2 text-gray-600">Subtotal Repuestos: ${{ subtotalRepuestos.toFixed(2) }}</p>
+                            </div>
+
+                            <!-- Costos -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                                <div>
+                                    <InputLabel for="costo_mano_obra" value="Costo Mano de Obra ($)" />
+                                    <TextInput id="costo_mano_obra" type="number" step="0.01" min="0" v-model="form.costo_mano_obra" class="mt-1 block w-full text-right" placeholder="0.00" />
+                                </div>
+                                <div>
+                                    <InputLabel value="Subtotal Repuestos ($)" />
+                                    <input type="text" :value="subtotalRepuestos.toFixed(2)" class="mt-1 block w-full text-right bg-gray-100 border-gray-300 rounded-md shadow-sm" disabled />
+                                </div>
+                                <div>
+                                    <InputLabel for="total_final" value="TOTAL PRESUPUESTO ($)" />
+                                    <TextInput id="total_final" type="number" step="0.01" v-model="form.total_final" class="mt-1 block w-full text-right font-bold text-indigo-700 bg-white" />
+                                    <p class="text-xs text-gray-500 mt-1">Se calcula automáticamente. Puedes ajustarlo.</p>
+                                </div>
+                            </div>
+                            <InputError :message="form.errors.items" class="mt-2" />
                         </div>
 
                         <div class="mb-8">

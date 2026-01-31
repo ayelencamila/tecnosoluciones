@@ -154,6 +154,11 @@ class Comprobante extends Model
                 };
             }
 
+            // Obtener el ID del tipo de comprobante a partir del código
+            $tipoComprobanteId = \DB::table('tipos_comprobante')
+                ->where('codigo', $tipoComprobante)
+                ->value('tipo_id');
+
             // PESSIMISTIC LOCKING: Bloquea la fila hasta que termine la transacción
             // Esto previene que dos usuarios lean el mismo "último número"
             $ultimoComprobante = self::where('tipo_comprobante_id', $tipoComprobanteId)

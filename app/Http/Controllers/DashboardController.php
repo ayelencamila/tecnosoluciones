@@ -83,7 +83,7 @@ class DashboardController extends Controller
                 $q->whereNotIn('nombreEstado', $estadosFinales)
             )->count();
             
-            // Reparaciones pendientes de diagnóstico (estado "Recibido")
+            // Reparaciones recién ingresadas pendientes de iniciar trabajo (estado "Recibido")
             $kpis['reparacionesPendientes'] = Reparacion::whereHas('estado', fn($q) => 
                 $q->where('nombreEstado', 'Recibido')
             )->count();

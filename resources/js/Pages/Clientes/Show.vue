@@ -1,9 +1,14 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
+import Modal from '@/Components/Modal.vue';
+import TextInput from '@/Components/TextInput.vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import InputError from '@/Components/InputError.vue';
 import { onMounted, computed } from 'vue';
 
 const props = defineProps({
@@ -43,6 +48,85 @@ const movimientos = computed(() => {
            [];
 });
 
+// --- MODAL DAR DE BAJA (CU-04) ---
+const showModalBaja = ref(false);
+const cargandoVerificacion = ref(false);
+const operacionesPendientes = ref([]);
+const puedeSerDadoDeBaja = ref(false);
+const pasoActual = ref(1);
+const errorMotivo = ref('');
+
+const formBaja = useForm({
+    motivo: '',
+});
+
+const abrirModalBaja = async () => {
+    cargandoVerificacion.value = true;
+    operacionesPendientes.value = [];
+    puedeSerDadoDeBaja.value = false;
+    pasoActual.value = 1;
+    errorMotivo.value = '';
+    showModalBaja.value = true;
+    formBaja.reset();
+    
+    try {
+        const response = await fetch(route('clientes.verificarBaja', props.cliente.clienteID), {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            }
+        });
+        const data = await response.json();
+        operacionesPendientes.value = data.operacionesPendientes || [];
+        puedeSerDadoDeBaja.value = data.puedeSerDadoDeBaja;
+        
+        if (data.puedeSerDadoDeBaja) {
+            pasoActual.value = 2;
+        }
+    } catch (error) {
+        console.error('Error verificando baja:', error);
+    } finally {
+        cargandoVerificacion.value = false;
+    }
+};
+
+const cerrarModalBaja = () => {
+    showModalBaja.value = false;
+    formBaja.reset();
+    pasoActual.value = 1;
+    errorMotivo.value = '';
+};
+
+const continuarAConfirmacion = () => {
+    if (!formBaja.motivo || formBaja.motivo.trim() === '') {
+        errorMotivo.value = 'Debe ingresar el motivo de la baja.';
+        return;
+    }
+    errorMotivo.value = '';
+    pasoActual.value = 3;
+};
+
+const confirmarBaja = () => {
+    formBaja.post(route('clientes.darDeBaja', props.cliente.clienteID), {
+        preserveScroll: true,
+        onSuccess: () => {
+            cerrarModalBaja();
+            // Recargar para reflejar el cambio
+            router.reload();
+        },
+        onError: (errors) => {
+            if (errors.motivo) {
+                errorMotivo.value = errors.motivo;
+                pasoActual.value = 2;
+            }
+            console.error('Error al dar de baja:', errors);
+        },
+    });
+};
+
+const volverAPasoMotivo = () => {
+    pasoActual.value = 2;
+};
 </script>
 
 <template>
@@ -204,14 +288,123 @@ const movimientos = computed(() => {
                 </div>
 
                 <div v-if="cliente.estado_cliente?.nombreEstado === 'Activo'" class="flex justify-end pt-4">
-                    <Link :href="route('clientes.confirmDelete', cliente.clienteID)">
-                        <DangerButton>
-                            Dar de Baja Cliente
-                        </DangerButton>
-                    </Link>
+                    <DangerButton @click="abrirModalBaja">
+                        Dar de Baja Cliente
+                    </DangerButton>
                 </div>
 
             </div>
         </div>
+
+        <!-- Modal Dar de Baja (CU-04) -->
+        <Modal :show="showModalBaja" @close="cerrarModalBaja" max-width="md">
+            <div class="p-6">
+                <!-- Header -->
+                <div class="flex items-center mb-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                        <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-gray-900">Dar de Baja Cliente</h3>
+                        <p class="text-xs text-gray-500">{{ cliente.nombre }} {{ cliente.apellido }}</p>
+                    </div>
+                </div>
+
+                <!-- Cargando -->
+                <div v-if="cargandoVerificacion" class="text-center py-8">
+                    <svg class="animate-spin h-8 w-8 text-indigo-600 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    <p class="mt-2 text-sm text-gray-500">Verificando operaciones pendientes...</p>
+                </div>
+
+                <!-- Paso 1: Operaciones Pendientes -->
+                <div v-else-if="pasoActual === 1 && operacionesPendientes.length > 0">
+                    <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <h4 class="text-sm font-semibold text-yellow-800 flex items-center mb-2">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                            Operaciones Activas Pendientes
+                        </h4>
+                        <ul class="text-sm text-yellow-700 list-disc list-inside space-y-1 mb-3">
+                            <li v-for="(op, i) in operacionesPendientes" :key="i">{{ op }}</li>
+                        </ul>
+                        <p class="text-sm text-yellow-800 font-medium">
+                            No es posible dar de baja al cliente <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong> porque tiene operaciones activas pendientes. Por favor, complete o cancele estas operaciones antes de continuar.
+                        </p>
+                    </div>
+                    <div class="flex justify-end mt-6">
+                        <SecondaryButton @click="cerrarModalBaja">Cerrar</SecondaryButton>
+                    </div>
+                </div>
+
+                <!-- Paso 2: Solicitar Motivo -->
+                <div v-else-if="pasoActual === 2">
+                    <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <p class="text-sm text-blue-800">
+                            <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            El cliente no tiene operaciones pendientes. Ingrese el motivo de la baja para continuar.
+                        </p>
+                    </div>
+
+                    <div class="mb-4">
+                        <InputLabel for="motivo" class="mb-1">
+                            Motivo de la baja <span class="text-red-600">*</span>
+                        </InputLabel>
+                        <TextInput 
+                            id="motivo" 
+                            v-model="formBaja.motivo" 
+                            type="text" 
+                            class="w-full" 
+                            placeholder="Ej: Cliente solicitó cierre de cuenta..."
+                            @keyup.enter="continuarAConfirmacion"
+                        />
+                        <p v-if="errorMotivo" class="mt-1 text-sm text-red-600">{{ errorMotivo }}</p>
+                        <InputError :message="formBaja.errors.motivo" class="mt-1" />
+                    </div>
+
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <SecondaryButton @click="cerrarModalBaja">Cancelar</SecondaryButton>
+                        <PrimaryButton @click="continuarAConfirmacion">
+                            Continuar
+                        </PrimaryButton>
+                    </div>
+                </div>
+
+                <!-- Paso 3: Confirmación Final -->
+                <div v-else-if="pasoActual === 3">
+                    <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <h4 class="text-sm font-semibold text-red-800 mb-2">¿Confirma la baja del cliente?</h4>
+                        <p class="text-sm text-red-700 mb-3">
+                            El cliente <strong>{{ cliente.nombre }} {{ cliente.apellido }}</strong>{{ ' ' }}pasará a estado <strong>Inactivo</strong> y se deshabilitará su cuenta corriente.
+                        </p>
+                        <div class="bg-white p-3 rounded border border-red-100">
+                            <p class="text-xs text-gray-500 uppercase font-semibold mb-1">Motivo registrado:</p>
+                            <p class="text-sm text-gray-800">{{ formBaja.motivo }}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end space-x-3 mt-6">
+                        <SecondaryButton @click="volverAPasoMotivo">
+                            Volver
+                        </SecondaryButton>
+                        <DangerButton 
+                            @click="confirmarBaja"
+                            :class="{ 'opacity-25': formBaja.processing }" 
+                            :disabled="formBaja.processing"
+                        >
+                            <span v-if="formBaja.processing">Procesando...</span>
+                            <span v-else>Confirmar Baja</span>
+                        </DangerButton>
+                    </div>
+                </div>
+            </div>
+        </Modal>
     </AppLayout>
 </template>

@@ -356,12 +356,19 @@ class Reparacion extends Model
     }
 
     /**
-     * Scope: Reparaciones en estados que deben monitorearse para SLA
-     * Solo "Recibido" (1) y "Diagnóstico" (2) según CU-14
+     * Scope: Reparaciones en estados que deben monitorearse para SLA (CU-14)
+     * 
+     * Estados monitoreables (donde el taller tiene responsabilidad activa):
+     * - Recibido (1): Esperando que comience la reparación
+     * - En Reparación (2): Trabajo en curso
+     * 
+     * NO se monitorean (pausan SLA):
+     * - Espera de Repuesto (3): Dependencia externa
+     * - Reparado (4): Listo, responsabilidad del cliente retirar
      */
     public function scopeEnEstadosMonitoreables($query)
     {
-        return $query->whereIn('estado_reparacion_id', [1, 2]);
+        return $query->whereIn('estado_reparacion_id', [1, 2]); // Recibido, En Reparación
     }
 
     /**

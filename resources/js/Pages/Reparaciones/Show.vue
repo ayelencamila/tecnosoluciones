@@ -99,7 +99,7 @@ const imprimirComprobanteEntrega = () => {
                                         <span class="hidden sm:inline">Ingreso</span>
                                     </button>
                                     <button 
-                                        v-if="['Reparado', 'Entregado', 'Listo para entregar'].includes(reparacion.estado?.nombreEstado)" 
+                                        v-if="['Reparado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" 
                                         @click="imprimirComprobanteEntrega" 
                                         class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
                                         title="Imprimir comprobante de entrega"

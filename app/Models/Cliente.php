@@ -136,7 +136,7 @@ class Cliente extends Model
         // 2. Verificar ventas pendientes de pago
         $tieneVentasPendientes = $this->ventas()
             ->whereHas('estado', function($q) {
-                $q->where('nombre', 'Pendiente');
+                $q->where('nombreEstado', 'Pendiente');
             })
             ->exists();
         if ($tieneVentasPendientes) {
@@ -145,8 +145,8 @@ class Cliente extends Model
 
         // 3. Verificar reparaciones en curso (CU-04 Paso 4)
         $tieneReparacionesPendientes = $this->reparaciones()
-            ->whereHas('estadoReparacion', function($q) {
-                $q->whereNotIn('nombre', ['Cancelada', 'Entregada']);
+            ->whereHas('estado', function($q) {
+                $q->whereNotIn('nombreEstado', ['Cancelada', 'Entregada']);
             })
             ->exists();
         if ($tieneReparacionesPendientes) {
@@ -179,7 +179,7 @@ class Cliente extends Model
             // Deshabilitar su Cuenta Corriente (CU-04 Paso 9)
             if ($this->cuentaCorriente) {
                 $this->cuentaCorriente()->update([
-                    'estadoCuentaCorrienteID' => EstadoCuentaCorriente::inactiva()->estadoCuentaCorrienteID
+                    'estadoCuentaCorrienteID' => EstadoCuentaCorriente::cerrada()->estadoCuentaCorrienteID
                 ]);
             }
 

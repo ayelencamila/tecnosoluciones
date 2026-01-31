@@ -85,9 +85,33 @@ class ReparacionController extends Controller
      */
     public function create(): Response
     {
+        // Lógica de filtrado de productos (Repuestos/Insumos) para presupuesto inicial
+        $categoriasRepuestos = \App\Models\CategoriaProducto::where('nombre', 'like', '%Repuesto%')
+            ->orWhere('nombre', 'like', '%Insumo%')
+            ->pluck('id');
+
+        $queryProductos = Producto::where('estadoProductoID', 1);
+
+        if ($categoriasRepuestos->isNotEmpty()) {
+            $queryProductos->whereIn('categoriaProductoID', $categoriasRepuestos);
+        } else {
+            $categoriasExcluidas = \App\Models\CategoriaProducto::where('nombre', 'like', '%Equipo%')
+                ->orWhere('nombre', 'like', '%Servicio%')
+                ->pluck('id');
+                
+            if ($categoriasExcluidas->isNotEmpty()) {
+                $queryProductos->whereNotIn('categoriaProductoID', $categoriasExcluidas);
+            }
+        }
+
         return Inertia::render('Reparaciones/Create', [
             'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->orderBy('apellido')->get(),
-            'productos' => Producto::where('estadoProductoID', 1)->get(),
+            'productos' => $queryProductos->orderBy('nombre')->get()->map(fn($p) => [
+                'id' => $p->id,
+                'nombre' => $p->nombre,
+                'stock_total' => $p->stock_total,
+                'precio' => $p->precios()->latest('fechaDesde')->first()?->precio ?? 0,
+            ]),
             'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
             // Filtrar solo usuarios con rol de técnico para asignación de reparaciones
             'tecnicos' => \App\Models\User::whereHas('rol', function($query) {
@@ -279,11 +303,15 @@ class ReparacionController extends Controller
                 ->with('success', 'Reparación actualizada correctamente.');
 
         } catch (SinStockException $e) {
+            // CU-12 Excepción 5c: Repuesto sin stock
             return back()->withErrors(['repuestos' => $e->getMessage()])->withInput();
-        } catch (\Exception $e) {
-            Log::error("Error al actualizar reparación {$id}: " . $e->getMessage());
-            // Mostrar el mensaje real para que el usuario entienda el problema
+        } catch (\DomainException $e) {
+            // CU-12 Excepciones 3b/5b: Errores de validación de negocio (transición inválida, estado final)
             return back()->withErrors(['error' => $e->getMessage()])->withInput();
+        } catch (\Exception $e) {
+            // CU-12 Excepción 8a: Error al guardar actualización
+            Log::error("CU-12 Excepción 8a - Error al actualizar reparación {$id}: " . $e->getMessage());
+            return back()->withErrors(['error' => 'Error al guardar la actualización de la reparación. Intente nuevamente.'])->withInput();
         }
     }
 

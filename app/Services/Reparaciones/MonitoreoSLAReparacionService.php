@@ -18,12 +18,18 @@ class MonitoreoSLAReparacionService
     /**
      * Verifica todas las reparaciones activas y genera alertas si exceden SLA
      * 
+     * CU-14 Paso 1: Identificación de reparaciones con SLA excedido
+     * 
+     * Solo monitorea estados donde el taller tiene responsabilidad activa:
+     * - Recibido (ID 1): Con presupuesto, esperando inicio de reparación
+     * - En Reparación (ID 2): Trabajo técnico en curso
+     * 
      * @return array Estadísticas del monitoreo
      */
     public function verificarYGenerarAlertas(): array
     {
-        // SOLO monitorear reparaciones en estados "Recibido" o "Diagnóstico"
-        // según especificación CU-14
+        // Monitorear reparaciones en estados "Recibido" o "En Reparación"
+        // según flujo simplificado CU-14
         $reparaciones = Reparacion::activas()
             ->enEstadosMonitoreables()
             ->sinEntregar()

@@ -189,6 +189,47 @@ class ClienteController extends Controller
     }
 
     /**
+     * Verifica si un cliente puede ser dado de baja (API JSON para modal)
+     */
+    public function verificarBaja(Cliente $cliente)
+    {
+        $cliente->load(['cuentaCorriente']);
+        
+        $operacionesPendientes = [];
+        
+        // Ventas pendientes
+        $ventasPendientes = $cliente->ventas()
+            ->whereHas('estado', function($q) {
+                $q->where('nombreEstado', 'Pendiente');
+            })
+            ->count();
+        if ($ventasPendientes > 0) {
+            $operacionesPendientes[] = "Ventas pendientes de pago: {$ventasPendientes}";
+        }
+        
+        // Reparaciones en curso
+        $reparacionesPendientes = $cliente->reparaciones()
+            ->whereHas('estado', function($q) {
+                $q->whereNotIn('nombreEstado', ['Cancelada', 'Entregada']);
+            })
+            ->count();
+        if ($reparacionesPendientes > 0) {
+            $operacionesPendientes[] = "Reparaciones en curso: {$reparacionesPendientes}";
+        }
+        
+        // Deuda pendiente
+        if ($cliente->tieneDeudas()) {
+            $saldo = $cliente->cuentaCorriente->saldo ?? 0;
+            $operacionesPendientes[] = "Deuda pendiente: $" . number_format($saldo, 2);
+        }
+        
+        return response()->json([
+            'operacionesPendientes' => $operacionesPendientes,
+            'puedeSerDadoDeBaja' => $cliente->puedeSerDadoDeBaja(),
+        ]);
+    }
+
+    /**
      * Muestra la confirmación para dar de baja (CU-04 Paso 2-5)
      */
     public function confirmDelete(Cliente $cliente)
@@ -201,7 +242,7 @@ class ClienteController extends Controller
         // Ventas pendientes
         $ventasPendientes = $cliente->ventas()
             ->whereHas('estado', function($q) {
-                $q->where('nombre', 'Pendiente');
+                $q->where('nombreEstado', 'Pendiente');
             })
             ->count();
         if ($ventasPendientes > 0) {
@@ -210,8 +251,8 @@ class ClienteController extends Controller
         
         // Reparaciones en curso
         $reparacionesPendientes = $cliente->reparaciones()
-            ->whereHas('estadoReparacion', function($q) {
-                $q->whereNotIn('nombre', ['Cancelada', 'Entregada']);
+            ->whereHas('estado', function($q) {
+                $q->whereNotIn('nombreEstado', ['Cancelada', 'Entregada']);
             })
             ->count();
         if ($reparacionesPendientes > 0) {
@@ -240,10 +281,10 @@ class ClienteController extends Controller
             // Delegamos al Modelo Experto
             $cliente->darDeBaja($request->motivo);
             
-            return redirect()->route('clientes.index')->with('success', 'Cliente dado de baja exitosamente.');
+            return redirect()->back()->with('success', 'Cliente dado de baja exitosamente.');
 
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Error al dar de baja el cliente: '.$e->getMessage()]);
+            return back()->withErrors(['motivo' => 'Error al dar de baja el cliente: '.$e->getMessage()]);
         }
     }
 

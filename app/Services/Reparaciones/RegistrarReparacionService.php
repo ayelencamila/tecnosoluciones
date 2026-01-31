@@ -48,8 +48,9 @@ class RegistrarReparacionService
                 'observaciones' => $datosValidados['observaciones'] ?? null,
                 'fecha_ingreso' => Carbon::now(),
                 'fecha_promesa' => $datosValidados['fecha_promesa'] ?? null,
-                'costo_mano_obra' => 0, 
-                'total_final' => 0,
+                // Presupuesto inmediato (flujo simplificado)
+                'costo_mano_obra' => $datosValidados['costo_mano_obra'] ?? 0, 
+                'total_final' => $datosValidados['total_final'] ?? 0,
             ]);
 
             // 3.1 REGISTRAR EN AUDITORÍA (CU-11 Paso 10)

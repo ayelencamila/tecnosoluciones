@@ -182,12 +182,12 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                                 </p>
                             </div>
                             <div>
-                                <span class="text-xs text-gray-400 uppercase tracking-wide">Teléfono</span>
-                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.telefono }}</p>
+                                <span class="text-xs text-gray-400 uppercase tracking-wide">Teléfono / WhatsApp</span>
+                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.whatsapp || bonificacion.reparacion.cliente.telefono || '—' }}</p>
                             </div>
                             <div>
                                 <span class="text-xs text-gray-400 uppercase tracking-wide">Email</span>
-                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.email || '—' }}</p>
+                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.mail || '—' }}</p>
                             </div>
                         </div>
                     </div>
