@@ -487,8 +487,20 @@ class OrdenCompraController extends Controller
             // Regenerar PDF (usa método existente)
             $this->registrarCompraService->regenerarPdf($orden);
             
-            // Intentar enviar por WhatsApp si tiene número
+            // Cargar relaciones para envío
             $orden->load('proveedor');
+            
+            // Intentar enviar por Email si tiene email (con PDF adjunto)
+            if ($orden->proveedor->email) {
+                try {
+                    \App\Jobs\EnviarOrdenCompraEmail::dispatch($orden);
+                    Log::info("📧 Email encolado para OC {$orden->numero_oc}");
+                } catch (\Exception $e) {
+                    Log::warning("No se pudo encolar email para OC {$orden->numero_oc}: " . $e->getMessage());
+                }
+            }
+            
+            // Intentar enviar por WhatsApp si tiene número
             if ($orden->proveedor->whatsapp) {
                 try {
                     $this->registrarCompraService->reenviarWhatsApp($orden);
