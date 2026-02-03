@@ -44,4 +44,9 @@ class MovimientoStock extends Model
     {
         return $this->belongsTo(User::class, 'user_id');
     }
+
+    public function tipoMovimiento(): BelongsTo
+    {
+        return $this->belongsTo(TipoMovimientoStock::class, 'tipo_movimiento_id');
+    }
 }

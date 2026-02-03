@@ -190,6 +190,7 @@ class RecepcionMercaderiaController extends Controller
         $query = RecepcionMercaderia::with([
             'ordenCompra:id,numero_oc,proveedor_id',
             'ordenCompra.proveedor:id,razon_social',
+            'proveedor:id,razon_social',
             'usuario:id,name',
         ])->latest('fecha_recepcion');
 
@@ -208,6 +209,11 @@ class RecepcionMercaderiaController extends Controller
             $query->where('tipo', $request->tipo);
         }
 
+        // Filtro por origen
+        if ($request->filled('origen')) {
+            $query->where('origen', $request->origen);
+        }
+
         // Filtro por rango de fechas
         if ($request->filled('fecha_desde')) {
             $query->whereDate('fecha_recepcion', '>=', $request->fecha_desde);
@@ -220,7 +226,115 @@ class RecepcionMercaderiaController extends Controller
 
         return Inertia::render('Compras/Recepciones/Historial', [
             'recepciones' => $recepciones,
-            'filters' => $request->only(['numero_recepcion', 'orden_compra_id', 'tipo', 'fecha_desde', 'fecha_hasta']),
+            'filters' => $request->only(['numero_recepcion', 'orden_compra_id', 'tipo', 'origen', 'fecha_desde', 'fecha_hasta']),
         ]);
+    }
+
+    /**
+     * Formulario para recepción directa (sin OC)
+     */
+    public function createDirecto(): Response
+    {
+        $proveedores = \App\Models\Proveedor::where('activo', true)
+            ->select('id', 'razon_social', 'cuit')
+            ->orderBy('razon_social')
+            ->get();
+
+        $productos = \App\Models\Producto::where('es_servicio', false)
+            ->whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))
+            ->select('id', 'nombre', 'codigo')
+            ->orderBy('nombre')
+            ->get();
+
+        return Inertia::render('Compras/Recepciones/CreateDirecto', [
+            'proveedores' => $proveedores,
+            'productos' => $productos,
+        ]);
+    }
+
+    /**
+     * Guardar recepción directa (sin OC)
+     */
+    public function storeDirecto(Request $request): \Illuminate\Http\RedirectResponse
+    {
+        $validated = $request->validate([
+            'proveedor_id' => 'required|exists:proveedores,id',
+            'items' => 'required|array|min:1',
+            'items.*.producto_id' => 'required|exists:productos,id',
+            'items.*.cantidad' => 'required|integer|min:1',
+            'items.*.precio_unitario' => 'nullable|numeric|min:0',
+            'observaciones' => 'required|string|max:500',
+        ], [
+            'proveedor_id.required' => 'Debe seleccionar un proveedor.',
+            'items.required' => 'Debe agregar al menos un producto.',
+            'observaciones.required' => 'Debe indicar el motivo de la recepcion.',
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // Crear recepción
+            $recepcion = RecepcionMercaderia::create([
+                'numero_recepcion' => RecepcionMercaderia::generarNumeroRecepcion(),
+                'orden_compra_id' => null,
+                'proveedor_id' => $validated['proveedor_id'],
+                'user_id' => auth()->id(),
+                'fecha_recepcion' => now(),
+                'observaciones' => $validated['observaciones'],
+                'tipo' => 'total',
+                'origen' => RecepcionMercaderia::ORIGEN_COMPRA_DIRECTA,
+            ]);
+
+            // Crear detalles y actualizar stock
+            foreach ($validated['items'] as $item) {
+                // Crear detalle de recepción
+                \App\Models\DetalleRecepcion::create([
+                    'recepcion_id' => $recepcion->id,
+                    'detalle_orden_id' => null,
+                    'producto_id' => $item['producto_id'],
+                    'cantidad_recibida' => $item['cantidad'],
+                    'precio_unitario' => $item['precio_unitario'] ?? null,
+                ]);
+
+                // Actualizar stock del producto
+                $stock = \App\Models\Stock::where('productoID', $item['producto_id'])->first();
+                
+                if ($stock) {
+                    $stockAnterior = $stock->cantidad_disponible;
+                    $stockNuevo = $stockAnterior + $item['cantidad'];
+
+                    $stock->update(['cantidad_disponible' => $stockNuevo]);
+
+                    // Registrar movimiento de stock
+                    $tipoEntrada = \App\Models\TipoMovimientoStock::where('signo', 1)
+                        ->where('nombre', 'LIKE', '%Compra%')
+                        ->first();
+
+                    \App\Models\MovimientoStock::create([
+                        'stock_id' => $stock->stock_id,
+                        'productoID' => $item['producto_id'],
+                        'tipo_movimiento_id' => $tipoEntrada?->id,
+                        'cantidad' => $item['cantidad'],
+                        'stockAnterior' => $stockAnterior,
+                        'stockNuevo' => $stockNuevo,
+                        'motivo' => "Recepcion directa: {$recepcion->numero_recepcion}",
+                        'referenciaTabla' => 'recepciones_mercaderia',
+                        'referenciaID' => $recepcion->id,
+                        'user_id' => auth()->id(),
+                        'fecha_movimiento' => now(),
+                    ]);
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return redirect()->route('recepciones.historial')
+                ->with('success', "Recepcion {$recepcion->numero_recepcion} registrada exitosamente.");
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            \Illuminate\Support\Facades\Log::error('Error en recepcion directa: ' . $e->getMessage());
+            return back()->withInput()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
+        }
     }
 }

@@ -183,7 +183,7 @@ class RegistrarCompraService
             'proveedor_id'           => $cotizacion->proveedor_id,
             'cotizacion_proveedor_id'=> $cotizacion->id,
             'user_id'                => $usuarioId,
-            'estado_id'              => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::BORRADOR),
+            'estado_id'              => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::ENVIADA),
             'total_final'            => $total,
             'fecha_emision'          => now(),
             'observaciones'          => $observaciones,
@@ -403,7 +403,7 @@ class RegistrarCompraService
         // Resetear estado si estaba fallido
         if ($orden->tieneEstado(EstadoOrdenCompra::ENVIO_FALLIDO)) {
             $orden->update([
-                'estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::BORRADOR)
+                'estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::ENVIADA)
             ]);
         }
 

@@ -33,9 +33,8 @@ const timeline = computed(() => {
     const estados = []
     const estadoActual = props.orden.estado?.nombre
     
-    // Definir pasos del timeline
+    // Definir pasos del timeline (sin Borrador)
     const pasos = [
-        { key: 'Borrador', label: 'Generada', icon: 'document' },
         { key: 'Enviada', label: 'Enviada', icon: 'paper-airplane' },
         { key: 'Confirmada', label: 'Confirmada', icon: 'check' },
         { key: 'Recibida Total', label: 'Recibida', icon: 'truck' },
@@ -45,7 +44,6 @@ const timeline = computed(() => {
     pasos.forEach(paso => {
         const completado = !encontrado && (
             estadoActual === paso.key || 
-            (paso.key === 'Borrador' && ['Enviada', 'Confirmada', 'Recibida Parcial', 'Recibida Total'].includes(estadoActual)) ||
             (paso.key === 'Enviada' && ['Confirmada', 'Recibida Parcial', 'Recibida Total'].includes(estadoActual)) ||
             (paso.key === 'Confirmada' && ['Recibida Parcial', 'Recibida Total'].includes(estadoActual))
         )
@@ -117,7 +115,7 @@ function cancelarOrden() {
 
 // --- Permisos ---
 function puedeReenviar() {
-    return ['Borrador', 'Enviada', 'Envío Fallido'].includes(props.orden.estado?.nombre)
+    return ['Enviada', 'Envío Fallido'].includes(props.orden.estado?.nombre)
 }
 
 function puedeConfirmar() {
@@ -135,7 +133,6 @@ function puedeRecepcionar() {
 // --- Helpers ---
 function getEstadoConfig(estado) {
     const configs = {
-        'Borrador': { bg: 'bg-gray-100', text: 'text-gray-700', border: 'border-gray-300' },
         'Enviada': { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-300' },
         'Envío Fallido': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-300' },
         'Confirmada': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300' },
@@ -143,7 +140,7 @@ function getEstadoConfig(estado) {
         'Recibida Total': { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-emerald-400' },
         'Cancelada': { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-300' },
     }
-    return configs[estado] || configs['Borrador']
+    return configs[estado] || configs['Enviada']
 }
 
 function formatFecha(fecha) {

@@ -162,9 +162,11 @@ class ProductoController extends Controller
 
         $stockTotal = $producto->stocks->sum('cantidad_disponible');
         
-        $movimientos = MovimientoStock::where('productoID', $producto->id)
+        // Cargar movimientos con tipo y usuario para mostrar evolución de stock
+        $movimientos = MovimientoStock::with(['tipoMovimiento', 'usuario'])
+            ->where('productoID', $producto->id)
             ->orderBy('created_at', 'desc')
-            ->take(10)
+            ->take(20)
             ->get();
         
         return Inertia::render('Productos/Show', [

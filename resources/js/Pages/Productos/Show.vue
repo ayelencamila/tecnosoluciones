@@ -25,6 +25,27 @@ const deleteProducto = () => {
 const getBadgeClass = (estado) => {
     return estado === 'Activo' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
 };
+
+// --- Helpers para Evolución de Stock ---
+function formatDate(date) {
+    if (!date) return '-'
+    return new Date(date).toLocaleDateString('es-AR', {
+        day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    })
+}
+
+function getMovimientoClass(movimiento) {
+    const signo = movimiento.tipo_movimiento?.signo || (movimiento.cantidad >= 0 ? 1 : -1)
+    return signo > 0 
+        ? 'text-emerald-600 bg-emerald-50' 
+        : 'text-red-600 bg-red-50'
+}
+
+function formatCantidad(movimiento) {
+    const signo = movimiento.tipo_movimiento?.signo || (movimiento.cantidad >= 0 ? 1 : -1)
+    const cantidad = Math.abs(movimiento.cantidad)
+    return signo > 0 ? `+${cantidad}` : `-${cantidad}`
+}
 </script>
 
 <template>
@@ -119,6 +140,87 @@ const getBadgeClass = (estado) => {
                                 </div>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- EVOLUCIÓN DE STOCK (solo si NO es servicio y hay movimientos) -->
+                <div v-if="!producto.es_servicio && movimientos?.length > 0" class="mt-8 bg-white shadow rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div class="p-2 bg-indigo-100 rounded-lg">
+                                <svg class="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-bold text-gray-700 uppercase">Historial de Movimientos</h3>
+                                <p class="text-xs text-gray-500">Ultimos {{ movimientos.length }} movimientos registrados</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Anterior</th>
+                                    <th scope="col" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Stock Nuevo</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Motivo / Referencia</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <tr v-for="mov in movimientos" :key="mov.id" class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                                        {{ formatDate(mov.created_at) }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            {{ mov.tipo_movimiento?.nombre || 'Movimiento' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center">
+                                        <span 
+                                            class="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-bold"
+                                            :class="getMovimientoClass(mov)"
+                                        >
+                                            {{ formatCantidad(mov) }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm text-gray-500">
+                                        {{ mov.stockAnterior ?? '-' }}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-center text-sm font-medium text-gray-900">
+                                        {{ mov.stockNuevo ?? '-' }}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-gray-600 max-w-xs truncate" :title="mov.motivo">
+                                        {{ mov.motivo || '-' }}
+                                        <span v-if="mov.referenciaTabla && mov.referenciaID" class="block text-xs text-gray-400">
+                                            Ref: {{ mov.referenciaTabla }} #{{ mov.referenciaID }}
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        {{ mov.usuario?.name || 'Sistema' }}
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Empty state si no hay movimientos -->
+                <div v-else-if="!producto.es_servicio" class="mt-8 bg-white shadow rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                        <h3 class="text-sm font-bold text-gray-700 uppercase">Historial de Movimientos</h3>
+                    </div>
+                    <div class="p-12 text-center">
+                        <svg class="w-12 h-12 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                        </svg>
+                        <p class="text-sm text-gray-500">No hay movimientos de stock registrados</p>
                     </div>
                 </div>
             </div>
