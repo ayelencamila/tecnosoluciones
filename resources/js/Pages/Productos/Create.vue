@@ -36,6 +36,9 @@ const form = useForm({
   estadoProductoID: props.estados.find(e => e.nombre === 'Activo')?.id || '',
   proveedor_habitual_id: '',
   
+  // Costo
+  precio_costo: null,
+
   // STOCK (solo aplica si NO es servicio)
   stock_minimo: 0,
   cantidad_inicial: 0,
@@ -254,7 +257,24 @@ const submitForm = () => {
                                     <h2 class="text-lg font-medium text-gray-900">Lista de Precios</h2>
                                     <span class="text-xs text-gray-500 bg-gray-200 px-2 py-1 rounded">Obligatorio</span>
                                 </div>
-                                <div class="p-6">
+                                <div class="p-6 space-y-6">
+                                    <!-- Precio de Costo -->
+                                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                        <label for="precio_costo" class="block text-sm font-bold text-blue-800 mb-2">Precio de Costo</label>
+                                        <div class="relative rounded-md shadow-sm">
+                                            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                                                <span class="text-gray-500 sm:text-sm">$</span>
+                                            </div>
+                                            <input id="precio_costo" v-model.number="form.precio_costo" type="number" step="0.01" min="0" class="block w-full rounded-md border-blue-300 pl-7 focus:border-blue-500 focus:ring-blue-500 sm:text-sm" placeholder="0.00">
+                                        </div>
+                                        <p class="text-xs text-blue-600 mt-1">Costo de adquisición. Se actualiza automáticamente con cada recepción de mercadería.</p>
+                                        <InputError :message="form.errors.precio_costo" class="mt-1" />
+                                    </div>
+
+                                    <!-- Precios de Venta -->
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-gray-700 mb-3">Precios de Venta</h3>
+                                    </div>
                                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div v-for="tipoCliente in tiposCliente" :key="tipoCliente.id" class="bg-gray-50 p-4 rounded-lg border border-gray-200">
                                             <label :for="`precio_${tipoCliente.id}`" class="block text-sm font-bold text-gray-700 mb-2">{{ tipoCliente.nombre }}</label>

@@ -46,6 +46,13 @@ function formatCantidad(movimiento) {
     const cantidad = Math.abs(movimiento.cantidad)
     return signo > 0 ? `+${cantidad}` : `-${cantidad}`
 }
+
+function getMargen(precioVenta) {
+    const costo = parseFloat(props.producto.precio_costo)
+    const venta = parseFloat(precioVenta)
+    if (!costo || !venta || costo === 0) return null
+    return ((venta - costo) / costo * 100).toFixed(1)
+}
 </script>
 
 <template>
@@ -132,11 +139,30 @@ function formatCantidad(movimiento) {
                             </div>
                         </div>
                         <div class="bg-white shadow rounded-lg overflow-hidden">
-                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50"><h3 class="text-sm font-bold text-gray-700 uppercase">Precios Vigentes</h3></div>
+                            <div class="px-6 py-4 border-b border-gray-200 bg-gray-50"><h3 class="text-sm font-bold text-gray-700 uppercase">Precios</h3></div>
                             <div class="divide-y divide-gray-100">
+                                <!-- Precio de Costo -->
+                                <div class="px-6 py-3 bg-blue-50 border-b border-blue-100">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-sm font-medium text-blue-700">Costo</span>
+                                        <span class="text-lg font-bold text-blue-800">{{ producto.precio_costo ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(producto.precio_costo) : 'Sin definir' }}</span>
+                                    </div>
+                                    <p class="text-xs text-blue-500 mt-0.5">Costo promedio ponderado</p>
+                                </div>
+                                <!-- Precios de Venta -->
+                                <div class="px-6 py-2 bg-gray-50">
+                                    <span class="text-xs font-semibold text-gray-500 uppercase">Precios de Venta</span>
+                                </div>
                                 <div v-for="precio in producto.precios" :key="precio.id" class="px-6 py-3 flex justify-between items-center" v-show="!precio.fechaHasta">
                                     <span class="text-sm text-gray-600">{{ precio.tipo_cliente?.nombreTipo }}</span>
-                                    <span class="text-lg font-bold text-gray-900">{{ new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio.precio) }}</span>
+                                    <div class="text-right">
+                                        <span class="text-lg font-bold text-gray-900">{{ new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio.precio) }}</span>
+                                        <div v-if="getMargen(precio.precio) !== null" class="text-xs mt-0.5">
+                                            <span v-if="getMargen(precio.precio) < 0" class="text-red-600 font-bold">Margen: {{ getMargen(precio.precio) }}%</span>
+                                            <span v-else-if="getMargen(precio.precio) < 15" class="text-amber-600 font-semibold">Margen: {{ getMargen(precio.precio) }}%</span>
+                                            <span v-else class="text-green-600">Margen: {{ getMargen(precio.precio) }}%</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>

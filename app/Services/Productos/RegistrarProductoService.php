@@ -31,6 +31,7 @@ class RegistrarProductoService
                 'categoriaProductoID' => $data['categoriaProductoID'],
                 'estadoProductoID' => $data['estadoProductoID'],
                 'proveedor_habitual_id' => $data['proveedor_habitual_id'] ?? null,
+                'precio_costo' => $data['precio_costo'] ?? null,
             ]);
 
             // 2. Registrar Precios

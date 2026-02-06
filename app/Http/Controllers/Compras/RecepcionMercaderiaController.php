@@ -168,10 +168,13 @@ class RecepcionMercaderiaController extends Controller
         $recepcion->load([
             'ordenCompra:id,numero_oc,proveedor_id,fecha_emision',
             'ordenCompra.proveedor:id,razon_social,cuit',
+            'proveedor:id,razon_social,cuit',
             'usuario:id,name',
-            // producto se obtiene vía detalleOrden (3FN)
+            // Producto vía detalleOrden (recepciones con OC)
             'detalles.detalleOrden:id,producto_id,cantidad_pedida,precio_unitario',
             'detalles.detalleOrden.producto:id,nombre,codigo',
+            // Producto directo (recepciones sin OC)
+            'detalles.producto:id,nombre,codigo',
         ]);
 
         return Inertia::render('Compras/Recepciones/Show', [
@@ -242,7 +245,8 @@ class RecepcionMercaderiaController extends Controller
 
         $productos = \App\Models\Producto::where('es_servicio', false)
             ->whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))
-            ->select('id', 'nombre', 'codigo')
+            ->select('id', 'nombre', 'codigo', 'precio_costo')
+            ->withSum('stocks as stock_actual', 'cantidad_disponible')
             ->orderBy('nombre')
             ->get();
 
@@ -259,15 +263,16 @@ class RecepcionMercaderiaController extends Controller
     {
         $validated = $request->validate([
             'proveedor_id' => 'required|exists:proveedores,id',
-            'items' => 'required|array|min:1',
-            'items.*.producto_id' => 'required|exists:productos,id',
-            'items.*.cantidad' => 'required|integer|min:1',
-            'items.*.precio_unitario' => 'nullable|numeric|min:0',
+            'productos' => 'required|array|min:1',
+            'productos.*.producto_id' => 'required|exists:productos,id',
+            'productos.*.cantidad' => 'required|integer|min:1',
+            'productos.*.precio_unitario' => 'nullable|numeric|min:0',
+            'tipo' => 'required|in:total,parcial',
             'observaciones' => 'required|string|max:500',
         ], [
             'proveedor_id.required' => 'Debe seleccionar un proveedor.',
-            'items.required' => 'Debe agregar al menos un producto.',
-            'observaciones.required' => 'Debe indicar el motivo de la recepcion.',
+            'productos.required' => 'Debe agregar al menos un producto.',
+            'observaciones.required' => 'Las observaciones son obligatorias en recepciones directas.',
         ]);
 
         try {
@@ -281,12 +286,12 @@ class RecepcionMercaderiaController extends Controller
                 'user_id' => auth()->id(),
                 'fecha_recepcion' => now(),
                 'observaciones' => $validated['observaciones'],
-                'tipo' => 'total',
+                'tipo' => $validated['tipo'],
                 'origen' => RecepcionMercaderia::ORIGEN_COMPRA_DIRECTA,
             ]);
 
             // Crear detalles y actualizar stock
-            foreach ($validated['items'] as $item) {
+            foreach ($validated['productos'] as $item) {
                 // Crear detalle de recepción
                 \App\Models\DetalleRecepcion::create([
                     'recepcion_id' => $recepcion->id,
@@ -323,6 +328,12 @@ class RecepcionMercaderiaController extends Controller
                         'user_id' => auth()->id(),
                         'fecha_movimiento' => now(),
                     ]);
+                }
+
+                // Actualizar costo promedio ponderado del producto
+                if (!empty($item['precio_unitario']) && $item['precio_unitario'] > 0) {
+                    $producto = \App\Models\Producto::find($item['producto_id']);
+                    $producto?->actualizarCostoPonderado($item['cantidad'], $item['precio_unitario']);
                 }
             }
 

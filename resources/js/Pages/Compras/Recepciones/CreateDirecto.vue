@@ -2,7 +2,7 @@
     <AppLayout title="Nueva Recepción Directa">
         <template #header>
             <div class="flex items-center gap-4">
-                <Link :href="route('compras.recepciones.historial')" class="text-gray-500 hover:text-gray-700">
+                <Link :href="route('recepciones.historial')" class="text-gray-500 hover:text-gray-700">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
                     </svg>
@@ -28,6 +28,11 @@
                     </div>
                 </div>
 
+                <!-- Error general -->
+                <div v-if="form.errors.error" class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p class="text-sm text-red-700 font-medium">{{ form.errors.error }}</p>
+                </div>
+
                 <form @submit.prevent="enviar" class="space-y-6">
                     <!-- Proveedor -->
                     <div class="bg-white shadow-sm rounded-lg p-6">
@@ -42,7 +47,7 @@
                             >
                                 <option :value="null">-- Seleccione un proveedor --</option>
                                 <option v-for="proveedor in proveedores" :key="proveedor.id" :value="proveedor.id">
-                                    {{ proveedor.nombre }}
+                                    {{ proveedor.razon_social }} ({{ proveedor.cuit }})
                                 </option>
                             </select>
                             <p v-if="form.errors.proveedor_id" class="mt-1 text-sm text-red-600">{{ form.errors.proveedor_id }}</p>
@@ -81,7 +86,10 @@
                                     >
                                         <div class="font-medium text-gray-900">{{ producto.nombre }}</div>
                                         <div class="text-sm text-gray-500">
-                                            SKU: {{ producto.sku || '-' }} | Stock actual: {{ producto.stock_actual || 0 }}
+                                            Código: {{ producto.codigo || '-' }} | Stock actual: {{ producto.stock_actual || 0 }}
+                                            <span v-if="producto.precio_costo" class="ml-2 text-indigo-600">
+                                                | Último costo: ${{ formatNumber(producto.precio_costo) }}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -104,7 +112,10 @@
                                     <tr v-for="(item, index) in form.productos" :key="index">
                                         <td class="px-4 py-3">
                                             <div class="font-medium text-gray-900">{{ item.nombre }}</div>
-                                            <div class="text-sm text-gray-500">SKU: {{ item.sku || '-' }}</div>
+                                            <div class="text-sm text-gray-500">Código: {{ item.codigo || '-' }}</div>
+                                            <div v-if="item.costo_anterior" class="text-xs text-indigo-500 mt-0.5">
+                                                Costo anterior: ${{ formatNumber(item.costo_anterior) }}
+                                            </div>
                                         </td>
                                         <td class="px-4 py-3">
                                             <input
@@ -163,28 +174,67 @@
                         <p v-if="form.errors.productos" class="mt-2 text-sm text-red-600">{{ form.errors.productos }}</p>
                     </div>
 
+                    <!-- Tipo de recepción -->
+                    <div class="bg-white shadow-sm rounded-lg p-6">
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">Tipo de Recepción</h3>
+                        <div class="flex gap-4">
+                            <label 
+                                class="flex-1 relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors"
+                                :class="form.tipo === 'total' ? 'border-green-500 bg-green-50' : 'border-gray-200 hover:border-gray-300'"
+                            >
+                                <input type="radio" v-model="form.tipo" value="total" class="sr-only" />
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="form.tipo === 'total' ? 'text-green-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <p class="font-medium" :class="form.tipo === 'total' ? 'text-green-800' : 'text-gray-700'">Total</p>
+                                    <p class="text-xs" :class="form.tipo === 'total' ? 'text-green-600' : 'text-gray-500'">Se reciben todos los productos de esta compra</p>
+                                </div>
+                            </label>
+                            <label 
+                                class="flex-1 relative flex items-center gap-3 p-4 border-2 rounded-lg cursor-pointer transition-colors"
+                                :class="form.tipo === 'parcial' ? 'border-amber-500 bg-amber-50' : 'border-gray-200 hover:border-gray-300'"
+                            >
+                                <input type="radio" v-model="form.tipo" value="parcial" class="sr-only" />
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" :class="form.tipo === 'parcial' ? 'text-amber-600' : 'text-gray-400'" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <p class="font-medium" :class="form.tipo === 'parcial' ? 'text-amber-800' : 'text-gray-700'">Parcial</p>
+                                    <p class="text-xs" :class="form.tipo === 'parcial' ? 'text-amber-600' : 'text-gray-500'">Faltan productos por recibir de esta compra</p>
+                                </div>
+                            </label>
+                        </div>
+                        <p v-if="form.errors.tipo" class="mt-1 text-sm text-red-600">{{ form.errors.tipo }}</p>
+                    </div>
+
                     <!-- Observaciones -->
                     <div class="bg-white shadow-sm rounded-lg p-6">
-                        <h3 class="text-lg font-medium text-gray-900 mb-4">Observaciones</h3>
+                        <h3 class="text-lg font-medium text-gray-900 mb-4">
+                            Observaciones <span class="text-red-500">*</span>
+                        </h3>
                         <textarea
                             v-model="form.observaciones"
                             rows="3"
-                            class="w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                            placeholder="Notas adicionales sobre la recepcion..."
+                            class="w-full rounded-md shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                            :class="form.errors.observaciones ? 'border-red-300' : 'border-gray-300'"
+                            placeholder="Indique el motivo de la recepción directa (ej: compra urgente, reposición de faltante, etc.)"
                         ></textarea>
+                        <p v-if="form.errors.observaciones" class="mt-1 text-sm text-red-600">{{ form.errors.observaciones }}</p>
+                        <p v-else class="mt-1 text-xs text-gray-500">Obligatorio — Documente el motivo de esta recepción sin orden de compra.</p>
                     </div>
 
                     <!-- Acciones -->
                     <div class="flex justify-end gap-3">
                         <Link 
-                            :href="route('compras.recepciones.historial')"
+                            :href="route('recepciones.historial')"
                             class="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                         >
                             Cancelar
                         </Link>
                         <button
                             type="submit"
-                            :disabled="form.processing || form.productos.length === 0"
+                            :disabled="form.processing || form.productos.length === 0 || !form.observaciones.trim()"
                             class="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                             <svg v-if="form.processing" class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -216,6 +266,7 @@ const props = defineProps({
 const form = useForm({
     proveedor_id: null,
     productos: [],
+    tipo: 'total',
     observaciones: '',
 });
 
@@ -228,7 +279,7 @@ const productosFiltrados = computed(() => {
     return props.productos
         .filter(p => 
             (p.nombre && p.nombre.toLowerCase().includes(term)) ||
-            (p.sku && p.sku.toLowerCase().includes(term))
+            (p.codigo && p.codigo.toLowerCase().includes(term))
         )
         .filter(p => !form.productos.some(item => item.producto_id === p.id))
         .slice(0, 10);
@@ -242,9 +293,10 @@ function agregarProducto(producto) {
     form.productos.push({
         producto_id: producto.id,
         nombre: producto.nombre,
-        sku: producto.sku,
+        codigo: producto.codigo,
         cantidad: 1,
-        precio_unitario: producto.precio_costo || 0,
+        precio_unitario: producto.precio_costo ? parseFloat(producto.precio_costo) : 0,
+        costo_anterior: producto.precio_costo ? parseFloat(producto.precio_costo) : null,
     });
     busqueda.value = '';
     mostrarResultados.value = false;
@@ -259,7 +311,7 @@ function formatNumber(value) {
 }
 
 function enviar() {
-    form.post(route('compras.recepciones.store-directo'), {
+    form.post(route('recepciones.store-directo'), {
         preserveScroll: true,
     });
 }

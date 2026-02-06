@@ -38,7 +38,7 @@ const tipoBadge = (tipo) => {
 // Calcular total de la recepción
 const calcularTotalRecepcion = () => {
     return props.recepcion.detalles?.reduce((acc, detalle) => {
-        const precioUnitario = detalle.detalle_orden?.precio_unitario || 0;
+        const precioUnitario = detalle.detalle_orden?.precio_unitario ?? detalle.precio_unitario ?? 0;
         return acc + (detalle.cantidad_recibida * precioUnitario);
     }, 0) || 0;
 };
@@ -114,8 +114,8 @@ const calcularTotalRecepcion = () => {
                     </div>
                 </div>
 
-                <!-- Datos de la Orden de Compra -->
-                <div class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                <!-- Datos de la Orden de Compra (solo si tiene OC) -->
+                <div v-if="recepcion.orden_compra_id" class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
                     <div class="p-6 border-b border-gray-200 dark:border-gray-700">
                         <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
                             <svg class="w-5 h-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
@@ -139,13 +139,42 @@ const calcularTotalRecepcion = () => {
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">Proveedor</p>
-                                <p class="mt-1 font-medium text-gray-900 dark:text-white">{{ recepcion.orden_compra?.proveedor?.nombre }}</p>
+                                <p class="mt-1 font-medium text-gray-900 dark:text-white">{{ recepcion.orden_compra?.proveedor?.razon_social }}</p>
                                 <p class="text-xs text-gray-500 dark:text-gray-400">CUIT: {{ recepcion.orden_compra?.proveedor?.cuit }}</p>
                             </div>
                             <div>
                                 <p class="text-sm text-gray-500 dark:text-gray-400">Fecha de la OC</p>
                                 <p class="mt-1 font-medium text-gray-900 dark:text-white">
                                     {{ recepcion.orden_compra?.fecha_emision ? new Date(recepcion.orden_compra.fecha_emision).toLocaleDateString('es-AR') : '-' }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Datos del Proveedor (recepción directa sin OC) -->
+                <div v-else class="bg-white dark:bg-gray-800 shadow-sm sm:rounded-lg overflow-hidden">
+                    <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+                        <h3 class="text-lg font-bold text-gray-900 dark:text-white flex items-center">
+                            <svg class="w-5 h-5 mr-2 text-amber-600 dark:text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                            </svg>
+                            Compra Directa (Sin Orden de Compra)
+                        </h3>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Proveedor</p>
+                                <p class="mt-1 font-medium text-gray-900 dark:text-white">{{ recepcion.proveedor?.razon_social || '-' }}</p>
+                                <p class="text-xs text-gray-500 dark:text-gray-400">CUIT: {{ recepcion.proveedor?.cuit || '-' }}</p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 dark:text-gray-400">Origen</p>
+                                <p class="mt-1">
+                                    <span class="px-3 py-1 text-sm font-medium rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 capitalize">
+                                        {{ recepcion.origen?.replace('_', ' ') || 'Compra directa' }}
+                                    </span>
                                 </p>
                             </div>
                         </div>
@@ -202,10 +231,10 @@ const calcularTotalRecepcion = () => {
                                 <tr v-for="detalle in recepcion.detalles" :key="detalle.id">
                                     <td class="px-6 py-4">
                                         <div class="text-sm font-medium text-gray-900 dark:text-white">
-                                            {{ detalle.detalle_orden?.producto?.nombre }}
+                                            {{ detalle.detalle_orden?.producto?.nombre || detalle.producto?.nombre || '-' }}
                                         </div>
                                         <div class="text-xs text-gray-500 dark:text-gray-400">
-                                            Código: {{ detalle.detalle_orden?.producto?.codigo }} | {{ detalle.detalle_orden?.producto?.unidad_medida }}
+                                            Código: {{ detalle.detalle_orden?.producto?.codigo || detalle.producto?.codigo || '-' }}
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center">
@@ -214,10 +243,10 @@ const calcularTotalRecepcion = () => {
                                         </span>
                                     </td>
                                     <td class="px-6 py-4 text-right text-sm text-gray-500 dark:text-gray-400">
-                                        {{ formatearMoneda(detalle.detalle_orden?.precio_unitario) }}
+                                        {{ formatearMoneda(detalle.detalle_orden?.precio_unitario ?? detalle.precio_unitario) }}
                                     </td>
                                     <td class="px-6 py-4 text-right text-sm font-medium text-gray-900 dark:text-white">
-                                        {{ formatearMoneda(detalle.cantidad_recibida * (detalle.detalle_orden?.precio_unitario || 0)) }}
+                                        {{ formatearMoneda(detalle.cantidad_recibida * (detalle.detalle_orden?.precio_unitario ?? detalle.precio_unitario ?? 0)) }}
                                     </td>
                                     <td class="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
                                         {{ detalle.observacion_item || '-' }}
@@ -242,6 +271,7 @@ const calcularTotalRecepcion = () => {
                 <!-- Acciones -->
                 <div class="flex justify-end space-x-3">
                     <Link
+                        v-if="recepcion.orden_compra_id"
                         :href="route('ordenes.show', recepcion.orden_compra_id)"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-200 dark:border-indigo-800 rounded-md hover:bg-indigo-100 dark:hover:bg-indigo-900/50"
                     >
@@ -251,10 +281,10 @@ const calcularTotalRecepcion = () => {
                         Ver Orden de Compra
                     </Link>
                     <Link
-                        :href="route('recepciones.index')"
+                        :href="route('recepciones.historial')"
                         class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700"
                     >
-                        Volver al Listado
+                        Volver al Historial
                     </Link>
                 </div>
             </div>

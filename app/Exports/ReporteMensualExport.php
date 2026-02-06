@@ -6,6 +6,7 @@ use App\Models\Venta;
 use App\Models\Pago;
 use App\Models\Reparacion;
 use App\Models\OrdenCompra;
+use App\Models\RecepcionMercaderia;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithTitle;
@@ -68,9 +69,18 @@ class ResumenSheet implements FromCollection, WithHeadings, WithTitle, WithStyle
             ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])
             ->sum('monto');
 
-        $totalCompras = OrdenCompra::whereIn('estado_id', [4, 5])
+        $totalComprasOC = OrdenCompra::whereIn('estado_id', [4, 5])
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
             ->sum('total_final');
+
+        // Compras directas (reposiciones sin OC)
+        $recepcionesDirectas = RecepcionMercaderia::whereNull('orden_compra_id')
+            ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
+            ->with('detalles')
+            ->get();
+        $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
+
+        $totalCompras = $totalComprasOC + $totalComprasDirectas;
 
         $totalIngresos = $totalVentas + $totalReparaciones;
         $balance = $totalIngresos - $totalCompras;
@@ -82,7 +92,8 @@ class ResumenSheet implements FromCollection, WithHeadings, WithTitle, WithStyle
             ['Total Ingresos', number_format($totalIngresos, 2, ',', '.')],
             ['', ''],
             ['EGRESOS', ''],
-            ['Compras', number_format($totalCompras, 2, ',', '.')],
+            ['Compras (Órdenes de Compra)', number_format($totalComprasOC, 2, ',', '.')],
+            ['Compras Directas (Reposiciones)', number_format($totalComprasDirectas, 2, ',', '.')],
             ['Total Egresos', number_format($totalCompras, 2, ',', '.')],
             ['', ''],
             ['RESULTADO', ''],

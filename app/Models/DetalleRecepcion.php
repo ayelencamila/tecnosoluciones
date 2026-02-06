@@ -50,19 +50,19 @@ class DetalleRecepcion extends Model
     /**
      * Relación directa con producto (para recepciones sin OC)
      */
-    public function productoDirecto(): BelongsTo
+    public function producto(): BelongsTo
     {
         return $this->belongsTo(Producto::class, 'producto_id');
     }
 
     /**
-     * Accessor para obtener el producto (desde detalle OC o directo)
+     * Obtener el producto resuelto (directo o vía detalleOrden)
      */
-    public function getProductoAttribute()
+    public function getProductoResueltoAttribute()
     {
         // Si tiene producto_id directo, usarlo
         if ($this->producto_id) {
-            return $this->productoDirecto;
+            return $this->producto;
         }
         // Sino obtener vía detalleOrden (3FN)
         return $this->detalleOrden?->producto;

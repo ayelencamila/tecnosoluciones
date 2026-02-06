@@ -64,8 +64,8 @@ class ProductoController extends Controller
     public function index(Request $request)
     {
         $query = Producto::query()
-            ->with(['categoria', 'estado', 'marca', 'unidadMedida', 'stocks', 
-                    'precios' => fn($q) => $q->whereNull('fechaHasta')]);
+            ->with(['categoria', 'estado', 'marca', 'unidadMedida', 'stocks', 'proveedorHabitual',
+                    'precios' => fn($q) => $q->whereNull('fechaHasta')->with('tipoCliente')]);
 
         if ($request->filled('search')) {
             $search = $request->input('search');

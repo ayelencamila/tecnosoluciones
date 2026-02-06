@@ -32,6 +32,7 @@ class UpdateProductoService
                 'categoriaProductoID' => $validatedData['categoriaProductoID'],
                 'estadoProductoID' => $validatedData['estadoProductoID'],
                 'proveedor_habitual_id' => $validatedData['proveedor_habitual_id'] ?? null,
+                'precio_costo' => $validatedData['precio_costo'] ?? $producto->precio_costo,
             ];
 
             // Manejar foto

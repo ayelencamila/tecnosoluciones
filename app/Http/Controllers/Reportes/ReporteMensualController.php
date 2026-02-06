@@ -14,6 +14,8 @@ use App\Models\CategoriaGasto;
 use App\Models\Auditoria;
 use App\Models\EstadoVenta;
 use App\Models\EstadoOrdenCompra;
+use App\Models\RecepcionMercaderia;
+use App\Models\DetalleRecepcion;
 use App\Exports\ReporteMensualExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
@@ -75,18 +77,29 @@ class ReporteMensualController extends Controller
 
         // ==================== SALIDAS ====================
         
-        // Compras a proveedores (recibidas)
+        // Compras a proveedores (OC recibidas)
         $estadosRecibidos = [
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL),
         ];
         
-        $totalCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+        $totalComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
             ->sum('total_final');
-        $cantidadCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+        $cantidadComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
             ->count();
+
+        // Compras directas (recepciones sin OC)
+        $recepcionesDirectas = RecepcionMercaderia::whereNull('orden_compra_id')
+            ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
+            ->with('detalles')
+            ->get();
+        $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
+        $cantidadComprasDirectas = $recepcionesDirectas->count();
+
+        $totalCompras = $totalComprasOC + $totalComprasDirectas;
+        $cantidadCompras = $cantidadComprasOC + $cantidadComprasDirectas;
 
         // Gastos operativos (no anulados, tipo = gasto)
         $totalGastosOperativos = Gasto::activos()
@@ -164,7 +177,8 @@ class ReporteMensualController extends Controller
                 ],
                 'total_entradas' => $totalEntradas,
                 'salidas' => [
-                    ['concepto' => 'Compras a Proveedores', 'cantidad' => $cantidadCompras, 'total' => $totalCompras],
+                    ['concepto' => 'Compras (Órdenes de Compra)', 'cantidad' => $cantidadComprasOC, 'total' => $totalComprasOC],
+                    ['concepto' => 'Compras Directas (Reposiciones)', 'cantidad' => $cantidadComprasDirectas, 'total' => $totalComprasDirectas],
                     ['concepto' => 'Gastos Operativos', 'cantidad' => null, 'total' => $totalGastosOperativos],
                     ['concepto' => 'Pérdidas', 'cantidad' => null, 'total' => $totalPerdidas],
                 ],
@@ -218,11 +232,24 @@ class ReporteMensualController extends Controller
                     EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
                     EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL),
                 ];
-                $datosPorDia = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+                // OCs recibidas por día
+                $datosPorDiaOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
                     ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
                     ->select(DB::raw('DATE(fecha_emision) as fecha'), DB::raw('SUM(total_final) as total'))
                     ->groupBy('fecha')
                     ->pluck('total', 'fecha');
+                // Compras directas por día
+                $datosPorDiaDirectas = DetalleRecepcion::join('recepciones_mercaderia', 'detalle_recepciones.recepcion_id', '=', 'recepciones_mercaderia.id')
+                    ->whereNull('recepciones_mercaderia.orden_compra_id')
+                    ->whereBetween('recepciones_mercaderia.fecha_recepcion', [$fechaInicio, $fechaFin])
+                    ->select(DB::raw('DATE(recepciones_mercaderia.fecha_recepcion) as fecha'), DB::raw('SUM(detalle_recepciones.cantidad_recibida * detalle_recepciones.precio_unitario) as total'))
+                    ->groupBy('fecha')
+                    ->pluck('total', 'fecha');
+                // Merge ambos
+                $datosPorDia = collect($diasDelMes)->mapWithKeys(function ($dia) use ($datosPorDiaOC, $datosPorDiaDirectas) {
+                    $total = ($datosPorDiaOC[$dia] ?? 0) + ($datosPorDiaDirectas[$dia] ?? 0);
+                    return [$dia => $total];
+                })->filter(fn($v) => $v > 0);
                 $color = '#EF4444';
                 $label = 'Compras';
                 break;
@@ -423,15 +450,26 @@ class ReporteMensualController extends Controller
 
         $totalEntradas = $totalVentas + $totalReparaciones;
 
-        // Compras
+        // Compras (OC)
         $estadosRecibidos = [
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL),
         ];
-        $totalCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+        $totalComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])->sum('total_final');
-        $cantidadCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+        $cantidadComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])->count();
+
+        // Compras directas (reposiciones)
+        $recepcionesDirectas = RecepcionMercaderia::whereNull('orden_compra_id')
+            ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
+            ->with('detalles')
+            ->get();
+        $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
+        $cantidadComprasDirectas = $recepcionesDirectas->count();
+
+        $totalCompras = $totalComprasOC + $totalComprasDirectas;
+        $cantidadCompras = $cantidadComprasOC + $cantidadComprasDirectas;
 
         $totalGastosOp = Gasto::activos()->gastos()->delMes($mes, $anio)->sum('monto');
         $totalPerdidas = Gasto::activos()->perdidas()->delMes($mes, $anio)->sum('monto');
@@ -454,7 +492,8 @@ class ReporteMensualController extends Controller
                 ],
                 'total_entradas' => $totalEntradas,
                 'salidas' => [
-                    ['concepto' => 'Compras a Proveedores', 'cantidad' => $cantidadCompras, 'total' => $totalCompras],
+                    ['concepto' => 'Compras (Órdenes de Compra)', 'cantidad' => $cantidadComprasOC, 'total' => $totalComprasOC],
+                    ['concepto' => 'Compras Directas (Reposiciones)', 'cantidad' => $cantidadComprasDirectas, 'total' => $totalComprasDirectas],
                     ['concepto' => 'Gastos Operativos', 'cantidad' => null, 'total' => $totalGastosOp],
                     ['concepto' => 'Pérdidas', 'cantidad' => null, 'total' => $totalPerdidas],
                 ],

@@ -260,14 +260,21 @@ const traducirPaginacion = (label) => {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         <Link 
+                                            v-if="recepcion.orden_compra_id"
                                             :href="route('ordenes.show', recepcion.orden_compra_id)"
                                             class="text-indigo-600 dark:text-indigo-400 hover:underline"
                                         >
                                             {{ recepcion.orden_compra?.numero_oc }}
                                         </Link>
+                                        <span v-else class="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                                            </svg>
+                                            Compra directa
+                                        </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {{ recepcion.orden_compra?.proveedor?.razon_social || '-' }}
+                                        {{ recepcion.orden_compra?.proveedor?.razon_social || recepcion.proveedor?.razon_social || '-' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {{ formatearFecha(recepcion.fecha_recepcion) }}
