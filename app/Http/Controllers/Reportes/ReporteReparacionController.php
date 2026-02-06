@@ -11,6 +11,7 @@ use App\Models\Rol;
 use App\Models\EstadoReparacion;
 use App\Models\Auditoria;
 use App\Exports\ReparacionExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -127,13 +128,69 @@ class ReporteReparacionController extends Controller
 
     public function exportar(Request $request)
     {
+        $formato = $request->input('formato', 'xlsx');
+        $timestamp = now()->format('Ymd_His');
+
         Auditoria::create([
             'accion' => 'EXPORTACION',
             'tablaAfectada' => 'reportes',
             'usuarioID' => Auth::id(),
-            'motivo' => 'Descarga Excel Reparaciones'
+            'ip' => $request->ip(),
+            'motivo' => "Exportación {$formato} Reparaciones"
         ]);
 
-        return Excel::download(new ReparacionExport($request->all()), 'reporte_reparaciones.xlsx');
+        switch ($formato) {
+            case 'pdf':
+                $data = $this->getDataForPdf($request);
+                $pdf = Pdf::loadView('pdf.reportes.reparaciones', $data)->setPaper('a4', 'landscape');
+                return $pdf->download("reporte_reparaciones_{$timestamp}.pdf");
+
+            case 'csv':
+                return Excel::download(
+                    new ReparacionExport($request->all()),
+                    "reporte_reparaciones_{$timestamp}.csv",
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+
+            default:
+                return Excel::download(
+                    new ReparacionExport($request->all()),
+                    "reporte_reparaciones_{$timestamp}.xlsx"
+                );
+        }
+    }
+
+    private function getDataForPdf(Request $request): array
+    {
+        $fechaDesde = $request->input('fecha_desde', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $fechaHasta = $request->input('fecha_hasta', Carbon::now()->endOfMonth()->format('Y-m-d'));
+        $tecnicoId = $request->input('tecnico_id');
+        $estadoId = $request->input('estado_id');
+
+        $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'marca', 'modelo'])
+            ->whereBetween('fecha_ingreso', [
+                Carbon::parse($fechaDesde)->startOfDay(),
+                Carbon::parse($fechaHasta)->endOfDay()
+            ]);
+
+        if ($tecnicoId) $query->where('tecnico_id', $tecnicoId);
+        if ($estadoId) $query->where('estado_reparacion_id', $estadoId);
+
+        $reparaciones = $query->latest('fecha_ingreso')->get();
+        $totalReparaciones = $reparaciones->count();
+        $finalizadas = $reparaciones->whereNotNull('fecha_entrega_real')->count();
+        $tasaExito = $totalReparaciones > 0 ? ($finalizadas / $totalReparaciones) * 100 : 0;
+        $ingresos = $reparaciones->sum('total_final');
+
+        return [
+            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y') . ' - ' . Carbon::parse($fechaHasta)->format('d/m/Y'),
+            'reparaciones' => $reparaciones,
+            'kpis' => [
+                'total' => $totalReparaciones,
+                'finalizadas' => $finalizadas,
+                'tasa_exito' => round($tasaExito, 1),
+                'ingresos' => $ingresos,
+            ],
+        ];
     }
 }

@@ -102,7 +102,9 @@ class VentaController extends Controller
                 }),
 
             'mediosPago' => MedioPago::where('activo', true)->get(),
-            'descuentos' => Descuento::where('activo', true)->get(),
+            'descuentos' => Descuento::where('activo', true)
+                ->with(['tipo', 'aplicabilidad'])
+                ->get(),
         ]);
     }
 

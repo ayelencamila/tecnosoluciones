@@ -284,7 +284,7 @@ const submit = () => {
                                                 <li v-for="cliente in resultadosClientes" :key="cliente.clienteID" @click="seleccionarCliente(cliente)" class="cursor-pointer select-none relative py-2 pl-3 pr-9 hover:bg-indigo-50 text-gray-900 border-b border-gray-100">
                                                     <div class="flex items-center">
                                                         <span class="font-bold block truncate text-indigo-700">{{ cliente.apellido }}, {{ cliente.nombre }}</span>
-                                                        <span class="ml-2 text-gray-500 text-xs">(DNI: {{ cliente.dni }})</span>
+                                                        <span class="ml-2 text-gray-500 text-xs">(DNI: {{ cliente.DNI }})</span>
                                                     </div>
                                                 </li>
                                             </ul>

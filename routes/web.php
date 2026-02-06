@@ -309,9 +309,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/compras', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'index'])->name('compras');
         Route::get('/compras/exportar', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'exportar'])->name('compras.exportar');
 
-        // CU-36 y CU-37: Reporte de Stock y Uso de Repuestos
+        // CU-36 y CU-37: Reporte de Stock
         Route::get('/stock', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'index'])->name('stock');
         Route::get('/stock/exportar', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'exportar'])->name('stock.exportar');
+
+        // CU-36: Reporte de Uso de Repuestos
+        Route::get('/repuestos', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'index'])->name('repuestos');
+        Route::get('/repuestos/exportar', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'exportar'])->name('repuestos.exportar');
 
         // Reporte Mensual Consolidado (Entradas, Salidas, Balance)
         Route::get('/mensual', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'index'])->name('mensual');
@@ -483,6 +487,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{reparacion}/imprimir-entrega', [ReparacionController::class, 'imprimirComprobanteEntrega'])->name('imprimir-entrega');
         Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])->name('edit');
         Route::put('/{reparacion}', [ReparacionController::class, 'update'])->name('update');
+        Route::post('/{reparacion}/cobrar', [ReparacionController::class, 'cobrar'])->name('cobrar');
         Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])->name('destroy');
     });
 

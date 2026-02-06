@@ -6,6 +6,7 @@ use App\Models\Reparacion;
 use App\Models\EstadoReparacion;
 use App\Models\Stock;
 use App\Models\MovimientoStock;
+use App\Models\TipoMovimientoStock;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -27,10 +28,14 @@ class AnularReparacionService
                 ->firstOrFail();
 
             // 3. Revertir Stock de Repuestos (Si se usaron)
+            $tipoDevolucion = TipoMovimientoStock::where('nombre', 'Devolución (Entrada)')->firstOrFail();
+
             foreach ($reparacion->repuestos as $detalle) {
                 // Solo devolvemos stock si NO es un servicio
                 if ($detalle->producto->unidadMedida !== 'Servicio') {
-                    $stockRegistro = Stock::where('productoID', $detalle->producto_id)->first();
+                    $stockRegistro = Stock::where('productoID', $detalle->producto_id)
+                                          ->lockForUpdate()
+                                          ->first();
                     
                     if ($stockRegistro) {
                         $stockAnterior = $stockRegistro->cantidad_disponible;
@@ -40,14 +45,17 @@ class AnularReparacionService
                         
                         // Registramos el movimiento de devolución
                         MovimientoStock::create([
+                            'stock_id' => $stockRegistro->stock_id,
                             'productoID' => $detalle->producto_id,
-                            'tipoMovimiento' => 'ENTRADA', // Vuelve a entrar
+                            'tipo_movimiento_id' => $tipoDevolucion->id,
                             'cantidad' => $detalle->cantidad,
                             'stockAnterior' => $stockAnterior,
                             'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
                             'motivo' => "Anulación Reparación #{$reparacion->codigo_reparacion}",
                             'referenciaID' => $reparacion->reparacionID,
                             'referenciaTabla' => 'reparaciones',
+                            'user_id' => $userId,
+                            'fecha_movimiento' => now(),
                         ]);
                     }
                 }

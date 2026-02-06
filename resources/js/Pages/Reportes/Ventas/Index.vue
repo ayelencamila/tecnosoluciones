@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import ExportDropdown from '@/Components/ExportDropdown.vue';
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { Line, Doughnut } from 'vue-chartjs'; 
 import { 
@@ -100,17 +100,6 @@ const limpiarCliente = () => {
     clientesResultados.value = [];
 };
 
-// Función para exportar a Excel
-const exportar = () => {
-    const params = new URLSearchParams({
-        fecha_desde: form.value.fecha_desde,
-        fecha_hasta: form.value.fecha_hasta,
-        cliente_id: form.value.cliente_id
-    }).toString();
-    
-    window.location.href = route('reportes.ventas.exportar') + '?' + params;
-};
-
 // Observar cambios de fechas para recargar (cliente_id se maneja manualmente)
 watch(() => [form.value.fecha_desde, form.value.fecha_hasta, form.value.cliente_id], () => {
     router.get(route('reportes.ventas'), form.value, {
@@ -133,7 +122,7 @@ const formatCurrency = (value) => {
         <template #header>
             <div class="flex items-center justify-between">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-                    Reporte de Ventas y Facturación
+                    Reporte de Ventas
                 </h2>
                 <span class="text-sm text-gray-500">
                     Periodo: {{ new Date(form.fecha_desde).toLocaleDateString() }} al {{ new Date(form.fecha_hasta).toLocaleDateString() }}
@@ -149,9 +138,9 @@ const formatCurrency = (value) => {
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-b-4 border-green-500">
                         <div class="flex justify-between items-start">
                             <div>
-                                <div class="text-gray-500 text-sm font-medium uppercase tracking-wider">Facturación Total</div>
+                                <div class="text-gray-500 text-sm font-medium uppercase tracking-wider">Total Vendido</div>
                                 <div class="text-3xl font-bold text-gray-900 mt-2">{{ formatCurrency(kpis.total_ingresos) }}</div>
-                                <div class="text-xs text-green-600 mt-1 font-semibold">Ingresos brutos</div>
+                                <div class="text-xs text-green-600 mt-1 font-semibold">Período seleccionado</div>
                             </div>
                             <div class="p-3 bg-green-50 rounded-full">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -179,7 +168,7 @@ const formatCurrency = (value) => {
                     <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-b-4 border-purple-500">
                         <div class="flex justify-between items-start">
                             <div>
-                                <div class="text-gray-500 text-sm font-medium uppercase tracking-wider">Ticket Promedio</div>
+                                <div class="text-gray-500 text-sm font-medium uppercase tracking-wider">Venta Promedio</div>
                                 <div class="text-3xl font-bold text-gray-900 mt-2">{{ formatCurrency(kpis.ticket_promedio) }}</div>
                                 <div class="text-xs text-gray-400 mt-1">Promedio por operación</div>
                             </div>
@@ -250,7 +239,7 @@ const formatCurrency = (value) => {
                                         class="px-3 py-2 hover:bg-indigo-50 cursor-pointer text-sm"
                                     >
                                         <div class="font-medium text-gray-900">{{ cliente.apellido }}, {{ cliente.nombre }}</div>
-                                        <div class="text-xs text-gray-500">DNI: {{ cliente.dni || 'N/A' }}</div>
+                                        <div class="text-xs text-gray-500">DNI: {{ cliente.DNI || 'N/A' }}</div>
                                     </li>
                                 </ul>
                             </div>
@@ -264,12 +253,10 @@ const formatCurrency = (value) => {
                         </div>
 
                         <div>
-                            <PrimaryButton @click="exportar" class="w-full justify-center bg-green-600 hover:bg-green-700 h-10 focus:ring-green-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                </svg>
-                                Exportar Excel
-                            </PrimaryButton>
+                            <ExportDropdown
+                                :exportUrl="route('reportes.ventas.exportar')"
+                                :params="form"
+                            />
                         </div>
                     </div>
                 </div>
@@ -280,7 +267,24 @@ const formatCurrency = (value) => {
                             <h3 class="text-lg font-bold text-gray-800">Evolución Diaria</h3>
                         </div>
                         <div class="h-72 relative w-full">
-                             <Line :data="graficos.tiempo" :options="{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }" />
+                             <Line :data="graficos.tiempo" :options="{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                interaction: { mode: 'index', intersect: false },
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(0,0,0,0.8)',
+                                        padding: 12,
+                                        cornerRadius: 8,
+                                        callbacks: { label: (ctx) => '  ' + formatCurrency(ctx.raw) }
+                                    }
+                                },
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { callback: (v) => '$' + new Intl.NumberFormat('es-AR').format(v) } },
+                                    x: { grid: { color: 'rgba(0,0,0,0.04)' } }
+                                }
+                             }" />
                         </div>
                     </div>
                     
@@ -289,7 +293,26 @@ const formatCurrency = (value) => {
                             <h3 class="text-lg font-bold text-gray-800">Por Vendedor</h3>
                         </div>
                         <div class="h-64 relative w-full flex justify-center">
-                            <Doughnut :data="graficos.vendedores" :options="{ responsive: true, maintainAspectRatio: false }" />
+                            <Doughnut :data="graficos.vendedores" :options="{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '55%',
+                                plugins: {
+                                    legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 12 } } },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(0,0,0,0.8)',
+                                        padding: 12,
+                                        cornerRadius: 8,
+                                        callbacks: {
+                                            label: (ctx) => {
+                                                const total = ctx.dataset.data.reduce((a, b) => a + Number(b), 0);
+                                                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                                                return `  ${ctx.raw} ventas (${pct}%)`;
+                                            }
+                                        }
+                                    }
+                                }
+                            }" />
                         </div>
                     </div>
                 </div>
@@ -319,7 +342,7 @@ const formatCurrency = (value) => {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm font-medium text-gray-900">{{ venta.cliente?.nombre }} {{ venta.cliente?.apellido }}</div>
-                                        <div class="text-xs text-gray-500">DNI: {{ venta.cliente?.dni || '-' }}</div>
+                                        <div class="text-xs text-gray-500">DNI: {{ venta.cliente?.DNI || '-' }}</div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600 hidden md:table-cell">
                                         {{ venta.vendedor?.name || 'Sistema' }}

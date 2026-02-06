@@ -464,6 +464,17 @@ class ComprobanteService
             // Estado
             'estado' => $reparacion->estado->nombreEstado ?? 'Entregado',
             
+            // Cobro (unificado con comprobante de entrega)
+            'cobro' => [
+                'fue_cobrada' => in_array($reparacion->estado_pago, ['pagado', 'cuenta_corriente']),
+                'estado_pago' => $reparacion->estado_pago ?? 'pendiente',
+                'monto_cobrado' => (float) ($reparacion->monto_cobrado ?? 0),
+                'medio_pago' => $reparacion->medioPago->nombre ?? null,
+                'fecha_cobro' => $reparacion->fecha_cobro?->format('d/m/Y H:i') ?? null,
+                'cobrado_por' => $reparacion->cobrador->name ?? null,
+                'es_cuenta_corriente' => $reparacion->estado_pago === 'cuenta_corriente',
+            ],
+            
             // Metadata
             'fecha_emision' => now()->format('d/m/Y H:i:s'),
         ];

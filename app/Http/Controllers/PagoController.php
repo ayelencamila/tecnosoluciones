@@ -6,6 +6,7 @@ use App\Models\Pago;
 use App\Models\Cliente;
 use App\Models\MedioPago;
 use App\Models\Venta;
+use App\Models\Reparacion;
 use App\Services\Pagos\AnularPagoService;
 use App\Services\Pagos\RegistrarPagoService;
 use App\Services\Comprobantes\ComprobanteService;
@@ -89,6 +90,7 @@ class PagoController extends Controller
      */
     public function obtenerDocumentosPendientes(Cliente $cliente)
     {
+        // Ventas pendientes
         $ventas = Venta::where('clienteID', $cliente->clienteID)
             ->whereHas('estado', fn($q) => $q->where('nombreEstado', '!=', 'Anulada'))
             ->with(['estado:estadoVentaID,nombreEstado'])
@@ -97,18 +99,46 @@ class PagoController extends Controller
             ->get()
             ->map(function ($venta) {
                 return [
-                    'venta_id' => $venta->venta_id,
+                    'tipo' => 'venta',
+                    'id' => $venta->venta_id,
+                    'venta_id' => $venta->venta_id, // Compatibilidad con frontend existente
                     'numero_comprobante' => $venta->numero_comprobante,
-                    'fecha_venta' => $venta->fecha_venta->format('d/m/Y'),
+                    'fecha' => $venta->fecha_venta->format('d/m/Y'),
+                    'fecha_venta' => $venta->fecha_venta->format('d/m/Y'), // Compatibilidad
                     'total' => $venta->total,
                     'saldo_pendiente' => $venta->saldo_pendiente,
                     'estado' => $venta->estado->nombreEstado ?? 'Desconocido',
                 ];
             })
-            ->filter(fn($v) => $v['saldo_pendiente'] > 0); // Solo con saldo pendiente
+            ->filter(fn($v) => $v['saldo_pendiente'] > 0);
+
+        // Reparaciones cobradas a cuenta corriente (pendientes de pago)
+        $reparaciones = Reparacion::where('clienteID', $cliente->clienteID)
+            ->where('estado_pago', 'cuenta_corriente')
+            ->where('anulada', false)
+            ->with('pagosImputados') // Para calcular saldo_pendiente
+            ->orderBy('fecha_cobro', 'asc')
+            ->get()
+            ->map(function ($rep) {
+                return [
+                    'tipo' => 'reparacion',
+                    'id' => $rep->reparacionID,
+                    'reparacion_id' => $rep->reparacionID,
+                    'venta_id' => null,
+                    'numero_comprobante' => $rep->codigo_reparacion,
+                    'fecha' => $rep->fecha_cobro?->format('d/m/Y') ?? $rep->fecha_ingreso->format('d/m/Y'),
+                    'fecha_venta' => $rep->fecha_cobro?->format('d/m/Y') ?? $rep->fecha_ingreso->format('d/m/Y'),
+                    'total' => (float) $rep->monto_cobrado,
+                    'saldo_pendiente' => $rep->saldo_pendiente,
+                    'estado' => 'Reparación (CC)',
+                ];
+            })
+            ->filter(fn($r) => $r['saldo_pendiente'] > 0);
+
+        $documentos = $ventas->merge($reparaciones)->values();
 
         return response()->json([
-            'documentos' => $ventas->values()
+            'documentos' => $documentos
         ]);
     }
 
@@ -136,7 +166,7 @@ class PagoController extends Controller
      */
     public function show(Pago $pago)
     {
-        $pago->load(['cliente', 'cajero', 'ventasImputadas', 'medioPago']);
+        $pago->load(['cliente', 'cajero', 'ventasImputadas', 'reparacionesImputadas', 'medioPago']);
 
         return Inertia::render('Pagos/DetallePago', [
             'pago' => $pago

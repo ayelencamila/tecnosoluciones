@@ -453,24 +453,46 @@ class SolicitudCotizacionController extends Controller
         }
 
         try {
+            DB::beginTransaction();
+
             // Marcar la cotización como elegida
             $cotizacion->update(['elegida' => true]);
+
+            // Generar orden de compra automáticamente
+            $registrarCompraService = app(\App\Services\Compras\RegistrarCompraService::class);
+            $observaciones = $request->input('observaciones') ?? 'Seleccionada como mejor cotización';
+            
+            $resultado = $registrarCompraService->ejecutar(
+                $cotizacion->id,
+                auth()->id(),
+                $observaciones
+            );
+
+            $orden = $resultado['orden'];
+            $advertencias = $resultado['advertencias'];
 
             // Cerrar la solicitud si está abierta/enviada
             if (in_array($solicitud->estado->nombre, ['Abierta', 'Enviada'])) {
                 $this->solicitudService->cerrarSolicitud($solicitud);
             }
 
-            // Si el usuario quiere generar orden directamente
-            if ($request->input('generar_orden')) {
-                // Redirigir a crear orden de compra con la cotización elegida
-                return redirect()->route('ordenes.create', ['cotizacion_id' => $cotizacion->id])
-                    ->with('success', "Cotización de {$cotizacion->proveedor->razon_social} elegida. Complete la orden de compra.");
+            DB::commit();
+
+            // Mensaje de éxito con información de la orden
+            $mensaje = "Cotización de {$cotizacion->proveedor->razon_social} elegida. Orden {$orden->numero_oc} generada y enviada automáticamente.";
+            
+            // Agregar advertencias si las hay
+            if (!empty($advertencias)) {
+                foreach ($advertencias as $adv) {
+                    $mensaje .= " " . $adv['mensaje'];
+                }
             }
 
-            return back()->with('success', "Cotización de {$cotizacion->proveedor->razon_social} elegida como ganadora.");
+            return redirect()->route('solicitudes-cotizacion.show', $solicitud)
+                ->with('success', $mensaje);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return back()->with('error', 'Error al elegir cotización: ' . $e->getMessage());
         }
     }

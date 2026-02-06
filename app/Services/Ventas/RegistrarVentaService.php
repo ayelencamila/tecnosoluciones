@@ -7,7 +7,8 @@ use App\Exceptions\Ventas\SinStockException;
 use App\Models\Cliente;
 use App\Models\Descuento;
 use App\Models\DetalleVenta;
-use App\Models\MovimientoStock; 
+use App\Models\MovimientoStock;
+use App\Models\TipoMovimientoStock;
 use App\Models\PrecioProducto;
 use App\Models\Producto;
 use App\Models\Stock;
@@ -113,6 +114,8 @@ class RegistrarVentaService
             }
 
             // D. DESCONTAR STOCK Y REGISTRAR MOVIMIENTOS
+            $tipoSalida = TipoMovimientoStock::where('nombre', 'Salida (Venta)')->firstOrFail();
+
             foreach ($calculos['detallesParaGuardar'] as $detalle) {
                 // Asociar descuentos por ítem
                 $descuentoInfo = collect($calculos['descuentosItemParaGuardar'])->firstWhere('detalle', $detalle);
@@ -132,16 +135,17 @@ class RegistrarVentaService
                         $stockRegistro->decrement('cantidad_disponible', $cantidadVendida); 
                         
                         MovimientoStock::create([
+                            'stock_id' => $stockRegistro->stock_id,
                             'productoID' => $detalle->producto_id,
-                            'deposito_id' => $stockRegistro->deposito_id, 
-                            'tipoMovimiento' => 'SALIDA',
+                            'tipo_movimiento_id' => $tipoSalida->id,
                             'cantidad' => $cantidadVendida,
                             'stockAnterior' => $stockAnterior,
                             'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible, 
                             'motivo' => 'Venta N° ' . $venta->numero_comprobante,
                             'referenciaID' => $venta->venta_id,
                             'referenciaTabla' => 'ventas',
-                            'user_id' => $vendedorUserID 
+                            'user_id' => $vendedorUserID,
+                            'fecha_movimiento' => now(),
                         ]);
                     }
                 }

@@ -67,4 +67,21 @@ class Pago extends Model
                     ->withPivot('monto_imputado')
                     ->withTimestamps();
     }
+
+    public function reparacionesImputadas()
+    {
+        return $this->belongsToMany(Reparacion::class, 'pago_reparacion_imputacion', 'pago_id', 'reparacion_id')
+                    ->withPivot('monto_imputado')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Total imputado a ventas + reparaciones
+     */
+    public function getTotalImputadoAttribute(): float
+    {
+        $ventasImputado = $this->ventasImputadas->sum('pivot.monto_imputado');
+        $reparacionesImputado = $this->reparacionesImputadas->sum('pivot.monto_imputado');
+        return (float) ($ventasImputado + $reparacionesImputado);
+    }
 }

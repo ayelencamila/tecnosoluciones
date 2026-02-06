@@ -39,17 +39,16 @@ class RegistrarMovimientoStockService
 
             // 4. Registrar el Movimiento (Historial)
             MovimientoStock::create([
+                'stock_id' => $stock->stock_id,
                 'productoID' => $stock->productoID,
-                'deposito_id' => $stock->deposito_id,
-                'tipo_movimiento_id' => $tipoMovimiento->id, 
+                'tipo_movimiento_id' => $tipoMovimiento->id,
                 'cantidad' => $cantidad,
-                'signo' => $tipoMovimiento->signo,
                 'stockAnterior' => $stockAnterior,
                 'stockNuevo' => $stock->cantidad_disponible,
                 'motivo' => $data['motivo'],
                 'user_id' => $userId,
                 'fecha_movimiento' => now(),
-                'referenciaTabla' => 'manual', 
+                'referenciaTabla' => 'manual',
             ]);
 
             Log::info("Movimiento de stock registrado: {$tipoMovimiento->nombre} x{$cantidad} en Producto ID {$stock->productoID}");

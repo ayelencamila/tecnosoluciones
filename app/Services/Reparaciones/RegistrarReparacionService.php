@@ -172,19 +172,17 @@ class RegistrarReparacionService
 
         // 4. Crear Movimiento usando datos dinámicos
         MovimientoStock::create([
+            'stock_id' => $stockRegistro->stock_id,
             'productoID' => $producto->id,
-            'deposito_id' => $stockRegistro->deposito_id,
-            'tipoMovimiento' => 'SALIDA', 
-            'tipo_movimiento_id' => $tipoMovimiento->id, 
+            'tipo_movimiento_id' => $tipoMovimiento->id,
             'cantidad' => $cantidad,
-            'signo' => $tipoMovimiento->signo, 
             'stockAnterior' => $stockAnterior,
             'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
             'motivo' => 'Uso en Reparación: ' . $reparacion->codigo_reparacion,
             'referenciaID' => $reparacion->reparacionID,
             'referenciaTabla' => 'reparaciones',
             'user_id' => $usuarioID,
-            'fecha_movimiento' => now()
+            'fecha_movimiento' => now(),
         ]);
     }
 

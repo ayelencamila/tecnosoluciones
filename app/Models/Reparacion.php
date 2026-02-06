@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -41,6 +42,12 @@ class Reparacion extends Model
         'fecha_marcada_demorada',
         'estado_decision_id',
         'fecha_decision_cliente',
+        // Campos de cobro
+        'estado_pago',
+        'monto_cobrado',
+        'medio_pago_id',
+        'fecha_cobro',
+        'cobrado_por',
     ];
 
     protected $casts = [
@@ -54,6 +61,9 @@ class Reparacion extends Model
         'sla_excedido' => 'boolean',
         'fecha_marcada_demorada' => 'datetime',
         'fecha_decision_cliente' => 'datetime',
+        // Campos de cobro
+        'monto_cobrado' => 'decimal:2',
+        'fecha_cobro' => 'datetime',
     ];
     /**
      * El cliente dueño del equipo.
@@ -123,6 +133,45 @@ class Reparacion extends Model
     public function modelo()
     {
         return $this->belongsTo(Modelo::class);
+    }
+
+    /**
+     * Medio de pago utilizado para el cobro
+     */
+    public function medioPago(): BelongsTo
+    {
+        return $this->belongsTo(MedioPago::class, 'medio_pago_id', 'medioPagoID');
+    }
+
+    /**
+     * Usuario que realizó el cobro
+     */
+    public function cobrador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cobrado_por');
+    }
+
+    /**
+     * Pagos imputados a esta reparación (cuando fue cobrada a cuenta corriente)
+     */
+    public function pagosImputados(): BelongsToMany
+    {
+        return $this->belongsToMany(Pago::class, 'pago_reparacion_imputacion', 'reparacion_id', 'pago_id')
+                    ->withPivot('monto_imputado')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Saldo pendiente de pago (solo para reparaciones cobradas a cuenta corriente)
+     */
+    public function getSaldoPendienteAttribute(): float
+    {
+        if ($this->estado_pago !== 'cuenta_corriente') {
+            return 0;
+        }
+
+        $totalPagado = $this->pagosImputados->sum('pivot.monto_imputado');
+        return max(0, (float) $this->monto_cobrado - $totalPagado);
     }
 
     /**

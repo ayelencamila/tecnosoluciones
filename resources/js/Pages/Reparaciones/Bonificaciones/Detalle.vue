@@ -49,11 +49,11 @@ const rechazar = () => {
 
 const getEstadoConfig = (estado) => {
     const config = {
-        'pendiente': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: '⏳' },
-        'aprobada': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: '✓' },
-        'rechazada': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', icon: '✗' },
+        'pendiente': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: 'clock' },
+        'aprobada': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: 'check' },
+        'rechazada': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', icon: 'x' },
     };
-    return config[estado] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: '?' };
+    return config[estado] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: 'question' };
 };
 
 const formatFecha = (fecha) => {
@@ -124,7 +124,22 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                         <div class="flex items-center gap-5">
                             <div :class="[estadoConfig.bg, estadoConfig.border]"
                                  class="w-16 h-16 rounded-xl border-2 flex items-center justify-center">
-                                <span class="text-2xl">{{ estadoConfig.icon }}</span>
+                                <!-- Clock icon (pendiente) -->
+                                <svg v-if="estadoConfig.icon === 'clock'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-amber-500">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                                <!-- Check icon (aprobada) -->
+                                <svg v-else-if="estadoConfig.icon === 'check'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-emerald-500">
+                                    <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
+                                </svg>
+                                <!-- X icon (rechazada) -->
+                                <svg v-else-if="estadoConfig.icon === 'x'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-rose-500">
+                                    <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 0 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clip-rule="evenodd" />
+                                </svg>
+                                <!-- Fallback -->
+                                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-gray-400">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+                                </svg>
                             </div>
                             <div>
                                 <div class="flex items-center gap-3 mb-1">

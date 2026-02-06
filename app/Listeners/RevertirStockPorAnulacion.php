@@ -3,50 +3,24 @@
 namespace App\Listeners;
 
 use App\Events\VentaAnulada;
-use App\Models\MovimientoStock;
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Queue\InteractsWithQueue;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
-class RevertirStockPorAnulacion implements ShouldQueue
+/**
+ * @deprecated OBSOLETO — No usar.
+ *
+ * El stock ahora se revierte directamente dentro de AnularVentaService::revertirStock()
+ * usando la tabla `stock` y `movimientos_stock` con `tipo_movimiento_id` (FK).
+ *
+ * Este listener fue removido del EventServiceProvider porque:
+ * 1. Operaba sobre la columna legacy `productos.stockActual` (ya no es fuente de verdad).
+ * 2. Usaba el campo `tipoMovimiento` (enum eliminado por migración).
+ * 3. Duplicaba la lógica que el servicio ya ejecuta de forma atómica (ACID).
+ *
+ * Se conserva el archivo únicamente como referencia histórica.
+ */
+class RevertirStockPorAnulacion
 {
-    use InteractsWithQueue;
-
     public function handle(VentaAnulada $event): void
     {
-        $venta = $event->venta;
-        $venta->loadMissing('detalles.producto');
-
-        try {
-            DB::transaction(function () use ($venta) {
-                foreach ($venta->detalles as $detalle) {
-                    $producto = $detalle->producto;
-                    $cantidad = $detalle->cantidad;
-
-                    $stockAnterior = $producto->stockActual;
-                    $stockNuevo = $stockAnterior + $cantidad;
-
-                    $producto->stockActual = $stockNuevo;
-                    $producto->save();
-
-                    MovimientoStock::create([
-                        'productoID' => $producto->id,
-                        'tipoMovimiento' => 'Devolución por Anulación',
-                        'cantidad' => $cantidad,
-                        'stockAnterior' => $stockAnterior,
-                        'stockNuevo' => $stockNuevo,
-                        'motivo' => 'Anulación Venta '.$venta->numero_comprobante,
-                        'referenciaID' => $detalle->detalle_venta_id, // PK correcta
-                        'referenciaTabla' => 'detalle_ventas',
-                    ]);
-                }
-            });
-
-            Log::info("Stock REVERTIDO (con auditoría) para Venta ID: {$venta->venta_id}");
-
-        } catch (\Exception $e) {
-            Log::error("Error al REVERTIR stock para Venta ID {$venta->venta_id}: ".$e->getMessage());
-        }
+        // Deliberadamente vacío — ver AnularVentaService::revertirStock()
     }
 }

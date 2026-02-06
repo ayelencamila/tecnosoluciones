@@ -15,6 +15,7 @@ use App\Models\Auditoria;
 use App\Models\EstadoVenta;
 use App\Models\EstadoOrdenCompra;
 use App\Exports\ReporteMensualExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -363,19 +364,105 @@ class ReporteMensualController extends Controller
     {
         $mes = $request->input('mes', Carbon::now()->month);
         $anio = $request->input('anio', Carbon::now()->year);
+        $formato = $request->input('formato', 'xlsx');
+        $timestamp = now()->format('Ymd_His');
 
         // Auditoría
         Auditoria::create([
             'accion' => 'EXPORTACION',
             'tablaAfectada' => 'reportes',
-            'valorNuevo' => "Reporte Mensual {$mes}/{$anio}",
+            'valorNuevo' => "Reporte Mensual {$mes}/{$anio} ({$formato})",
             'usuarioID' => Auth::id(),
             'ip' => $request->ip(),
-            'motivo' => 'Exportación reporte mensual'
+            'motivo' => "Exportación {$formato} reporte mensual"
         ]);
 
-        $nombreArchivo = "reporte_mensual_{$anio}_{$mes}.xlsx";
-        
-        return Excel::download(new ReporteMensualExport($mes, $anio), $nombreArchivo);
+        switch ($formato) {
+            case 'pdf':
+                $data = $this->getDataForPdf($mes, $anio);
+                $pdf = Pdf::loadView('pdf.reportes.mensual', $data)->setPaper('a4', 'portrait');
+                return $pdf->download("reporte_mensual_{$anio}_{$mes}_{$timestamp}.pdf");
+
+            case 'csv':
+                return Excel::download(
+                    new ReporteMensualExport($mes, $anio),
+                    "reporte_mensual_{$anio}_{$mes}_{$timestamp}.csv",
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+
+            default:
+                return Excel::download(
+                    new ReporteMensualExport($mes, $anio),
+                    "reporte_mensual_{$anio}_{$mes}_{$timestamp}.xlsx"
+                );
+        }
+    }
+
+    private function getDataForPdf(int $mes, int $anio): array
+    {
+        $fechaInicio = Carbon::createFromDate($anio, $mes, 1)->startOfMonth();
+        $fechaFin = Carbon::createFromDate($anio, $mes, 1)->endOfMonth();
+
+        // Ventas
+        $totalVentas = Venta::where('estado_venta_id', '!=', EstadoVenta::ANULADA)
+            ->whereBetween('fecha_venta', [$fechaInicio, $fechaFin])->sum('total');
+        $cantidadVentas = Venta::where('estado_venta_id', '!=', EstadoVenta::ANULADA)
+            ->whereBetween('fecha_venta', [$fechaInicio, $fechaFin])->count();
+
+        // Reparaciones entregadas
+        $totalReparaciones = Reparacion::where('anulada', false)->whereNotNull('fecha_entrega_real')
+            ->whereBetween('fecha_entrega_real', [$fechaInicio, $fechaFin])->sum('total_final');
+        $cantidadReparaciones = Reparacion::where('anulada', false)->whereNotNull('fecha_entrega_real')
+            ->whereBetween('fecha_entrega_real', [$fechaInicio, $fechaFin])->count();
+
+        // Pagos
+        $totalPagos = Pago::where('anulado', false)
+            ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])->sum('monto');
+        $cantidadPagos = Pago::where('anulado', false)
+            ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])->count();
+
+        $totalEntradas = $totalVentas + $totalReparaciones;
+
+        // Compras
+        $estadosRecibidos = [
+            EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
+            EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL),
+        ];
+        $totalCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+            ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])->sum('total_final');
+        $cantidadCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+            ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])->count();
+
+        $totalGastosOp = Gasto::activos()->gastos()->delMes($mes, $anio)->sum('monto');
+        $totalPerdidas = Gasto::activos()->perdidas()->delMes($mes, $anio)->sum('monto');
+        $totalSalidas = $totalCompras + $totalGastosOp + $totalPerdidas;
+
+        // Gastos por categoría
+        $gastosPorCategoria = Gasto::activos()->delMes($mes, $anio)
+            ->join('categorias_gasto', 'gastos.categoria_gasto_id', '=', 'categorias_gasto.categoria_gasto_id')
+            ->select('categorias_gasto.nombre', 'categorias_gasto.tipo', DB::raw('SUM(gastos.monto) as total'), DB::raw('COUNT(*) as cantidad'))
+            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre', 'categorias_gasto.tipo')
+            ->orderBy('categorias_gasto.tipo')->orderBy('total', 'desc')
+            ->get();
+
+        return [
+            'periodo' => $fechaInicio->translatedFormat('F Y'),
+            'planilla' => [
+                'entradas' => [
+                    ['concepto' => 'Ventas', 'cantidad' => $cantidadVentas, 'total' => $totalVentas],
+                    ['concepto' => 'Reparaciones', 'cantidad' => $cantidadReparaciones, 'total' => $totalReparaciones],
+                ],
+                'total_entradas' => $totalEntradas,
+                'salidas' => [
+                    ['concepto' => 'Compras a Proveedores', 'cantidad' => $cantidadCompras, 'total' => $totalCompras],
+                    ['concepto' => 'Gastos Operativos', 'cantidad' => null, 'total' => $totalGastosOp],
+                    ['concepto' => 'Pérdidas', 'cantidad' => null, 'total' => $totalPerdidas],
+                ],
+                'total_salidas' => $totalSalidas,
+                'balance' => $totalEntradas - $totalSalidas,
+                'pagos_recibidos' => ['cantidad' => $cantidadPagos, 'total' => $totalPagos],
+            ],
+            'gastosPorCategoria' => $gastosPorCategoria,
+        ];
     }
 }

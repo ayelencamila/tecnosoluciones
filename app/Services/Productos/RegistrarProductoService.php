@@ -68,11 +68,10 @@ class RegistrarProductoService
                         
                         if ($tipoEntrada) {
                              \App\Models\MovimientoStock::create([
+                                'stock_id' => $stock->stock_id,
                                 'productoID' => $producto->id,
-                                'deposito_id' => $depositoPrincipal->deposito_id,
                                 'tipo_movimiento_id' => $tipoEntrada->id,
                                 'cantidad' => $cantidadInicial,
-                                'signo' => 1,
                                 'stockAnterior' => 0,
                                 'stockNuevo' => $cantidadInicial,
                                 'motivo' => 'Inventario Inicial al Crear Producto',

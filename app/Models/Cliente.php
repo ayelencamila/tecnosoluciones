@@ -93,8 +93,8 @@ class Cliente extends Model
     public function getCreditoDisponibleAttribute(): float
     {
         $limite = $this->cuentaCorriente?->limiteCredito ?? 0;
-        $saldo = $this->saldo;
-        return $limite + $saldo;
+        $deuda = abs($this->saldo);
+        return max(0, $limite - $deuda);
     }
 
     // --- MÉTODOS DE LÓGICA (Helpers) ---
@@ -124,36 +124,43 @@ class Cliente extends Model
         return Auditoria::historialCliente($this->clienteID);
     }
 
+    /**
+     * Obtiene las operaciones pendientes del cliente (CU-04 Paso 4).
+     * Centraliza la lógica para evitar duplicación en controller.
+     */
+    public function getOperacionesPendientes(): array
+    {
+        $operacionesPendientes = [];
+
+        // 1. Ventas pendientes de pago
+        $ventasPendientes = $this->ventas()
+            ->whereHas('estado', fn($q) => $q->where('nombreEstado', 'Pendiente'))
+            ->count();
+        if ($ventasPendientes > 0) {
+            $operacionesPendientes[] = "Ventas pendientes de pago: {$ventasPendientes}";
+        }
+
+        // 2. Reparaciones en curso (estados finales: Entregado, Anulado)
+        $reparacionesPendientes = $this->reparaciones()
+            ->whereHas('estado', fn($q) => $q->whereNotIn('nombreEstado', ['Entregado', 'Anulado']))
+            ->count();
+        if ($reparacionesPendientes > 0) {
+            $operacionesPendientes[] = "Reparaciones en curso: {$reparacionesPendientes}";
+        }
+
+        // 3. Deuda pendiente
+        if ($this->tieneDeudas()) {
+            $saldo = $this->cuentaCorriente->saldo ?? 0;
+            $operacionesPendientes[] = "Deuda pendiente: $" . number_format(abs($saldo), 2);
+        }
+
+        return $operacionesPendientes;
+    }
+
     public function puedeSerDadoDeBaja(): bool
     {
         // CU-04 Excepción 4a: No puede darse de baja si tiene operaciones activas pendientes
-        
-        // 1. Verificar deudas
-        if ($this->tieneDeudas()) {
-            return false;
-        }
-
-        // 2. Verificar ventas pendientes de pago
-        $tieneVentasPendientes = $this->ventas()
-            ->whereHas('estado', function($q) {
-                $q->where('nombreEstado', 'Pendiente');
-            })
-            ->exists();
-        if ($tieneVentasPendientes) {
-            return false;
-        }
-
-        // 3. Verificar reparaciones en curso (CU-04 Paso 4)
-        $tieneReparacionesPendientes = $this->reparaciones()
-            ->whereHas('estado', function($q) {
-                $q->whereNotIn('nombreEstado', ['Cancelada', 'Entregada']);
-            })
-            ->exists();
-        if ($tieneReparacionesPendientes) {
-            return false;
-        }
-
-        return true;
+        return empty($this->getOperacionesPendientes());
     }
 
     // --- MÉTODOS DE NEGOCIO (Larman's Expert Principle) ---
@@ -161,16 +168,22 @@ class Cliente extends Model
     /**
      * Da de baja al cliente de forma atómica.
      * (CU-04 Lógica Centralizada con Transacción)
+     * 
+     * Excepciones manejadas:
+     * - 9a: Error al cambiar estado → rollback completo, se lanza excepción
+     * - 9b: Error en auditoría → la baja se aplica, se registra alerta interna
      */
     public function darDeBaja(string $motivo): bool
     {
+        // CU-04 Excepción 4a: Cliente con operaciones pendientes
         if (!$this->puedeSerDadoDeBaja()) {
             throw new \Exception('El cliente tiene operaciones pendientes y no puede ser dado de baja.');
         }
 
-        return DB::transaction(function () use ($motivo) {
-            $datosAnteriores = $this->toArray();
+        $datosAnteriores = $this->toArray();
 
+        // Paso 9: Cambiar estado y deshabilitar CC (transacción ACID)
+        return DB::transaction(function () use ($motivo, $datosAnteriores) {
             $estadoInactivo = EstadoCliente::inactivo();
             
             $this->estadoClienteID = $estadoInactivo->estadoClienteID;
@@ -183,16 +196,27 @@ class Cliente extends Model
                 ]);
             }
 
-            // Registrar auditoría manualmente (para incluir el motivo)
-            Auditoria::registrar(
-                Auditoria::ACCION_BAJA_CLIENTE,
-                'clientes',
-                $this->clienteID,
-                $datosAnteriores,
-                $this->fresh()->toArray(),
-                $motivo,
-                "Cliente dado de baja: {$this->nombre_completo}"
-            );
+            // Registrar auditoría dentro de la misma transacción
+            // CU-04 Excepción 9b: Si falla auditoría, se hace rollback completo
+            try {
+                Auditoria::registrar(
+                    Auditoria::ACCION_BAJA_CLIENTE,
+                    'clientes',
+                    $this->clienteID,
+                    $datosAnteriores,
+                    $this->fresh()->toArray(),
+                    $motivo,
+                    "Cliente dado de baja: {$this->nombre_completo}"
+                );
+            } catch (\Exception $e) {
+                // CU-04 Excepción 9b: Registramos la alerta pero NO revertimos la baja
+                \Log::critical('CU-04 Excepción 9b: Baja aplicada pero auditoría falló', [
+                    'clienteID' => $this->clienteID,
+                    'cliente' => $this->nombre_completo,
+                    'motivo' => $motivo,
+                    'error' => $e->getMessage(),
+                ]);
+            }
 
             return true;
         });

@@ -131,6 +131,9 @@ const clearCliente = () => {
 };
 
 // --- LÓGICA DE IMPUTACIÓN (CU-10 Paso 7) ---
+// Genera una clave única para cada documento (venta o reparación)
+const docKey = (doc) => `${doc.tipo}-${doc.id}`;
+
 const calcularImputacionAutomatica = () => {
     if (!getMontoNumerico() || documentosPendientes.value.length === 0) {
         return [];
@@ -146,7 +149,10 @@ const calcularImputacionAutomatica = () => {
         
         if (montoAImputar > 0) {
             imputaciones.push({
+                tipo: doc.tipo || 'venta',
+                id: doc.id,
                 venta_id: doc.venta_id,
+                reparacion_id: doc.reparacion_id || null,
                 numero_comprobante: doc.numero_comprobante,
                 saldo_pendiente: doc.saldo_pendiente,
                 monto_imputado: montoAImputar.toFixed(2),
@@ -163,10 +169,14 @@ const aplicarImputacionAutomatica = () => {
 };
 
 const agregarDocumentoAImputacion = (documento) => {
-    const existe = imputacionesSeleccionadas.value.find(i => i.venta_id === documento.venta_id);
+    const key = docKey(documento);
+    const existe = imputacionesSeleccionadas.value.find(i => docKey(i) === key);
     if (!existe) {
         imputacionesSeleccionadas.value.push({
+            tipo: documento.tipo || 'venta',
+            id: documento.id,
             venta_id: documento.venta_id,
+            reparacion_id: documento.reparacion_id || null,
             numero_comprobante: documento.numero_comprobante,
             saldo_pendiente: documento.saldo_pendiente,
             monto_imputado: parseFloat(documento.saldo_pendiente).toFixed(2),
@@ -174,8 +184,9 @@ const agregarDocumentoAImputacion = (documento) => {
     }
 };
 
-const removerDocumentoDeImputacion = (venta_id) => {
-    imputacionesSeleccionadas.value = imputacionesSeleccionadas.value.filter(i => i.venta_id !== venta_id);
+const removerDocumentoDeImputacion = (imp) => {
+    const key = docKey(imp);
+    imputacionesSeleccionadas.value = imputacionesSeleccionadas.value.filter(i => docKey(i) !== key);
 };
 
 const totalImputado = computed(() => {
@@ -218,7 +229,9 @@ const submit = () => {
     // Si está en modo manual, incluir las imputaciones
     if (modoImputacion.value === 'manual' && imputacionesSeleccionadas.value.length > 0) {
         form.imputaciones = imputacionesSeleccionadas.value.map(imp => ({
-            venta_id: imp.venta_id,
+            tipo: imp.tipo || 'venta',
+            venta_id: imp.venta_id || null,
+            reparacion_id: imp.reparacion_id || null,
             monto_imputado: parseFloat(imp.monto_imputado)
         }));
     } else {
@@ -347,7 +360,7 @@ onMounted(() => {
                                     
                                     <div v-if="imputacionesSeleccionadas.length > 0" class="mt-3 space-y-1">
                                         <p class="text-xs font-bold text-gray-600 uppercase">Vista Previa:</p>
-                                        <div v-for="imp in imputacionesSeleccionadas" :key="imp.venta_id" class="text-xs text-gray-700 flex justify-between">
+                                        <div v-for="imp in imputacionesSeleccionadas" :key="docKey(imp)" class="text-xs text-gray-700 flex justify-between">
                                             <span>{{ imp.numero_comprobante }}</span>
                                             <span class="font-mono">${{ imp.monto_imputado }}</span>
                                         </div>
@@ -361,18 +374,26 @@ onMounted(() => {
                                         <p class="text-xs font-bold text-gray-600 uppercase mb-2">Documentos Disponibles:</p>
                                         <div 
                                             v-for="doc in documentosPendientes" 
-                                            :key="doc.venta_id"
+                                            :key="docKey(doc)"
                                             class="flex justify-between items-center py-2 border-b last:border-b-0 hover:bg-white px-2 rounded"
                                         >
                                             <div class="flex-1">
-                                                <div class="text-sm font-medium text-gray-800">{{ doc.numero_comprobante }}</div>
-                                                <div class="text-xs text-gray-500">{{ doc.fecha_venta }} | Pendiente: ${{ doc.saldo_pendiente }}</div>
+                                                <div class="text-sm font-medium text-gray-800 flex items-center gap-2">
+                                                    <span 
+                                                        class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                                                        :class="doc.tipo === 'reparacion' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'"
+                                                    >
+                                                        {{ doc.tipo === 'reparacion' ? 'Rep.' : 'Venta' }}
+                                                    </span>
+                                                    {{ doc.numero_comprobante }}
+                                                </div>
+                                                <div class="text-xs text-gray-500">{{ doc.fecha_venta || doc.fecha }} | Pendiente: ${{ doc.saldo_pendiente }}</div>
                                             </div>
                                             <button 
                                                 type="button"
                                                 @click="agregarDocumentoAImputacion(doc)"
                                                 class="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-                                                :disabled="imputacionesSeleccionadas.some(i => i.venta_id === doc.venta_id)"
+                                                :disabled="imputacionesSeleccionadas.some(i => docKey(i) === docKey(doc))"
                                             >
                                                 + Agregar
                                             </button>
@@ -384,11 +405,19 @@ onMounted(() => {
                                         <p class="text-xs font-bold text-indigo-800 uppercase mb-2">Imputaciones Seleccionadas:</p>
                                         <div 
                                             v-for="(imp, index) in imputacionesSeleccionadas" 
-                                            :key="imp.venta_id"
+                                            :key="docKey(imp)"
                                             class="flex items-center gap-2 py-2 border-b last:border-b-0"
                                         >
                                             <div class="flex-1">
-                                                <div class="text-sm font-medium text-gray-800">{{ imp.numero_comprobante }}</div>
+                                                <div class="text-sm font-medium text-gray-800 flex items-center gap-2">
+                                                    <span 
+                                                        class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase"
+                                                        :class="imp.tipo === 'reparacion' ? 'bg-orange-100 text-orange-700' : 'bg-blue-100 text-blue-700'"
+                                                    >
+                                                        {{ imp.tipo === 'reparacion' ? 'Rep.' : 'Venta' }}
+                                                    </span>
+                                                    {{ imp.numero_comprobante }}
+                                                </div>
                                                 <div class="text-xs text-gray-500">Pendiente: ${{ imp.saldo_pendiente }}</div>
                                             </div>
                                             <div class="w-32">
@@ -404,7 +433,7 @@ onMounted(() => {
                                             </div>
                                             <button 
                                                 type="button"
-                                                @click="removerDocumentoDeImputacion(imp.venta_id)"
+                                                @click="removerDocumentoDeImputacion(imp)"
                                                 class="text-red-500 hover:text-red-700"
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>

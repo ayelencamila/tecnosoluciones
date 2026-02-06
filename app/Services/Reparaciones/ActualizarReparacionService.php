@@ -176,19 +176,17 @@ class ActualizarReparacionService
             $stockRegistro->decrement('cantidad_disponible', $cantidad);
 
             MovimientoStock::create([
+                'stock_id' => $stockRegistro->stock_id,
                 'productoID' => $producto->id,
-                'deposito_id' => $stockRegistro->deposito_id,
-                'tipoMovimiento' => 'SALIDA',
                 'tipo_movimiento_id' => $tipoMovimiento->id,
                 'cantidad' => $cantidad,
-                'signo' => $tipoMovimiento->signo,
                 'stockAnterior' => $stockAnterior,
                 'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
                 'motivo' => 'Repuesto en Reparación ' . $reparacion->codigo_reparacion,
                 'referenciaID' => $reparacion->reparacionID,
                 'referenciaTabla' => 'reparaciones',
                 'user_id' => $userId,
-                'fecha_movimiento' => now()
+                'fecha_movimiento' => now(),
             ]);
         }
 

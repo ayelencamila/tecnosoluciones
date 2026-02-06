@@ -18,7 +18,7 @@ class StoreProveedorRequest extends FormRequest
             // Identificación
             'razon_social' => ['required', 'string', 'max:100', 'unique:proveedores,razon_social'],
             'cuit' => ['nullable', 'digits:11', 'unique:proveedores,cuit'], // Opcional
-            'email' => ['nullable', 'email', 'max:100'], // Opcional
+            'email' => ['nullable', 'email', 'max:100', 'unique:proveedores,email'], // Opcional
             'telefono' => ['nullable', 'string', 'max:20'],
             'whatsapp' => ['nullable', 'string', 'max:20'],
             
@@ -40,6 +40,7 @@ class StoreProveedorRequest extends FormRequest
             'cuit.digits' => 'El CUIT debe tener exactamente 11 números sin guiones.',
             'cuit.unique' => 'Ya existe un proveedor con este CUIT.',
             'razon_social.unique' => 'Ya existe un proveedor con esta Razón Social.',
+            'email.unique' => 'Ya existe un proveedor registrado con este correo electrónico.',
         ];
     }
 }

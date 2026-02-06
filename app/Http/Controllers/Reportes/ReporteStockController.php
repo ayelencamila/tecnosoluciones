@@ -7,8 +7,8 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use App\Models\Stock;
 use App\Models\Auditoria;
-use App\Models\Deposito;
 use App\Exports\StockExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -30,15 +30,11 @@ class ReporteStockController extends Controller
         ]);
 
         // 2. Filtros
-        $depositoId = $request->input('deposito_id');
         $soloCritico = $request->boolean('bajo_stock');
 
         // 3. Query Base con relaciones
-        $query = Stock::with(['producto.marca', 'producto.categoria', 'deposito']);
+        $query = Stock::with(['producto.marca', 'producto.categoria']);
 
-        if ($depositoId) {
-            $query->where('deposito_id', $depositoId);
-        }
         if ($soloCritico) {
             $query->whereColumn('cantidad_disponible', '<=', 'stock_minimo');
         }
@@ -70,19 +66,22 @@ class ReporteStockController extends Controller
             ]
         ];
 
-        // Gráfico 2: Distribución por Depósito (si hay más de uno)
-        $stockPorDeposito = Stock::select('deposito_id', DB::raw('sum(cantidad_disponible) as total'))
-            ->groupBy('deposito_id')
-            ->with('deposito')
+        // Gráfico 2: Stock por Categoría (Top 8)
+        $stockPorCategoria = Stock::join('productos', 'stock.productoID', '=', 'productos.id')
+            ->join('categorias_producto', 'productos.categoriaProductoID', '=', 'categorias_producto.id')
+            ->select('categorias_producto.nombre', DB::raw('SUM(stock.cantidad_disponible) as total'))
+            ->groupBy('categorias_producto.id', 'categorias_producto.nombre')
+            ->orderByDesc('total')
+            ->limit(8)
             ->get();
 
-        $graficoDepositos = [
-            'labels' => $stockPorDeposito->map(fn($item) => $item->deposito->nombre ?? 'General'),
+        $graficoCategorias = [
+            'labels' => $stockPorCategoria->pluck('nombre'),
             'datasets' => [
                 [
                     'label' => 'Unidades',
-                    'data' => $stockPorDeposito->pluck('total'),
-                    'backgroundColor' => ['#3B82F6', '#10B981', '#F59E0B'], 
+                    'data' => $stockPorCategoria->pluck('total'),
+                    'backgroundColor' => ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#14B8A6'],
                 ]
             ]
         ];
@@ -95,27 +94,69 @@ class ReporteStockController extends Controller
             ],
             'graficos' => [
                 'riesgo' => $graficoRiesgo,
-                'depositos' => $graficoDepositos
+                'categorias' => $graficoCategorias
             ],
             'filters' => [
-                'deposito_id' => $depositoId,
                 'bajo_stock' => $soloCritico,
             ],
-            'depositos' => Deposito::all(['deposito_id', 'nombre']), 
         ]);
     }
 
     public function exportar(Request $request)
     {
-        // Registrar Auditoría de Exportación
+        $formato = $request->input('formato', 'xlsx');
+        $timestamp = now()->format('Ymd_His');
+
         Auditoria::create([
             'accion' => 'EXPORTACION',
             'tablaAfectada' => 'reportes',
             'usuarioID' => Auth::id(),
             'ip' => $request->ip(),
-            'motivo' => 'Descarga Excel Stock'
+            'motivo' => "Exportación {$formato} Stock"
         ]);
 
-        return Excel::download(new StockExport($request->all()), 'reporte_stock_' . now()->format('Ymd_His') . '.xlsx');
+        switch ($formato) {
+            case 'pdf':
+                $data = $this->getDataForPdf($request);
+                $pdf = Pdf::loadView('pdf.reportes.stock', $data)->setPaper('a4', 'landscape');
+                return $pdf->download("reporte_stock_{$timestamp}.pdf");
+
+            case 'csv':
+                return Excel::download(
+                    new StockExport($request->all()),
+                    "reporte_stock_{$timestamp}.csv",
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+
+            default:
+                return Excel::download(
+                    new StockExport($request->all()),
+                    "reporte_stock_{$timestamp}.xlsx"
+                );
+        }
+    }
+
+    private function getDataForPdf(Request $request): array
+    {
+        $soloCritico = $request->boolean('bajo_stock');
+
+        $query = Stock::with(['producto.marca', 'producto.categoria']);
+
+        if ($soloCritico) $query->whereColumn('cantidad_disponible', '<=', 'stock_minimo');
+
+        $stocks = $query->get();
+        $totalItems = $stocks->sum('cantidad_disponible');
+        $productosCriticos = $stocks->where('cantidad_disponible', '<=', $stocks->pluck('stock_minimo'))->count();
+
+        // Recalcular críticos correctamente
+        $productosCriticos = Stock::whereColumn('cantidad_disponible', '<=', 'stock_minimo')->count();
+
+        return [
+            'stocks' => $stocks,
+            'kpis' => [
+                'total_unidades' => $totalItems,
+                'productos_criticos' => $productosCriticos,
+            ],
+        ];
     }
 }

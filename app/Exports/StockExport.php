@@ -2,16 +2,15 @@
 
 namespace App\Exports;
 
-use App\Models\Venta;
+use App\Models\Stock;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use Carbon\Carbon;
 
-class VentaExport implements FromCollection, WithHeadings, WithMapping, WithStyles, ShouldAutoSize
+class StockExport implements FromCollection, WithHeadings, WithMapping, WithStyles, ShouldAutoSize
 {
     protected $filtros;
 
@@ -22,50 +21,40 @@ class VentaExport implements FromCollection, WithHeadings, WithMapping, WithStyl
 
     public function collection()
     {
-        // Agregamos 'estado' al with()
-        $query = Venta::with(['cliente', 'usuario', 'pagos.medioPago', 'estado'])
-            ->where('estado_venta_id', '!=', 3); // 3 = Anulada
+        $query = Stock::with(['producto.categoria', 'producto.marca']);
 
-        if (!empty($this->filtros['fecha_desde']) && !empty($this->filtros['fecha_hasta'])) {
-            $desde = Carbon::parse($this->filtros['fecha_desde'])->startOfDay();
-            $hasta = Carbon::parse($this->filtros['fecha_hasta'])->endOfDay();
-            $query->whereBetween('fecha_venta', [$desde, $hasta]);
+        if (!empty($this->filtros['bajo_stock'])) {
+            $query->whereColumn('cantidad_disponible', '<=', 'stock_minimo');
         }
 
-        if (!empty($this->filtros['cliente_id'])) {
-            $query->where('clienteID', $this->filtros['cliente_id']);
-        }
-
-        return $query->latest('fecha_venta')->get();
+        return $query->orderBy('productoID', 'asc')->get();
     }
 
-    public function map($venta): array
+    public function map($stock): array
     {
-        $medios = $venta->pagos->map(fn($p) => $p->medioPago->nombre ?? '-')->unique()->implode(', ');
+        $estado = $stock->cantidad_disponible <= $stock->stock_minimo ? 'CRÍTICO' : 'Normal';
 
         return [
-            $venta->venta_id, // ID correcto
-            $venta->fecha_venta->format('d/m/Y H:i'),
-            $venta->cliente->nombre . ' ' . $venta->cliente->apellido,
-            $venta->usuario->name ?? 'Sistema',
-            $medios ?: 'Cta. Cte.',
-            $venta->items_count ?? $venta->detalles->count(),
-            $venta->total,
-            $venta->estado->nombreEstado ?? 'Desconocido', 
+            $stock->producto->codigo ?? '---',
+            $stock->producto->nombre ?? 'Producto eliminado',
+            $stock->producto->categoria->nombre ?? 'Sin categoría',
+            $stock->producto->marca->nombre ?? '-',
+            $stock->cantidad_disponible,
+            $stock->stock_minimo,
+            $estado,
         ];
     }
 
     public function headings(): array
     {
         return [
-            'ID Venta',
-            'Fecha',
-            'Cliente',
-            'Vendedor',
-            'Medio Pago',
-            'Items',
-            'Total ($)',
-            'Estado'
+            'Código',
+            'Producto',
+            'Categoría',
+            'Marca',
+            'Stock Actual',
+            'Stock Mínimo',
+            'Estado',
         ];
     }
 

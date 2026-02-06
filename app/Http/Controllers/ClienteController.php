@@ -92,7 +92,7 @@ class ClienteController extends Controller
             'inactivos' => Cliente::whereHas('estadoCliente', fn($q) => $q->where('nombreEstado', 'Inactivo'))->count(),
         ]; 
 
-        return Inertia::render('Clientes/index', [
+        return Inertia::render('Clientes/Index', [
             'clientes' => $clientes,
             'estadosCliente' => EstadoCliente::all(['estadoClienteID', 'nombreEstado']),
             'tiposCliente' => TipoCliente::all(['tipoClienteID', 'nombreTipo']),
@@ -193,38 +193,10 @@ class ClienteController extends Controller
      */
     public function verificarBaja(Cliente $cliente)
     {
-        $cliente->load(['cuentaCorriente']);
-        
-        $operacionesPendientes = [];
-        
-        // Ventas pendientes
-        $ventasPendientes = $cliente->ventas()
-            ->whereHas('estado', function($q) {
-                $q->where('nombreEstado', 'Pendiente');
-            })
-            ->count();
-        if ($ventasPendientes > 0) {
-            $operacionesPendientes[] = "Ventas pendientes de pago: {$ventasPendientes}";
-        }
-        
-        // Reparaciones en curso
-        $reparacionesPendientes = $cliente->reparaciones()
-            ->whereHas('estado', function($q) {
-                $q->whereNotIn('nombreEstado', ['Cancelada', 'Entregada']);
-            })
-            ->count();
-        if ($reparacionesPendientes > 0) {
-            $operacionesPendientes[] = "Reparaciones en curso: {$reparacionesPendientes}";
-        }
-        
-        // Deuda pendiente
-        if ($cliente->tieneDeudas()) {
-            $saldo = $cliente->cuentaCorriente->saldo ?? 0;
-            $operacionesPendientes[] = "Deuda pendiente: $" . number_format($saldo, 2);
-        }
+        $cliente->load(['cuentaCorriente', 'ventas.estado', 'reparaciones.estado']);
         
         return response()->json([
-            'operacionesPendientes' => $operacionesPendientes,
+            'operacionesPendientes' => $cliente->getOperacionesPendientes(),
             'puedeSerDadoDeBaja' => $cliente->puedeSerDadoDeBaja(),
         ]);
     }
@@ -234,57 +206,39 @@ class ClienteController extends Controller
      */
     public function confirmDelete(Cliente $cliente)
     {
-        $cliente->load(['tipoCliente', 'estadoCliente', 'cuentaCorriente']);
-        
-        // CU-04 Paso 4: Verificar operaciones activas pendientes
-        $operacionesPendientes = [];
-        
-        // Ventas pendientes
-        $ventasPendientes = $cliente->ventas()
-            ->whereHas('estado', function($q) {
-                $q->where('nombreEstado', 'Pendiente');
-            })
-            ->count();
-        if ($ventasPendientes > 0) {
-            $operacionesPendientes[] = "Ventas pendientes de pago: {$ventasPendientes}";
-        }
-        
-        // Reparaciones en curso
-        $reparacionesPendientes = $cliente->reparaciones()
-            ->whereHas('estado', function($q) {
-                $q->whereNotIn('nombreEstado', ['Cancelada', 'Entregada']);
-            })
-            ->count();
-        if ($reparacionesPendientes > 0) {
-            $operacionesPendientes[] = "Reparaciones en curso: {$reparacionesPendientes}";
-        }
-        
-        // Deuda pendiente
-        if ($cliente->tieneDeudas()) {
-            $saldo = $cliente->cuentaCorriente->saldo ?? 0;
-            $operacionesPendientes[] = "Deuda pendiente: $" . number_format($saldo, 2);
-        }
+        $cliente->load(['tipoCliente', 'estadoCliente', 'cuentaCorriente', 'ventas.estado', 'reparaciones.estado']);
         
         return Inertia::render('Clientes/ConfirmDelete', [
             'cliente' => $cliente,
-            'operacionesPendientes' => $operacionesPendientes,
+            'operacionesPendientes' => $cliente->getOperacionesPendientes(),
             'puedeSerDadoDeBaja' => $cliente->puedeSerDadoDeBaja(),
         ]);
     }
 
     /**
      * Da de baja un cliente (CU-04)
+     * 
+     * Excepciones manejadas:
+     * - 4a: Operaciones pendientes (verificado en modelo)
+     * - 9a: Error al registrar la baja (capturado aquí)
+     * - 9b: Error en historial (manejado en modelo, flujo continúa)
      */
     public function darDeBaja(DarDeBajaClienteRequest $request, Cliente $cliente)
     {
         try {
-            // Delegamos al Modelo Experto
+            // Delegamos al Modelo Experto (maneja excepciones 4a, 9a, 9b)
             $cliente->darDeBaja($request->motivo);
             
-            return redirect()->back()->with('success', 'Cliente dado de baja exitosamente.');
+            // CU-04 Paso 10: Confirma la baja exitosa
+            return redirect()->back()->with('success', 'El cliente ha sido dado de baja exitosamente.');
 
         } catch (\Exception $e) {
-            return back()->withErrors(['motivo' => 'Error al dar de baja el cliente: '.$e->getMessage()]);
+            // CU-04 Excepción 9a: Error al procesar la baja
+            Log::error('CU-04: Error al dar de baja cliente', [
+                'clienteID' => $cliente->clienteID,
+                'error' => $e->getMessage()
+            ]);
+            return back()->withErrors(['motivo' => $e->getMessage()]);
         }
     }
 
@@ -297,9 +251,16 @@ class ClienteController extends Controller
             $nuevoEstado = $request->boolean('activo'); 
 
             if ($nuevoEstado) {
-                $cliente->reactivar('Cliente reactivado manualmente por admin.');
+                $motivo = $request->input('motivo', 'Cliente reactivado manualmente por admin.');
+                $cliente->reactivar($motivo);
             } else {
-                $cliente->darDeBaja('Cliente desactivado manualmente por admin.');
+                $request->validate([
+                    'motivo' => 'required|string|min:3|max:255',
+                ], [
+                    'motivo.required' => 'Debe ingresar un motivo para desactivar el cliente.',
+                    'motivo.min' => 'El motivo debe tener al menos 3 caracteres.',
+                ]);
+                $cliente->darDeBaja($request->input('motivo'));
             }
             
             return redirect()->back()->with('success', 'Estado del cliente actualizado.');
@@ -343,11 +304,14 @@ class ClienteController extends Controller
         }
 
         $clientes = Cliente::with(['tipoCliente', 'cuentaCorriente.estadoCuentaCorriente'])
-            ->where('nombre', 'like', "%{$query}%")
-            ->orWhere('apellido', 'like', "%{$query}%")
-            ->orWhere('dni', 'like', "%{$query}%")
+            ->whereHas('estadoCliente', fn($q) => $q->where('nombreEstado', 'Activo'))
+            ->where(function ($q) use ($query) {
+                $q->where('nombre', 'like', "%{$query}%")
+                  ->orWhere('apellido', 'like', "%{$query}%")
+                  ->orWhere('DNI', 'like', "%{$query}%");
+            })
             ->limit(20)
-            ->get(['clienteID', 'nombre', 'apellido', 'dni', 'tipoClienteID', 'cuentaCorrienteID']);
+            ->get(['clienteID', 'nombre', 'apellido', 'DNI', 'tipoClienteID', 'cuentaCorrienteID']);
 
         return response()->json($clientes);
     }

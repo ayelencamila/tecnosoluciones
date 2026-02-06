@@ -14,7 +14,8 @@ use App\Models\Reparacion;
 use App\Models\Cliente;
 use App\Models\Producto;
 use App\Models\EstadoReparacion;
-use App\Models\Marca; 
+use App\Models\Marca;
+use App\Models\MedioPago; 
 
 // Requests
 use App\Http\Requests\Reparaciones\StoreReparacionRequest;
@@ -24,6 +25,7 @@ use App\Http\Requests\Reparaciones\AnularReparacionRequest;
 use App\Services\Reparaciones\RegistrarReparacionService;
 use App\Services\Reparaciones\ActualizarReparacionService;
 use App\Services\Reparaciones\AnularReparacionService;
+use App\Services\Reparaciones\CobrarReparacionService;
 use App\Services\Comprobantes\ComprobanteService;
 use App\Services\Comprobantes\RegistrarComprobanteService;
 
@@ -160,16 +162,19 @@ class ReparacionController extends Controller
     {
         // Cargamos relaciones profundas para la ficha técnica
         $reparacion = Reparacion::with([
-            'cliente', 
+            'cliente.cuentaCorriente', 
             'tecnico', 
             'estado', 
             'imagenes', 
             'repuestos.producto',
-            'modelo.marca' 
+            'modelo.marca',
+            'medioPago',
+            'cobrador',
         ])->findOrFail($id);
 
         return Inertia::render('Reparaciones/Show', [
-            'reparacion' => $reparacion
+            'reparacion' => $reparacion,
+            'mediosPago' => MedioPago::where('activo', true)->orderBy('nombre')->get(['medioPagoID', 'nombre', 'recargo_porcentaje']),
         ]);
     }
 
@@ -215,7 +220,9 @@ class ReparacionController extends Controller
             'tecnico', 
             'estado', 
             'modelo.marca',
-            'repuestos.producto'
+            'repuestos.producto',
+            'medioPago',
+            'cobrador',
         ])->findOrFail($id);
 
         // El comprobante ya se registra automáticamente en ActualizarReparacionService cuando pasa a "Entregado"
@@ -312,6 +319,38 @@ class ReparacionController extends Controller
             // CU-12 Excepción 8a: Error al guardar actualización
             Log::error("CU-12 Excepción 8a - Error al actualizar reparación {$id}: " . $e->getMessage());
             return back()->withErrors(['error' => 'Error al guardar la actualización de la reparación. Intente nuevamente.'])->withInput();
+        }
+    }
+
+    /**
+     * Registrar cobro de reparación
+     */
+    public function cobrar(Request $request, $id, CobrarReparacionService $service): RedirectResponse
+    {
+        $validated = $request->validate([
+            'medio_pago_id' => 'required|exists:medios_pago,medioPagoID',
+        ], [
+            'medio_pago_id.required' => 'Seleccione un medio de pago.',
+        ]);
+
+        try {
+            $reparacion = Reparacion::with(['cliente.cuentaCorriente.estadoCuentaCorriente', 'repuestos'])->findOrFail($id);
+            $service->handle($reparacion, $validated, $request->user()->id);
+
+            // Recargar para ver el estado actualizado
+            $reparacion->refresh();
+            $mensaje = $reparacion->estado_reparacion_id == 5
+                ? 'Cobro registrado y reparación entregada exitosamente.'
+                : 'Cobro registrado exitosamente.';
+
+            return redirect()->route('reparaciones.show', $id)
+                ->with('success', $mensaje);
+
+        } catch (\DomainException $e) {
+            return back()->withErrors(['cobro' => $e->getMessage()]);
+        } catch (\Exception $e) {
+            Log::error("Error al cobrar reparación {$id}: " . $e->getMessage());
+            return back()->withErrors(['cobro' => 'Error inesperado al procesar el cobro.']);
         }
     }
 

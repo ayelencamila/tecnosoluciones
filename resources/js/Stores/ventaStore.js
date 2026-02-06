@@ -32,13 +32,13 @@ export const useVentaStore = defineStore('venta', {
 
                 let descuentoItemMonto = 0;
 
-                // Asegúrate de que item.descuentosAplicados exista y sea un array
-                if (item.descuentosAplicados && Array.isArray(item.descuentosAplicados)) {
-                    item.descuentosAplicados.forEach(descuento => {
-                        if (descuento.tipo === 'porcentaje') {
+                // Leer descuentos por ítem (propiedad 'descuentos_item' creada en agregarItem)
+                if (item.descuentos_item && Array.isArray(item.descuentos_item)) {
+                    item.descuentos_item.forEach(descuento => {
+                        const tipoCodigo = descuento.tipo?.codigo?.toUpperCase() || descuento.tipo;
+                        if (tipoCodigo === 'PORCENTAJE' || tipoCodigo === 'porcentaje') {
                             descuentoItemMonto += subtotalItem * (descuento.valor / 100);
-                        } else if (descuento.tipo === 'monto_fijo') {
-                            // Usamos Math.min para asegurar que el descuento no exceda el subtotal del item
+                        } else if (tipoCodigo === 'FIJO' || tipoCodigo === 'monto_fijo') {
                             descuentoItemMonto += Math.min(descuento.valor, subtotalItem);
                         }
                     });
@@ -55,12 +55,11 @@ export const useVentaStore = defineStore('venta', {
             let totalDescuentosGlobales = 0;
             if (state.descuentosGlobalesAplicados && Array.isArray(state.descuentosGlobalesAplicados)) {
                 state.descuentosGlobalesAplicados.forEach(descuento => {
-                    if (descuento.tipo === 'porcentaje') {
-                        // Los descuentos globales se aplican sobre el subtotal bruto
+                    const tipoCodigo = descuento.tipo?.codigo?.toUpperCase() || descuento.tipo;
+                    if (tipoCodigo === 'PORCENTAJE' || tipoCodigo === 'porcentaje') {
                         totalDescuentosGlobales += subtotalBruto * (descuento.valor / 100);
-                    } else if (descuento.tipo === 'monto_fijo') {
-                        // Usamos Math.min para asegurar que el descuento no exceda el subtotal bruto
-                         totalDescuentosGlobales += Math.min(descuento.valor, subtotalBruto);
+                    } else if (tipoCodigo === 'FIJO' || tipoCodigo === 'monto_fijo') {
+                        totalDescuentosGlobales += Math.min(descuento.valor, subtotalBruto);
                     }
                 });
             }
@@ -77,8 +76,10 @@ export const useVentaStore = defineStore('venta', {
             // RETORNAMOS NÚMEROS FLOTANTES SIN FORMATO (Punto de la corrección)
             return {
                 subtotalBruto: subtotalBruto,
-                totalDescuentosItems: totalDescuentosItems, // Agregado para el resumen
-                totalDescuentosGlobales: totalDescuentosGlobales, // Agregado para el resumen
+                subtotal: subtotalBruto, // Alias para el template
+                totalDescuentosItems: totalDescuentosItems,
+                totalDescuentosGlobales: totalDescuentosGlobales,
+                totalDescuentos: totalDescuentosItems + totalDescuentosGlobales, // Combinado para el template
                 totalNeto: totalNeto,
             };
         }

@@ -1,6 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
+import ExportDropdown from '@/Components/ExportDropdown.vue';
 import { ref, watch } from 'vue';
 import { Line, Doughnut } from 'vue-chartjs';
 import {
@@ -69,15 +70,6 @@ watch(() => [form.value.mes, form.value.anio, form.value.tipo_grafico], () => {
     });
 });
 
-// Exportar
-const exportar = () => {
-    const params = new URLSearchParams({
-        mes: form.value.mes,
-        anio: form.value.anio,
-    }).toString();
-    window.location.href = route('reportes.mensual.exportar') + '?' + params;
-};
-
 // Formateo
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value || 0);
@@ -91,17 +83,31 @@ const formatNumber = (value) => {
 const lineChartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
     plugins: {
-        legend: {
-            position: 'top',
-        },
+        legend: { display: false },
+        tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+                label: (ctx) => '  ' + formatCurrency(ctx.raw)
+            }
+        }
     },
     scales: {
         y: {
             beginAtZero: true,
+            grid: { color: 'rgba(0,0,0,0.04)' },
             ticks: {
-                callback: (value) => '$' + formatNumber(value)
+                callback: (value) => '$' + formatNumber(value),
+                font: { size: 11 },
+                color: '#6B7280'
             }
+        },
+        x: {
+            grid: { color: 'rgba(0,0,0,0.04)' },
+            ticks: { font: { size: 11 } }
         }
     }
 };
@@ -109,10 +115,24 @@ const lineChartOptions = {
 const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    cutout: '55%',
     plugins: {
         legend: {
             position: 'right',
+            labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 12 } }
         },
+        tooltip: {
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            padding: 12,
+            cornerRadius: 8,
+            callbacks: {
+                label: (ctx) => {
+                    const total = ctx.dataset.data.reduce((a, b) => a + Number(b), 0);
+                    const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                    return `  ${formatCurrency(ctx.raw)} (${pct}%)`;
+                }
+            }
+        }
     },
 };
 
@@ -175,15 +195,10 @@ const tituloDistribucion = {
 
                         <div class="flex-1"></div>
 
-                        <button
-                            @click="exportar"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
-                        >
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            Exportar Excel
-                        </button>
+                        <ExportDropdown
+                            :exportUrl="route('reportes.mensual.exportar')"
+                            :params="{ mes: form.mes, anio: form.anio }"
+                        />
                     </div>
                 </div>
 
