@@ -60,41 +60,10 @@ class CobrarReparacionService
                 'cobrado_por' => $userId,
             ]);
 
-            // --- Pasar automáticamente a "Entregado" (estado 5) ---
-            // Solo si está en "Reparado" (estado 4), que es la transición válida → Entregado
-            $estadoActual = $reparacion->estado_reparacion_id;
-            if ($estadoActual == 4 && !$reparacion->fecha_entrega_real) {
-                $reparacion->update([
-                    'estado_reparacion_id' => 5, // Entregado
-                    'fecha_entrega_real' => now(),
-                ]);
-
-                // Generar comprobante de entrega (que ya incluye datos del cobro)
-                $tipoComprobante = DB::table('tipos_comprobante')
-                    ->where('codigo', 'ENTREGA_REPARACION')
-                    ->value('tipo_id');
-                $estadoEmitido = DB::table('estados_comprobante')
-                    ->where('nombre', 'EMITIDO')
-                    ->value('estado_id');
-
-                if ($tipoComprobante && $estadoEmitido) {
-                    \App\Models\Comprobante::create([
-                        'tipo_entidad' => $reparacion->getMorphClass(),
-                        'entidad_id' => $reparacion->reparacionID,
-                        'usuario_id' => $userId,
-                        'tipo_comprobante_id' => $tipoComprobante,
-                        'numero_correlativo' => 'ENT-' . $reparacion->codigo_reparacion,
-                        'fecha_emision' => now(),
-                        'estado_comprobante_id' => $estadoEmitido,
-                    ]);
-                }
-
-                Log::info("Reparación {$reparacion->codigo_reparacion} pasó automáticamente a Entregado tras cobro.");
-            }
-
-            // Nota: El comprobante de entrega ya incluye datos del cobro
-            // para evitar duplicar documentos. Al imprimir el comprobante de entrega, este ya incluye
-            // los datos del cobro (medio de pago, monto, fecha).
+            // Nota: El cobro NO cambia el estado de reparación.
+            // La entrega (Reparado → Entregado) se confirma manualmente cuando
+            // el cliente retira físicamente el equipo, via ActualizarReparacionService.
+            // Esto respeta la separación de responsabilidades: pagar ≠ retirar.
 
             // --- Auditoría ---
             Auditoria::registrar(

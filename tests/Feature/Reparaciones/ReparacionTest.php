@@ -360,9 +360,10 @@ class ReparacionTest extends TestCase
         $reparacion->refresh();
         $this->assertEquals('pagado', $reparacion->estado_pago);
         $this->assertEquals(55000, (float) $reparacion->monto_cobrado);
-        // Auto-transición a Entregado (5)
-        $this->assertEquals(5, $reparacion->estado_reparacion_id);
-        $this->assertNotNull($reparacion->fecha_entrega_real);
+        // Cobrar NO cambia estado — sigue en Reparado (4).
+        // La entrega se confirma manualmente cuando el cliente retira el equipo.
+        $this->assertEquals(4, $reparacion->estado_reparacion_id);
+        $this->assertNull($reparacion->fecha_entrega_real);
     }
 
     /** @test */
