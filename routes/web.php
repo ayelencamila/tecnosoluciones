@@ -297,6 +297,9 @@ Route::middleware(['auth'])->group(function () {
     // Acceso restringido solo a Administradores (y Gerentes si existiera el rol)
     Route::prefix('reportes')->name('reportes.')->middleware(['role:administrador'])->group(function () {
         
+        // Ruta base /reportes → redirige al Reporte Mensual
+        Route::get('/', fn () => redirect()->route('reportes.mensual'));
+
         // CU-33: Reporte de Ventas
         Route::get('/ventas', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'index'])->name('ventas');
         Route::get('/ventas/exportar', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'exportar'])->name('ventas.exportar');

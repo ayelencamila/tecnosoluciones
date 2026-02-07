@@ -31,6 +31,7 @@ use App\Models\DetalleRecepcion;
 use App\Models\Proveedor;
 use App\Models\Gasto;
 use App\Models\CategoriaGasto;
+use App\Models\Pago;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
@@ -206,9 +207,9 @@ class ReporteMensualTest extends TestCase
         ]));
 
         $response->assertInertia(fn ($page) =>
-            $page->where('planilla.salidas.2.concepto', 'Gastos Operativos')
+            $page->where('planilla.salidas.2.concepto', 'Gasto — Alquiler')
                 ->where('planilla.salidas.2.total', fn ($val) => (float) $val == 200000)
-                ->where('planilla.salidas.3.concepto', 'Pérdidas')
+                ->where('planilla.salidas.3.concepto', 'Pérdida — Robo')
                 ->where('planilla.salidas.3.total', fn ($val) => (float) $val == 15000)
         );
     }
@@ -299,6 +300,63 @@ class ReporteMensualTest extends TestCase
         $response->assertInertia(fn ($page) =>
             $page->where('planilla.entradas.0.total', fn ($val) => (float) $val == 50000)
                 ->where('planilla.entradas.0.cantidad', 1)
+        );
+    }
+
+    /** @test */
+    public function reporte_incluye_cobranzas_dentro_de_entradas()
+    {
+        $cliente = $this->crearClienteMinorista();
+        $medioPagoEfectivo = $this->crearMedioPago();
+        $medioPagoTransf = MedioPago::firstOrCreate(
+            ['nombre' => 'Transferencia'],
+            ['recargo_porcentaje' => 0, 'activo' => true]
+        );
+
+        // Pago en efectivo
+        Pago::create([
+            'clienteID' => $cliente->clienteID,
+            'user_id' => $this->admin->id,
+            'monto' => 75000,
+            'medioPagoID' => $medioPagoEfectivo->medioPagoID,
+            'fecha_pago' => Carbon::now(),
+            'numero_recibo' => 'REC-TEST-001',
+            'anulado' => false,
+        ]);
+
+        // Pago con transferencia
+        Pago::create([
+            'clienteID' => $cliente->clienteID,
+            'user_id' => $this->admin->id,
+            'monto' => 25000,
+            'medioPagoID' => $medioPagoTransf->medioPagoID,
+            'fecha_pago' => Carbon::now(),
+            'numero_recibo' => 'REC-TEST-002',
+            'anulado' => false,
+        ]);
+
+        // Pago anulado (NO debe contar)
+        Pago::create([
+            'clienteID' => $cliente->clienteID,
+            'user_id' => $this->admin->id,
+            'monto' => 50000,
+            'medioPagoID' => $medioPagoEfectivo->medioPagoID,
+            'fecha_pago' => Carbon::now(),
+            'numero_recibo' => 'REC-TEST-003',
+            'anulado' => true,
+        ]);
+
+        $response = $this->actingAs($this->admin)->get(route('reportes.mensual', [
+            'mes' => $this->mes,
+            'anio' => $this->anio,
+        ]));
+
+        // Cobranzas ahora están dentro de entradas (índices 2 y 3, después de Ventas y Reparaciones)
+        $response->assertInertia(fn ($page) =>
+            $page->where('planilla.total_entradas', fn ($val) => (float) $val == 100000)
+                ->has('planilla.entradas', 4) // Ventas + Reparaciones + 2 medios de pago
+                ->where('planilla.entradas.2.concepto', fn ($val) => str_starts_with($val, 'Cobranza CC'))
+                ->where('planilla.entradas.3.concepto', fn ($val) => str_starts_with($val, 'Cobranza CC'))
         );
     }
 

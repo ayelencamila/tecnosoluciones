@@ -55,15 +55,15 @@ class RegistrarPagoService
             event(new PagoRegistrado($pago, $userId));
 
             // CU-32: Registrar comprobante interno de pago (NO FISCAL)
-            $tipoComprobante = \DB::table('tipos_comprobante')->where('codigo', 'RECIBO_PAGO')->value('tipo_id');
+            $tipoComprobanteId = \DB::table('tipos_comprobante')->where('codigo', 'RECIBO_PAGO')->value('tipo_id');
             $estadoEmitido = \DB::table('estados_comprobante')->where('nombre', 'EMITIDO')->value('estado_id');
-            $numeroCorrelativo = \App\Models\Comprobante::generarNumeroCorrelativo($tipoComprobante, 'P');
+            $numeroCorrelativo = \App\Models\Comprobante::generarNumeroCorrelativo('RECIBO_PAGO', 'P');
 
             \App\Models\Comprobante::create([
                 'tipo_entidad' => $pago->getMorphClass(),
                 'entidad_id' => $pago->pagoID,
                 'usuario_id' => $userId,
-                'tipo_comprobante_id' => $tipoComprobante,
+                'tipo_comprobante_id' => $tipoComprobanteId,
                 'numero_correlativo' => $numeroCorrelativo,
                 'fecha_emision' => now(),
                 'estado_comprobante_id' => $estadoEmitido,

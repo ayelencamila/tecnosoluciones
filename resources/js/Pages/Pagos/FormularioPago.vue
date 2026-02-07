@@ -267,6 +267,14 @@ onMounted(() => {
         <div class="py-12">
             <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
                 <form @submit.prevent="submit">
+                    <!-- Alerta de error genérico del servidor -->
+                    <div v-if="form.errors.message" class="mb-4 bg-red-50 border border-red-300 text-red-800 px-4 py-3 rounded-lg flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                        <span class="font-medium">{{ form.errors.message }}</span>
+                    </div>
+
                     <div class="bg-white shadow-xl sm:rounded-lg overflow-hidden">
                         <div class="bg-indigo-50 px-6 py-4 border-b border-indigo-100">
                             <h3 class="text-lg font-medium text-indigo-800">Detalles del Pago</h3>

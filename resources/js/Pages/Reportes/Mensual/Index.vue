@@ -23,7 +23,6 @@ const props = defineProps({
     filters: Object,
     periodo: Object,
     planilla: Object,
-    gastosPorCategoria: Array,
     graficos: Object,
     tiposGrafico: Array,
 });
@@ -98,15 +97,18 @@ const lineChartOptions = {
     scales: {
         y: {
             beginAtZero: true,
+            title: { display: true, text: 'Importe ($)', font: { size: 11 }, color: '#6B7280' },
             grid: { color: 'rgba(0,0,0,0.04)' },
             ticks: {
                 callback: (value) => '$' + formatNumber(value),
                 font: { size: 11 },
-                color: '#6B7280'
+                color: '#6B7280',
+                maxTicksLimit: 6
             }
         },
         x: {
-            grid: { color: 'rgba(0,0,0,0.04)' },
+            title: { display: true, text: 'Día del mes', font: { size: 11 }, color: '#6B7280' },
+            grid: { display: false },
             ticks: { font: { size: 11 } }
         }
     }
@@ -119,7 +121,28 @@ const doughnutOptions = {
     plugins: {
         legend: {
             position: 'right',
-            labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 12 } }
+            labels: {
+                usePointStyle: true,
+                pointStyle: 'circle',
+                padding: 14,
+                font: { size: 12 },
+                generateLabels: (chart) => {
+                    const data = chart.data;
+                    const total = data.datasets[0].data.reduce((a, b) => a + Number(b), 0);
+                    return data.labels.map((label, i) => {
+                        const value = data.datasets[0].data[i];
+                        const pct = total > 0 ? ((value / total) * 100).toFixed(0) : 0;
+                        return {
+                            text: `${label} (${pct}%)`,
+                            fillStyle: data.datasets[0].backgroundColor[i],
+                            strokeStyle: data.datasets[0].backgroundColor[i],
+                            hidden: false,
+                            index: i,
+                            pointStyle: 'circle',
+                        };
+                    });
+                },
+            }
         },
         tooltip: {
             backgroundColor: 'rgba(0,0,0,0.8)',
@@ -130,6 +153,10 @@ const doughnutOptions = {
                     const total = ctx.dataset.data.reduce((a, b) => a + Number(b), 0);
                     const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
                     return `  ${formatCurrency(ctx.raw)} (${pct}%)`;
+                },
+                footer: (tooltipItems) => {
+                    const total = tooltipItems[0].dataset.data.reduce((a, b) => a + Number(b), 0);
+                    return `Total: ${formatCurrency(total)}`;
                 }
             }
         }
@@ -157,7 +184,7 @@ const tituloDistribucion = {
                         Reporte Mensual
                     </h2>
                     <p class="text-sm text-gray-500 mt-1">
-                        Estado de resultados del período
+                        Resumen de entradas y salidas del período
                     </p>
                 </div>
             </div>
@@ -202,28 +229,39 @@ const tituloDistribucion = {
                     </div>
                 </div>
 
-                <!-- PLANILLA DE RESULTADOS -->
+                <!-- RESUMEN MENSUAL -->
                 <div class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
                     <!-- Encabezado -->
                     <div class="bg-gray-800 text-white px-6 py-4 text-center">
                         <h3 class="text-lg font-bold uppercase tracking-wider">
-                            Estado de Resultados
+                            Resumen Mensual
                         </h3>
                         <p class="text-gray-300 text-sm mt-1">{{ periodo.nombre }}</p>
                     </div>
 
+                    <!-- Cabecera de tabla -->
+                    <table class="min-w-full">
+                        <thead>
+                            <tr class="bg-gray-50 border-b border-gray-200">
+                                <th class="px-6 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/2">Concepto</th>
+                                <th class="px-6 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/4">Operaciones</th>
+                                <th class="px-6 py-2 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-1/4">Importe</th>
+                            </tr>
+                        </thead>
+                    </table>
+
                     <div class="divide-y divide-gray-200">
-                        <!-- SECCIÓN ENTRADAS -->
+                        <!-- ENTRADAS -->
                         <div class="bg-emerald-50">
                             <div class="px-6 py-3 bg-emerald-100 border-b border-emerald-200">
                                 <h4 class="text-sm font-bold text-emerald-800 uppercase tracking-wider">Entradas</h4>
                             </div>
                             <table class="min-w-full">
                                 <tbody>
-                                    <tr v-for="(item, index) in planilla.entradas" :key="index" class="border-b border-emerald-100">
+                                    <tr v-for="(item, index) in planilla.entradas" :key="'e-' + index" class="border-b border-emerald-100 hover:bg-emerald-100/50 transition-colors">
                                         <td class="px-6 py-3 text-sm text-gray-700 w-1/2">{{ item.concepto }}</td>
                                         <td class="px-6 py-3 text-sm text-gray-500 text-center w-1/4">
-                                            <span v-if="item.cantidad !== null">{{ item.cantidad }} operaciones</span>
+                                            <span v-if="item.cantidad != null">{{ formatNumber(item.cantidad) }}</span>
                                         </td>
                                         <td class="px-6 py-3 text-sm font-medium text-emerald-700 text-right w-1/4">
                                             {{ formatCurrency(item.total) }}
@@ -231,7 +269,7 @@ const tituloDistribucion = {
                                     </tr>
                                 </tbody>
                                 <tfoot>
-                                    <tr class="bg-emerald-100 font-bold">
+                                    <tr class="bg-emerald-200/60 font-bold">
                                         <td class="px-6 py-3 text-sm text-emerald-900" colspan="2">TOTAL ENTRADAS</td>
                                         <td class="px-6 py-3 text-sm text-emerald-900 text-right">{{ formatCurrency(planilla.total_entradas) }}</td>
                                     </tr>
@@ -239,17 +277,17 @@ const tituloDistribucion = {
                             </table>
                         </div>
 
-                        <!-- SECCIÓN SALIDAS -->
+                        <!-- SALIDAS -->
                         <div class="bg-red-50">
                             <div class="px-6 py-3 bg-red-100 border-b border-red-200">
                                 <h4 class="text-sm font-bold text-red-800 uppercase tracking-wider">Salidas</h4>
                             </div>
-                            <table class="min-w-full">
+                            <table v-if="planilla.salidas.length > 0" class="min-w-full">
                                 <tbody>
-                                    <tr v-for="(item, index) in planilla.salidas" :key="index" class="border-b border-red-100">
+                                    <tr v-for="(item, index) in planilla.salidas" :key="'s-' + index" class="border-b border-red-100 hover:bg-red-100/50 transition-colors">
                                         <td class="px-6 py-3 text-sm text-gray-700 w-1/2">{{ item.concepto }}</td>
                                         <td class="px-6 py-3 text-sm text-gray-500 text-center w-1/4">
-                                            <span v-if="item.cantidad !== null">{{ item.cantidad }} operaciones</span>
+                                            <span v-if="item.cantidad != null">{{ formatNumber(item.cantidad) }}</span>
                                         </td>
                                         <td class="px-6 py-3 text-sm font-medium text-red-700 text-right w-1/4">
                                             {{ formatCurrency(item.total) }}
@@ -257,32 +295,35 @@ const tituloDistribucion = {
                                     </tr>
                                 </tbody>
                                 <tfoot>
-                                    <tr class="bg-red-100 font-bold">
+                                    <tr class="bg-red-200/60 font-bold">
                                         <td class="px-6 py-3 text-sm text-red-900" colspan="2">TOTAL SALIDAS</td>
                                         <td class="px-6 py-3 text-sm text-red-900 text-right">{{ formatCurrency(planilla.total_salidas) }}</td>
                                     </tr>
                                 </tfoot>
                             </table>
+                            <div v-else class="px-6 py-3 text-sm text-gray-500 italic">
+                                No se registraron salidas en el período.
+                            </div>
                         </div>
 
-                        <!-- BALANCE -->
-                        <div 
-                            class="px-6 py-4"
+                        <!-- RESULTADO -->
+                        <div
+                            class="px-6 py-5"
                             :class="planilla.balance >= 0 ? 'bg-blue-100' : 'bg-orange-100'"
                         >
                             <div class="flex items-center justify-between">
                                 <div>
                                     <span class="text-lg font-bold" :class="planilla.balance >= 0 ? 'text-blue-900' : 'text-orange-900'">
-                                        BALANCE DEL MES
+                                        RESULTADO DEL MES
                                     </span>
-                                    <span 
-                                        class="ml-3 text-xs font-medium px-2 py-1 rounded-full"
+                                    <span
+                                        class="ml-3 text-xs font-medium px-2.5 py-1 rounded-full"
                                         :class="planilla.balance >= 0 ? 'bg-blue-200 text-blue-800' : 'bg-orange-200 text-orange-800'"
                                     >
-                                        {{ planilla.balance >= 0 ? 'Positivo' : 'Negativo' }}
+                                        {{ planilla.balance >= 0 ? 'Superávit' : 'Déficit' }}
                                     </span>
                                 </div>
-                                <span 
+                                <span
                                     class="text-2xl font-bold"
                                     :class="planilla.balance >= 0 ? 'text-blue-700' : 'text-orange-700'"
                                 >
@@ -290,54 +331,7 @@ const tituloDistribucion = {
                                 </span>
                             </div>
                         </div>
-
-                        <!-- PAGOS RECIBIDOS (Información adicional) -->
-                        <div class="px-6 py-4 bg-gray-50">
-                            <div class="flex items-center justify-between text-sm">
-                                <div class="flex items-center gap-2 text-gray-600">
-                                    <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                                    </svg>
-                                    <span>Pagos recibidos de clientes ({{ planilla.pagos_recibidos.cantidad }} cobros)</span>
-                                </div>
-                                <span class="font-semibold text-gray-900">{{ formatCurrency(planilla.pagos_recibidos.total) }}</span>
-                            </div>
-                        </div>
                     </div>
-                </div>
-
-                <!-- DETALLE DE GASTOS POR CATEGORÍA (si hay gastos) -->
-                <div v-if="gastosPorCategoria.length > 0" class="bg-white shadow-sm sm:rounded-lg overflow-hidden">
-                    <div class="px-6 py-4 border-b border-gray-200">
-                        <h3 class="text-lg font-semibold text-gray-900">Detalle de Gastos y Pérdidas</h3>
-                    </div>
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                                <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Cantidad</th>
-                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Total</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-200">
-                            <tr v-for="gasto in gastosPorCategoria" :key="gasto.nombre" class="hover:bg-gray-50">
-                                <td class="px-6 py-3 text-sm font-medium text-gray-900">{{ gasto.nombre }}</td>
-                                <td class="px-6 py-3 text-center">
-                                    <span 
-                                        class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium"
-                                        :class="gasto.tipo === 'gasto' ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'"
-                                    >
-                                        {{ gasto.tipo === 'gasto' ? 'Gasto' : 'Pérdida' }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-3 text-sm text-gray-500 text-center">{{ gasto.cantidad }}</td>
-                                <td class="px-6 py-3 text-sm font-medium text-right" :class="gasto.tipo === 'gasto' ? 'text-blue-600' : 'text-red-600'">
-                                    {{ formatCurrency(gasto.total) }}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
 
                 <!-- GRÁFICOS ESTADÍSTICOS -->
@@ -363,10 +357,14 @@ const tituloDistribucion = {
                             <h4 class="text-sm font-medium text-gray-700 mb-4">Evolución Diaria</h4>
                             <div class="h-64">
                                 <Line 
-                                    v-if="graficos.evolucion" 
+                                    v-if="graficos.evolucion && graficos.evolucion.datasets[0].data.some(v => v > 0)" 
+                                    :key="'line-' + form.tipo_grafico"
                                     :data="graficos.evolucion" 
                                     :options="lineChartOptions" 
                                 />
+                                <div v-else class="h-full flex items-center justify-center text-sm text-gray-400">
+                                    Sin movimientos en el período
+                                </div>
                             </div>
                         </div>
 
@@ -378,11 +376,12 @@ const tituloDistribucion = {
                             <div class="h-64">
                                 <Doughnut 
                                     v-if="graficos.distribucion && graficos.distribucion.labels.length > 0" 
+                                    :key="'doughnut-' + form.tipo_grafico"
                                     :data="graficos.distribucion" 
                                     :options="doughnutOptions" 
                                 />
-                                <div v-else class="h-full flex items-center justify-center text-gray-500">
-                                    No hay datos para mostrar
+                                <div v-else class="h-full flex items-center justify-center text-sm text-gray-400">
+                                    Sin movimientos en el período
                                 </div>
                             </div>
                         </div>

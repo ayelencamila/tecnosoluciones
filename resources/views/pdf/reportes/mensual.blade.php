@@ -41,7 +41,7 @@
                 <div class="company-tagline">Venta y reparación de productos tecnológicos</div>
             </div>
             <div class="report-title-section">
-                <div class="report-title">Estado de Resultados</div>
+                <div class="report-title">Resumen Mensual</div>
                 <div class="report-period">{{ $periodo['nombre'] }}</div>
                 <div class="report-date">{{ $periodo['inicio'] }} al {{ $periodo['fin'] }} · Generado por {{ auth()->user()->name }}</div>
             </div>
@@ -91,48 +91,12 @@
         </table>
     </div>
 
-    {{-- BALANCE --}}
+    {{-- RESULTADO --}}
     <div class="balance-row {{ $planilla['balance'] >= 0 ? 'balance-positive' : 'balance-negative' }}">
-        BALANCE DEL MES: ${{ number_format($planilla['balance'], 2, ',', '.') }}
-        ({{ $planilla['balance'] >= 0 ? 'Positivo' : 'Negativo' }})
+        RESULTADO DEL MES: ${{ number_format($planilla['balance'], 2, ',', '.') }}
+        ({{ $planilla['balance'] >= 0 ? 'Superávit' : 'Déficit' }})
     </div>
 
-    {{-- PAGOS RECIBIDOS --}}
-    <div style="background: #f9fafb; padding: 8px 10px; margin-top: 10px; border: 1px solid #e5e7eb; font-size: 10px;">
-        <strong>Pagos recibidos de clientes:</strong> 
-        {{ $planilla['pagos_recibidos']['cantidad'] }} cobros · 
-        ${{ number_format($planilla['pagos_recibidos']['total'], 2, ',', '.') }}
-    </div>
-
-    {{-- DETALLE DE GASTOS (si hay) --}}
-    @if(count($gastosPorCategoria) > 0)
-    <div class="section-title" style="margin-top: 20px;">Detalle de Gastos y Pérdidas por Categoría</div>
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Categoría</th>
-                <th class="text-center">Tipo</th>
-                <th class="text-center">Cantidad</th>
-                <th class="text-right">Total</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($gastosPorCategoria as $gasto)
-            <tr>
-                <td class="font-bold">{{ $gasto->nombre }}</td>
-                <td class="text-center">
-                    <span class="badge {{ $gasto->tipo === 'gasto' ? 'badge-info' : 'badge-danger' }}">
-                        {{ $gasto->tipo === 'gasto' ? 'Gasto' : 'Pérdida' }}
-                    </span>
-                </td>
-                <td class="text-center">{{ $gasto->cantidad }}</td>
-                <td class="text-right font-bold">${{ number_format($gasto->total, 2, ',', '.') }}</td>
-            </tr>
-            @endforeach
-        </tbody>
-    </table>
-    @endif
-
-    <div class="table-summary">Estado de Resultados del período {{ $periodo['nombre'] }}</div>
+    <div class="table-summary">Resumen del período {{ $periodo['nombre'] }}</div>
 </body>
 </html>

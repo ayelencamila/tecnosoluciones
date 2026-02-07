@@ -4,6 +4,7 @@ namespace App\Exports;
 
 use App\Models\Venta;
 use App\Models\Pago;
+use App\Models\Gasto;
 use App\Models\Reparacion;
 use App\Models\OrdenCompra;
 use App\Models\RecepcionMercaderia;
@@ -14,6 +15,7 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class ReporteMensualExport implements WithMultipleSheets
@@ -69,39 +71,71 @@ class ResumenSheet implements FromCollection, WithHeadings, WithTitle, WithStyle
             ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])
             ->sum('monto');
 
+        $cobranzasPorMedio = Pago::where('anulado', false)
+            ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])
+            ->join('medios_pago', 'pagos.medioPagoID', '=', 'medios_pago.medioPagoID')
+            ->select('medios_pago.nombre', DB::raw('SUM(pagos.monto) as total'))
+            ->groupBy('medios_pago.medioPagoID', 'medios_pago.nombre')
+            ->orderBy('total', 'desc')->get();
+
+        $totalEntradas = $totalVentas + $totalReparaciones + $totalPagos;
+
+        // Salidas
         $totalComprasOC = OrdenCompra::whereIn('estado_id', [4, 5])
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
             ->sum('total_final');
 
-        // Compras directas (reposiciones sin OC)
         $recepcionesDirectas = RecepcionMercaderia::whereNull('orden_compra_id')
             ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
-            ->with('detalles')
-            ->get();
+            ->with('detalles')->get();
         $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
 
-        $totalCompras = $totalComprasOC + $totalComprasDirectas;
+        $totalGastosOp = Gasto::activos()->gastos()->delMes($this->mes, $this->anio)->sum('monto');
+        $gastosOpPorCat = Gasto::activos()->gastos()->delMes($this->mes, $this->anio)
+            ->join('categorias_gasto', 'gastos.categoria_gasto_id', '=', 'categorias_gasto.categoria_gasto_id')
+            ->select('categorias_gasto.nombre', DB::raw('SUM(gastos.monto) as total'))
+            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
+            ->orderBy('total', 'desc')->get();
 
-        $totalIngresos = $totalVentas + $totalReparaciones;
-        $balance = $totalIngresos - $totalCompras;
+        $totalPerdidas = Gasto::activos()->perdidas()->delMes($this->mes, $this->anio)->sum('monto');
+        $perdidasPorCat = Gasto::activos()->perdidas()->delMes($this->mes, $this->anio)
+            ->join('categorias_gasto', 'gastos.categoria_gasto_id', '=', 'categorias_gasto.categoria_gasto_id')
+            ->select('categorias_gasto.nombre', DB::raw('SUM(gastos.monto) as total'))
+            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
+            ->orderBy('total', 'desc')->get();
 
-        return collect([
-            ['INGRESOS', ''],
-            ['Ventas', number_format($totalVentas, 2, ',', '.')],
-            ['Reparaciones', number_format($totalReparaciones, 2, ',', '.')],
-            ['Total Ingresos', number_format($totalIngresos, 2, ',', '.')],
-            ['', ''],
-            ['EGRESOS', ''],
-            ['Compras (Órdenes de Compra)', number_format($totalComprasOC, 2, ',', '.')],
-            ['Compras Directas (Reposiciones)', number_format($totalComprasDirectas, 2, ',', '.')],
-            ['Total Egresos', number_format($totalCompras, 2, ',', '.')],
-            ['', ''],
-            ['RESULTADO', ''],
-            ['Balance del Mes', number_format($balance, 2, ',', '.')],
-            ['', ''],
-            ['COBRANZAS', ''],
-            ['Total Pagos Recibidos', number_format($totalPagos, 2, ',', '.')],
+        $totalSalidas = $totalComprasOC + $totalComprasDirectas + $totalGastosOp + $totalPerdidas;
+        $balance = $totalEntradas - $totalSalidas;
+
+        $rows = collect([
+            ['ENTRADAS', ''],
+            ['Ventas de Productos', number_format($totalVentas, 2, ',', '.')],
+            ['Servicios de Reparación', number_format($totalReparaciones, 2, ',', '.')],
         ]);
+
+        foreach ($cobranzasPorMedio as $c) {
+            $rows->push(["Cobranza CC — {$c->nombre}", number_format($c->total, 2, ',', '.')]);
+        }
+
+        $rows->push(['Total Entradas', number_format($totalEntradas, 2, ',', '.')]);
+        $rows->push(['', '']);
+        $rows->push(['SALIDAS', '']);
+        $rows->push(['Compras a Proveedores (OC)', number_format($totalComprasOC, 2, ',', '.')]);
+        $rows->push(['Compras Directas (Reposiciones)', number_format($totalComprasDirectas, 2, ',', '.')]);
+
+        foreach ($gastosOpPorCat as $g) {
+            $rows->push(["Gasto — {$g->nombre}", number_format($g->total, 2, ',', '.')]);
+        }
+        foreach ($perdidasPorCat as $p) {
+            $rows->push(["Pérdida — {$p->nombre}", number_format($p->total, 2, ',', '.')]);
+        }
+
+        $rows->push(['Total Salidas', number_format($totalSalidas, 2, ',', '.')]);
+        $rows->push(['', '']);
+        $rows->push(['RESULTADO', '']);
+        $rows->push(['Resultado del Mes', number_format($balance, 2, ',', '.')]);
+
+        return $rows;
     }
 
     public function headings(): array
@@ -117,13 +151,22 @@ class ResumenSheet implements FromCollection, WithHeadings, WithTitle, WithStyle
 
     public function styles(Worksheet $sheet)
     {
-        return [
+        // Bold the header row and section titles (ENTRADAS, SALIDAS, RESULTADO)
+        $styles = [
             1 => ['font' => ['bold' => true, 'size' => 12]],
             2 => ['font' => ['bold' => true]],
-            7 => ['font' => ['bold' => true]],
-            11 => ['font' => ['bold' => true]],
-            14 => ['font' => ['bold' => true]],
         ];
+
+        // Dynamically bold section headers and totals
+        $lastRow = $sheet->getHighestRow();
+        for ($row = 2; $row <= $lastRow; $row++) {
+            $cell = $sheet->getCell("A{$row}")->getValue();
+            if (in_array($cell, ['ENTRADAS', 'SALIDAS', 'RESULTADO']) || str_starts_with($cell ?? '', 'Total ') || $cell === 'Resultado del Mes') {
+                $styles[$row] = ['font' => ['bold' => true]];
+            }
+        }
+
+        return $styles;
     }
 }
 
