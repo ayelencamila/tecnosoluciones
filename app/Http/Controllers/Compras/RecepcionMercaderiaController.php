@@ -29,12 +29,12 @@ class RecepcionMercaderiaController extends Controller
      * que coincide con los papeles o la mercadería física que tiene enfrente.
      * 
      * Principio K&K (Diseño de Salida/Navegación): Formato tabular con filtro
-     * predeterminado por estados válidos para recibir ("Enviada", "Recibida Parcial").
+     * predeterminado por estados válidos para recibir ("Enviada", "Confirmada", "Recibida Parcial").
      */
     public function index(Request $request): Response
     {
         // Obtener estados permitidos para recepcionar (configurables desde BD)
-        $nombresEstadosPermitidos = [EstadoOrdenCompra::ENVIADA, EstadoOrdenCompra::RECIBIDA_PARCIAL];
+        $nombresEstadosPermitidos = [EstadoOrdenCompra::ENVIADA, EstadoOrdenCompra::CONFIRMADA, EstadoOrdenCompra::RECIBIDA_PARCIAL];
         $estadosPermitidos = EstadoOrdenCompra::whereIn('nombre', $nombresEstadosPermitidos)->get();
         $idsEstadosPermitidos = $estadosPermitidos->pluck('id');
 
@@ -95,7 +95,7 @@ class RecepcionMercaderiaController extends Controller
      * CU-23 Pantalla 2: Formulario de Registro de Recepción
      * 
      * Se accede desde la pantalla de selección de OC (Index).
-     * Solo permite recepcionar OC en estado "Enviada" o "Recibida Parcial".
+     * Solo permite recepcionar OC en estado "Enviada", "Confirmada" o "Recibida Parcial".
      */
     public function create(Request $request): Response
     {
@@ -109,6 +109,7 @@ class RecepcionMercaderiaController extends Controller
         // (Enviada = pendiente de recepción, Recibida Parcial = continuar recepción)
         $estadosPermitidos = [
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::ENVIADA),
+            EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::CONFIRMADA),
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
         ];
 

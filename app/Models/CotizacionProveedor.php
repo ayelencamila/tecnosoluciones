@@ -53,6 +53,16 @@ class CotizacionProveedor extends Model
         'elegida',
         'recordatorios_enviados',
         'ultimo_recordatorio',
+        // Campos de tracking de envío por canal
+        'enviado_email',
+        'fecha_envio_email',
+        'error_envio_email',
+        'enviado_whatsapp',
+        'fecha_envio_whatsapp',
+        'error_envio_whatsapp',
+        'fecha_recordatorio',
+        'fecha_ultimo_recordatorio',
+        'cantidad_recordatorios',
         // Campos agregados al simplificar modelo (antes en ofertas_compra)
         'total_estimado',
         'validez_hasta',

@@ -215,7 +215,7 @@ class Reparacion extends Model
         
         // Prioridad 2: Si tiene fecha_promesa, calcular días desde ingreso
         if ($this->fecha_promesa !== null && $this->fecha_ingreso !== null) {
-            return max(1, $this->fecha_ingreso->diffInDays($this->fecha_promesa));
+            return (int) max(1, ceil($this->fecha_ingreso->diffInDays($this->fecha_promesa)));
         }
         
         // Prioridad 3: Usar configuración default

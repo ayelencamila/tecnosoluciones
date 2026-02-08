@@ -300,7 +300,7 @@ class SolicitudCotizacionService
 
     /**
      * Obtiene el ranking de ofertas para una solicitud
-     * Ordena por total más bajo
+     * Ordena por: cobertura de productos + precio + calificación del proveedor
      * 
      * @param SolicitudCotizacion $solicitud
      * @return Collection
@@ -317,21 +317,134 @@ class SolicitudCotizacionService
                 $productosRequeridos = $solicitud->detalles->count();
                 $productosCotizados = $cotizacion->respuestas->count();
                 $plazoMaximo = $cotizacion->respuestas->max('plazo_entrega_dias');
+                $calificacion = $cotizacion->proveedor->calificacion ?? 0;
                 
                 return [
                     'cotizacion_id' => $cotizacion->id,
                     'proveedor' => $cotizacion->proveedor,
                     'total' => $total,
+                    'calificacion' => $calificacion,
                     'productos_cotizados' => $productosCotizados,
                     'productos_requeridos' => $productosRequeridos,
                     'cotizo_completo' => $productosCotizados >= $productosRequeridos,
+                    'cobertura' => $productosRequeridos > 0 ? round(($productosCotizados / $productosRequeridos) * 100) : 0,
                     'plazo_maximo_dias' => $plazoMaximo,
                     'fecha_respuesta' => $cotizacion->fecha_respuesta,
                     'respuestas' => $cotizacion->respuestas,
                 ];
             })
-            ->sortBy('total')
+            ->sortBy([
+                // Primero: mayor cobertura de productos
+                ['cobertura', 'desc'],
+                // Segundo: menor precio total
+                ['total', 'asc'],
+            ])
             ->values();
+    }
+
+    /**
+     * Obtiene la comparación producto por producto entre cotizaciones
+     * Para cada producto solicitado, muestra qué proveedores lo cotizaron
+     * y quién ofrece el mejor precio, considerando la calificación
+     * 
+     * @param SolicitudCotizacion $solicitud
+     * @return array ['comparacion_productos' => [...], 'resumen_proveedores' => [...]]
+     */
+    public function obtenerComparacionPorProducto(SolicitudCotizacion $solicitud): array
+    {
+        $cotizaciones = $solicitud->cotizacionesProveedores()
+            ->whereNotNull('fecha_respuesta')
+            ->whereNull('motivo_rechazo')
+            ->with(['proveedor', 'respuestas.producto'])
+            ->get();
+
+        $productosRequeridos = $solicitud->detalles()->with('producto')->get();
+        
+        $comparacionProductos = [];
+
+        foreach ($productosRequeridos as $detalle) {
+            $productoId = $detalle->producto_id;
+            $ofertas = [];
+
+            foreach ($cotizaciones as $cotizacion) {
+                $respuesta = $cotizacion->respuestas->firstWhere('producto_id', $productoId);
+                if ($respuesta) {
+                    $calificacion = $cotizacion->proveedor->calificacion ?? 0;
+                    $ofertas[] = [
+                        'cotizacion_id' => $cotizacion->id,
+                        'proveedor_id' => $cotizacion->proveedor_id,
+                        'proveedor' => $cotizacion->proveedor->razon_social,
+                        'calificacion' => $calificacion,
+                        'precio_unitario' => $respuesta->precio_unitario,
+                        'cantidad_disponible' => $respuesta->cantidad_disponible,
+                        'plazo_entrega_dias' => $respuesta->plazo_entrega_dias,
+                        'subtotal' => $respuesta->precio_unitario * $respuesta->cantidad_disponible,
+                        'observaciones' => $respuesta->observaciones,
+                    ];
+                }
+            }
+
+            // Ordenar ofertas: menor precio unitario primero, desempate por calificación
+            usort($ofertas, function ($a, $b) {
+                $precioCmp = $a['precio_unitario'] <=> $b['precio_unitario'];
+                if ($precioCmp !== 0) return $precioCmp;
+                return $b['calificacion'] <=> $a['calificacion']; // Mayor calificación primero
+            });
+
+            $mejorOfertaId = !empty($ofertas) ? $ofertas[0]['cotizacion_id'] : null;
+
+            $comparacionProductos[] = [
+                'producto_id' => $productoId,
+                'producto_nombre' => $detalle->producto->nombre,
+                'producto_codigo' => $detalle->producto->codigo ?? null,
+                'cantidad_solicitada' => $detalle->cantidad_sugerida,
+                'ofertas' => $ofertas,
+                'total_ofertas' => count($ofertas),
+                'mejor_cotizacion_id' => $mejorOfertaId,
+                'sin_ofertas' => empty($ofertas),
+            ];
+        }
+
+        // Resumen por proveedor: contar "ganadas" por producto, promedio precio, cobertura
+        $resumenProveedores = [];
+        foreach ($cotizaciones as $cotizacion) {
+            $proveedorId = $cotizacion->proveedor_id;
+            $productosGanados = 0;
+            
+            foreach ($comparacionProductos as $cp) {
+                if ($cp['mejor_cotizacion_id'] === $cotizacion->id) {
+                    $productosGanados++;
+                }
+            }
+
+            $totalCotizado = $cotizacion->respuestas->sum(function ($r) {
+                return $r->precio_unitario * $r->cantidad_disponible;
+            });
+
+            $resumenProveedores[] = [
+                'cotizacion_id' => $cotizacion->id,
+                'proveedor' => $cotizacion->proveedor,
+                'calificacion' => $cotizacion->proveedor->calificacion ?? 0,
+                'productos_cotizados' => $cotizacion->respuestas->count(),
+                'productos_requeridos' => $productosRequeridos->count(),
+                'productos_ganados' => $productosGanados,
+                'total_cotizado' => $totalCotizado,
+                'plazo_maximo' => $cotizacion->respuestas->max('plazo_entrega_dias'),
+                'fecha_respuesta' => $cotizacion->fecha_respuesta,
+            ];
+        }
+
+        // Ordenar resumen: más productos ganados, luego mayor calificación
+        usort($resumenProveedores, function ($a, $b) {
+            $ganados = $b['productos_ganados'] <=> $a['productos_ganados'];
+            if ($ganados !== 0) return $ganados;
+            return $b['calificacion'] <=> $a['calificacion'];
+        });
+
+        return [
+            'comparacion_productos' => $comparacionProductos,
+            'resumen_proveedores' => $resumenProveedores,
+        ];
     }
 
     /**

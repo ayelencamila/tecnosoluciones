@@ -204,7 +204,7 @@ function formatMoneda(valor) {
                     </a>
                     <button 
                         v-if="puedeRecepcionar()"
-                        @click="router.visit(route('recepciones.create', { orden: orden.id }))"
+                        @click="router.visit(route('recepciones.create', { orden_compra_id: orden.id }))"
                         class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors shadow-sm"
                     >
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

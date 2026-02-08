@@ -43,7 +43,6 @@ class RegistrarProductoService
                         'tipoClienteID' => $precioData['tipoClienteID'],
                         'precio' => $precioData['precio'],
                         'fechaDesde' => Carbon::now(),
-                        'usuarioID' => $userId,
                     ]);
                 }
             }

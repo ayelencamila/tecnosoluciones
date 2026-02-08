@@ -15,7 +15,8 @@ use App\Models\OrdenCompra;
 use App\Models\SolicitudCotizacion;
 use App\Models\CotizacionProveedor;
 use App\Models\RespuestaCotizacion;
-use App\Models\Producto;
+use App\Models\Stock;
+use App\Models\Configuracion;
 
 echo '🧹 Limpiando datos de demo...' . PHP_EOL . PHP_EOL;
 
@@ -25,48 +26,52 @@ echo '🧹 Limpiando datos de demo...' . PHP_EOL . PHP_EOL;
 })->delete();
 echo '   ✅ Respuestas eliminadas: ' . \$respuestasEliminadas . PHP_EOL;
 
-// 2. Eliminar OCs con todas sus dependencias (en orden correcto)
+// 2. Eliminar OCs con todas sus dependencias
 \$ocs = OrdenCompra::whereDate('created_at', today())->get();
 \$ocsEliminadas = 0;
 foreach (\$ocs as \$oc) {
-    // Primero eliminar recepciones y sus detalles
     foreach (\$oc->recepciones ?? [] as \$recepcion) {
         \$recepcion->detalles()->delete();
         \$recepcion->delete();
     }
-    // Luego eliminar detalles de la OC
     \$oc->detalles()->delete();
-    // Finalmente eliminar la OC
     \$oc->delete();
     \$ocsEliminadas++;
 }
 echo '   ✅ Órdenes de Compra eliminadas: ' . \$ocsEliminadas . PHP_EOL;
 
-// 3. Desmarcar cotizaciones elegidas
-CotizacionProveedor::where('elegida', 1)->update(['elegida' => 0]);
-echo '   ✅ Cotizaciones desmarcadas' . PHP_EOL;
+// 3. Eliminar cotizaciones de proveedores de hoy
+\$cotizacionesEliminadas = CotizacionProveedor::whereDate('created_at', today())->delete();
+echo '   ✅ Cotizaciones proveedores eliminadas: ' . \$cotizacionesEliminadas . PHP_EOL;
 
-// 4. Restaurar stock del producto de prueba
-\$producto = Producto::where('nombre', 'like', '%Notebook%')->first();
-if (\$producto) {
-    \$producto->update([
-        'cantidadStock' => 10,
-        'stockMinimo' => 5,
-    ]);
-    echo '   ✅ Stock restaurado: ' . \$producto->nombre . ' → 10 unidades' . PHP_EOL;
+// 4. Eliminar solicitudes de hoy (con sus detalles)
+\$solicitudes = SolicitudCotizacion::whereDate('created_at', today())->get();
+\$solEliminadas = 0;
+foreach (\$solicitudes as \$sol) {
+    \$sol->detalles()->delete();
+    \$sol->delete();
+    \$solEliminadas++;
 }
+echo '   ✅ Solicitudes eliminadas: ' . \$solEliminadas . PHP_EOL;
 
-// 5. Limpiar cola de jobs
+// 5. Restaurar stocks a valores normales
+\$stocksRestaurados = Stock::where('stock_minimo', 15)
+    ->where('cantidad_disponible', '<', 5)
+    ->update(['cantidad_disponible' => 20, 'stock_minimo' => 5]);
+echo '   ✅ Stocks restaurados: ' . \$stocksRestaurados . PHP_EOL;
+
+// 6. Desactivar automatización
+Configuracion::set('compras_generacion_automatica', 'false');
+echo '   ✅ Automatización desactivada' . PHP_EOL;
+
+// 7. Limpiar cola de jobs
 DB::table('jobs')->delete();
-DB::table('failed_jobs')->delete();
+DB::table('failed_jobs')->truncate();
 echo '   ✅ Cola de jobs limpiada' . PHP_EOL;
 
-echo PHP_EOL . '🎉 Limpieza completada!' . PHP_EOL;
+echo PHP_EOL . '✅ Limpieza completada. Podés ejecutar ./crear-compra-demo.sh de nuevo.' . PHP_EOL;
 "
 
 echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo "✅ Sistema listo para nueva demo"
-echo "   Ejecutar: ./crear-compra-demo.sh"
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Limpieza completada."
 echo ""

@@ -12,10 +12,23 @@ import Modal from '@/Components/Modal.vue';
 
 const props = defineProps({
     bonificacion: Object,
+    urlCliente: String,
 });
 
 const showAprobarModal = ref(false);
 const showRechazarModal = ref(false);
+const enlaceCopiado = ref(false);
+
+const copiarEnlace = async () => {
+    if (!props.urlCliente) return;
+    try {
+        await navigator.clipboard.writeText(props.urlCliente);
+        enlaceCopiado.value = true;
+        setTimeout(() => { enlaceCopiado.value = false; }, 2500);
+    } catch (err) {
+        console.error('Error al copiar:', err);
+    }
+};
 
 const formAprobar = useForm({
     porcentaje_ajustado: props.bonificacion.porcentaje_sugerido,
@@ -173,6 +186,25 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
                                 Rechazar
+                            </button>
+                        </div>
+
+                        <!-- Botón Copiar Enlace del Cliente (visible cuando la bonificación está aprobada) -->
+                        <div v-if="bonificacion.estado === 'aprobada' && urlCliente" class="flex gap-3">
+                            <button 
+                                @click="copiarEnlace"
+                                class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200"
+                                :class="enlaceCopiado 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-300' 
+                                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
+                            >
+                                <svg v-if="enlaceCopiado" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                </svg>
+                                {{ enlaceCopiado ? 'Enlace copiado' : 'Copiar enlace cliente' }}
                             </button>
                         </div>
                     </div>
@@ -347,16 +379,34 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                     <!-- Pendiente -->
                     <div v-if="bonificacion.decision_cliente === 'pendiente'" 
                          class="bg-amber-50 border border-amber-200 rounded-xl p-5">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-amber-800">Esperando respuesta</p>
+                                    <p class="text-sm text-amber-700">Se envió notificación por WhatsApp al cliente.</p>
+                                </div>
+                            </div>
+                            <button 
+                                v-if="urlCliente"
+                                @click="copiarEnlace"
+                                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200"
+                                :class="enlaceCopiado 
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
+                                    : 'bg-white text-amber-700 border border-amber-300 hover:bg-amber-100'"
+                            >
+                                <svg v-if="enlaceCopiado" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-amber-800">Esperando respuesta</p>
-                                <p class="text-sm text-amber-700">Se envió notificación por WhatsApp al cliente.</p>
-                            </div>
+                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                </svg>
+                                {{ enlaceCopiado ? 'Enlace copiado' : 'Copiar enlace' }}
+                            </button>
                         </div>
                     </div>
 
@@ -504,6 +554,7 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                             Cancelar
                         </SecondaryButton>
                         <DangerButton 
+                            type="submit"
                             :class="{ 'opacity-50 cursor-not-allowed': formRechazar.processing }" 
                             :disabled="formRechazar.processing"
                         >

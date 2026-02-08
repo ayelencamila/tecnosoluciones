@@ -89,12 +89,12 @@ class MonitorearStockCommand extends Command
                     [
                         ['Solicitudes creadas', $resultado['solicitudes_creadas']],
                         ['Solicitudes enviadas', $resultado['enviadas']],
-                        ['Productos procesados', $resultado['productos_procesados']],
+                        ['Productos incluidos', $resultado['productos_procesados']],
                     ]
                 );
                 
                 if ($resultado['enviadas'] > 0) {
-                    $this->info('📨 Los proveedores recibirán un Magic Link para responder.');
+                    $this->info('📨 Todos los proveedores activos recibirán un Magic Link para responder.');
                 }
 
                 // Mostrar errores si los hay

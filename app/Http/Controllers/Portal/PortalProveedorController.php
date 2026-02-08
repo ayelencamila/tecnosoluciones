@@ -120,14 +120,15 @@ class PortalProveedorController extends Controller
         $validated = $request->validate([
             'respuestas' => 'required|array|min:1',
             'respuestas.*.producto_id' => 'required|exists:productos,id',
-            'respuestas.*.precio_unitario' => 'required|numeric|min:0',
+            'respuestas.*.precio_unitario' => 'required|numeric|min:0.01',
             'respuestas.*.cantidad_disponible' => 'required|integer|min:1',
             'respuestas.*.plazo_entrega_dias' => 'required|integer|min:1',
             'respuestas.*.observaciones' => 'nullable|string|max:500',
         ], [
             'respuestas.required' => 'Debe cotizar al menos un producto',
+            'respuestas.min' => 'Debe cotizar al menos un producto',
             'respuestas.*.precio_unitario.required' => 'El precio es obligatorio',
-            'respuestas.*.precio_unitario.min' => 'El precio no puede ser negativo',
+            'respuestas.*.precio_unitario.min' => 'El precio debe ser mayor a cero',
             'respuestas.*.cantidad_disponible.required' => 'La cantidad es obligatoria',
             'respuestas.*.cantidad_disponible.min' => 'La cantidad debe ser al menos 1',
             'respuestas.*.plazo_entrega_dias.required' => 'El plazo de entrega es obligatorio',

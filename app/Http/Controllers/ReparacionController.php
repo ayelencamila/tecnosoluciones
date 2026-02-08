@@ -347,10 +347,10 @@ class ReparacionController extends Controller
                 ->with('success', $mensaje);
 
         } catch (\DomainException $e) {
-            return back()->withErrors(['cobro' => $e->getMessage()]);
+            return back()->withErrors(['cobro' => $e->getMessage()])->withInput();
         } catch (\Exception $e) {
             Log::error("Error al cobrar reparación {$id}: " . $e->getMessage());
-            return back()->withErrors(['cobro' => 'Error inesperado al procesar el cobro.']);
+            return back()->withErrors(['cobro' => 'Error inesperado al procesar el cobro.'])->withInput();
         }
     }
 
@@ -367,7 +367,7 @@ class ReparacionController extends Controller
                 ->with('success', 'Reparación anulada y stock revertido.');
         } catch (\Exception $e) {
             Log::error("Error al anular reparación {$id}: " . $e->getMessage());
-            return back()->withErrors(['error' => $e->getMessage()]);
+            return back()->withErrors(['error' => $e->getMessage()])->withInput();
         }
     }
 }

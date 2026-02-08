@@ -1,26 +1,30 @@
 <script setup>
 /**
  * Vista: Arena de Comparación de Ofertas (CU-21)
- * Diseño: Tarjetas interactivas con ranking automático
+ * Diseño: Comparación producto por producto con ranking de proveedores
+ * 
+ * Muestra ganador POR PRODUCTO (precio + calificación),
+ * resumen de proveedores y tabla comparativa cruzada.
  * 
  * Flujo: Index → Show → Comparar → Ordenes/Show
  */
 import { ref, computed } from 'vue'
-import { Link, useForm, router } from '@inertiajs/vue3'
+import { Link, useForm } from '@inertiajs/vue3'
 import AppLayout from '@/Layouts/AppLayout.vue'
 import Modal from '@/Components/Modal.vue'
 
 const props = defineProps({
     solicitud: Object,
-    cotizaciones: Array, // Cotizaciones con respuestas (ordenadas por total)
-    productos: Array,    // Lista de productos solicitados
+    cotizaciones: Array,           // Cotizaciones con respuestas
+    productos: Array,              // Lista de productos solicitados
+    comparacionProductos: Array,   // Comparación producto por producto (del service)
+    resumenProveedores: Array,     // Resumen por proveedor con productos ganados
 })
 
 // --- Estado UI ---
 const cotizacionSeleccionada = ref(null)
-const mostrarDetalles = ref({}) // { cotizacionId: boolean }
 const mostrarModalElegir = ref(false)
-const mostrarTablaComparativa = ref(false)
+const vistaActiva = ref('productos') // 'productos' | 'proveedores' | 'tabla'
 
 // --- Formulario ---
 const formElegir = useForm({
@@ -28,34 +32,35 @@ const formElegir = useForm({
 })
 
 // --- Computed ---
+const totalProductos = computed(() => props.productos?.length || 0)
+
+const productosSinOferta = computed(() => {
+    return (props.comparacionProductos || []).filter(p => p.sin_ofertas).length
+})
+
+const proveedorMasGanador = computed(() => {
+    if (!props.resumenProveedores?.length) return null
+    return props.resumenProveedores[0] // Ya viene ordenado del backend
+})
+
+// Cotizaciones ordenadas por total (para la tabla cruzada)
 const cotizacionesOrdenadas = computed(() => {
     return [...(props.cotizaciones || [])].sort((a, b) => (a.total || 0) - (b.total || 0))
 })
 
-const mejorPrecio = computed(() => {
-    if (!cotizacionesOrdenadas.value.length) return null
-    return cotizacionesOrdenadas.value[0]
-})
-
-const diferenciaMaxima = computed(() => {
-    if (cotizacionesOrdenadas.value.length < 2) return 0
-    const min = cotizacionesOrdenadas.value[0]?.total || 0
-    const max = cotizacionesOrdenadas.value[cotizacionesOrdenadas.value.length - 1]?.total || 0
-    return max - min
-})
-
 // --- Métodos ---
-function toggleDetalles(cotizacionId) {
-    mostrarDetalles.value[cotizacionId] = !mostrarDetalles.value[cotizacionId]
-}
-
 function abrirModalElegir(cotizacion) {
-    cotizacionSeleccionada.value = cotizacion
+    // Puede recibir un objeto cotización o un resumen de proveedor
+    const cot = cotizacion.cotizacion_id 
+        ? props.cotizaciones?.find(c => c.id === cotizacion.cotizacion_id) || cotizacion
+        : cotizacion
+    cotizacionSeleccionada.value = cot
     mostrarModalElegir.value = true
 }
 
 function elegirGanador() {
-    formElegir.post(route('solicitudes-cotizacion.elegir-cotizacion', [props.solicitud.id, cotizacionSeleccionada.value.id]), {
+    const id = cotizacionSeleccionada.value?.id || cotizacionSeleccionada.value?.cotizacion_id
+    formElegir.post(route('solicitudes-cotizacion.elegir-cotizacion', [props.solicitud.id, id]), {
         onSuccess: () => {
             mostrarModalElegir.value = false
             cotizacionSeleccionada.value = null
@@ -63,33 +68,13 @@ function elegirGanador() {
     })
 }
 
-function getPosicion(cotizacion) {
-    return cotizacionesOrdenadas.value.findIndex(c => c.id === cotizacion.id) + 1
-}
-
-function esMejorPrecio(cotizacion) {
-    return mejorPrecio.value?.id === cotizacion.id
-}
-
-function getPorcentajeDiferencia(cotizacion) {
-    if (!mejorPrecio.value || !cotizacion.total) return 0
-    const diff = cotizacion.total - mejorPrecio.value.total
-    return mejorPrecio.value.total > 0 ? Math.round((diff / mejorPrecio.value.total) * 100) : 0
-}
-
 function getMejorPrecioProducto(productoId) {
-    let mejor = null
-    let mejorPrecio = Infinity
-    
-    cotizacionesOrdenadas.value.forEach(cot => {
-        const respuesta = cot.respuestas?.find(r => r.producto_id === productoId)
-        if (respuesta && respuesta.precio_unitario < mejorPrecio) {
-            mejorPrecio = respuesta.precio_unitario
-            mejor = cot.id
-        }
-    })
-    
-    return mejor
+    const comp = props.comparacionProductos?.find(p => p.producto_id === productoId)
+    return comp?.mejor_cotizacion_id || null
+}
+
+function getEstrellas(calificacion) {
+    return Math.round(parseFloat(calificacion) || 0)
 }
 
 // --- Helpers Visuales ---
@@ -125,7 +110,7 @@ function getInitials(name) {
                         </span>
                     </div>
                     <p class="text-sm text-gray-500 mt-0.5">
-                        {{ cotizaciones?.length || 0 }} ofertas recibidas
+                        {{ cotizaciones?.length || 0 }} ofertas · {{ totalProductos }} productos solicitados
                     </p>
                 </div>
             </div>
@@ -133,238 +118,358 @@ function getInitials(name) {
 
         <div class="py-8 bg-gray-100 min-h-screen">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                
-                <!-- Info: Diferencia de precios -->
-                <div v-if="diferenciaMaxima > 0" class="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
-                    <div class="p-2 bg-blue-100 rounded-lg">
-                        <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                        </svg>
+
+                <!-- Resumen rápido -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                    <div class="bg-white rounded-xl p-4 border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider">Ofertas recibidas</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ cotizaciones?.length || 0 }}</p>
                     </div>
-                    <p class="text-sm text-blue-800">
-                        <strong>Diferencia de precios:</strong> {{ formatCurrency(diferenciaMaxima) }} entre la oferta más económica y la más cara.
-                    </p>
+                    <div class="bg-white rounded-xl p-4 border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider">Productos solicitados</p>
+                        <p class="text-2xl font-bold text-gray-900 mt-1">{{ totalProductos }}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-gray-200">
+                        <p class="text-xs text-gray-500 uppercase tracking-wider">Sin ofertas</p>
+                        <p class="text-2xl font-bold mt-1" :class="productosSinOferta > 0 ? 'text-red-600' : 'text-emerald-600'">{{ productosSinOferta }}</p>
+                    </div>
+                    <div class="bg-white rounded-xl p-4 border border-emerald-200 bg-emerald-50" v-if="proveedorMasGanador">
+                        <p class="text-xs text-emerald-700 uppercase tracking-wider">Mejor proveedor</p>
+                        <p class="text-lg font-bold text-emerald-800 mt-1 truncate">{{ proveedorMasGanador.proveedor?.razon_social }}</p>
+                        <p class="text-xs text-emerald-600">{{ proveedorMasGanador.productos_ganados }} de {{ totalProductos }} productos ganados</p>
+                    </div>
                 </div>
 
-                <!-- Grid de Tarjetas -->
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <div 
-                        v-for="cotizacion in cotizacionesOrdenadas" 
-                        :key="cotizacion.id"
-                        class="relative bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg"
-                        :class="esMejorPrecio(cotizacion) ? 'border-emerald-400 ring-2 ring-emerald-100' : 'border-gray-200 hover:border-gray-300'"
+                <!-- Tabs de navegación -->
+                <div class="bg-white rounded-t-xl border border-gray-200 border-b-0 px-2 pt-2 flex gap-1">
+                    <button 
+                        @click="vistaActiva = 'productos'"
+                        class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors"
+                        :class="vistaActiva === 'productos' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
                     >
-                        <!-- Badge: Mejor Precio -->
-                        <div v-if="esMejorPrecio(cotizacion)" class="absolute top-0 left-0 right-0">
-                            <div class="bg-emerald-500 text-white text-xs font-bold py-1.5 px-3 flex items-center justify-center gap-1.5">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
-                                </svg>
-                                MEJOR PRECIO
-                            </div>
-                        </div>
+                        Por Producto
+                    </button>
+                    <button 
+                        @click="vistaActiva = 'proveedores'"
+                        class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors"
+                        :class="vistaActiva === 'proveedores' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
+                    >
+                        Por Proveedor
+                    </button>
+                    <button 
+                        @click="vistaActiva = 'tabla'"
+                        class="px-4 py-2.5 text-sm font-medium rounded-t-lg transition-colors"
+                        :class="vistaActiva === 'tabla' ? 'bg-indigo-50 text-indigo-700 border-b-2 border-indigo-600' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'"
+                    >
+                        Tabla Cruzada
+                    </button>
+                </div>
 
-                        <!-- Contenido de la Tarjeta -->
-                        <div :class="esMejorPrecio(cotizacion) ? 'pt-10' : 'pt-6'" class="px-6 pb-6">
-                            
-                            <!-- Encabezado: Proveedor -->
-                            <div class="flex items-start gap-4 mb-5">
-                                <!-- Avatar/Logo -->
-                                <div class="h-14 w-14 flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center shadow-inner">
-                                    <span class="text-lg font-bold text-gray-500">{{ getInitials(cotizacion.proveedor?.razon_social) }}</span>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <h3 class="font-bold text-gray-900 truncate">{{ cotizacion.proveedor?.razon_social }}</h3>
-                                    <!-- Rating placeholder -->
-                                    <div class="flex items-center gap-1 mt-1">
-                                        <div class="flex">
-                                            <svg v-for="i in 5" :key="i" class="w-3.5 h-3.5" :class="i <= 4 ? 'text-amber-400' : 'text-gray-300'" fill="currentColor" viewBox="0 0 20 20">
-                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
-                                            </svg>
-                                        </div>
-                                        <span class="text-xs text-gray-500">(histórico)</span>
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- VISTA 1: COMPARACIÓN POR PRODUCTO (principal)      -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div v-if="vistaActiva === 'productos'" class="bg-white rounded-b-xl rounded-tr-xl border border-gray-200 p-6">
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-900">Comparación producto por producto</h3>
+                        <p class="text-sm text-gray-500">Para cada producto se muestra el ganador por mejor precio. A igual precio, gana el proveedor con mejor calificación.</p>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div 
+                            v-for="(comp, idx) in comparacionProductos" 
+                            :key="comp.producto_id"
+                            class="border rounded-xl overflow-hidden"
+                            :class="comp.sin_ofertas ? 'border-red-200 bg-red-50' : 'border-gray-200'"
+                        >
+                            <!-- Cabecera producto -->
+                            <div class="px-5 py-3 flex items-center justify-between" :class="comp.sin_ofertas ? 'bg-red-100' : 'bg-gray-50'">
+                                <div class="flex items-center gap-3">
+                                    <span class="flex items-center justify-center w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold">
+                                        {{ idx + 1 }}
+                                    </span>
+                                    <div>
+                                        <h4 class="font-semibold text-gray-900">{{ comp.producto_nombre }}</h4>
+                                        <span v-if="comp.producto_codigo" class="text-xs text-gray-500 font-mono">{{ comp.producto_codigo }}</span>
                                     </div>
                                 </div>
-                                <!-- Posición -->
-                                <div 
-                                    class="h-8 w-8 flex items-center justify-center rounded-full text-sm font-bold"
-                                    :class="esMejorPrecio(cotizacion) ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'"
-                                >
-                                    #{{ getPosicion(cotizacion) }}
-                                </div>
-                            </div>
-
-                            <!-- Precio Total -->
-                            <div class="bg-gray-50 rounded-xl p-4 mb-4">
-                                <p class="text-xs text-gray-500 uppercase tracking-wider mb-1">Total Cotizado</p>
-                                <div class="flex items-baseline gap-2">
-                                    <span class="text-3xl font-bold" :class="esMejorPrecio(cotizacion) ? 'text-emerald-600' : 'text-gray-900'">
-                                        {{ formatCurrency(cotizacion.total) }}
+                                <div class="flex items-center gap-3 text-sm">
+                                    <span class="text-gray-500">
+                                        Cantidad solicitada: <strong>{{ comp.cantidad_solicitada }}</strong>
                                     </span>
-                                    <span v-if="!esMejorPrecio(cotizacion) && getPorcentajeDiferencia(cotizacion) > 0" class="text-sm text-red-500 font-medium">
-                                        +{{ getPorcentajeDiferencia(cotizacion) }}%
+                                    <span 
+                                        class="px-2 py-0.5 rounded-full text-xs font-medium"
+                                        :class="comp.sin_ofertas ? 'bg-red-200 text-red-800' : 'bg-emerald-100 text-emerald-800'"
+                                    >
+                                        {{ comp.total_ofertas }} {{ comp.total_ofertas === 1 ? 'oferta' : 'ofertas' }}
                                     </span>
                                 </div>
                             </div>
 
-                            <!-- Info Adicional -->
-                            <div class="grid grid-cols-2 gap-3 mb-5">
-                                <div class="flex items-center gap-2 text-sm text-gray-600">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                                    </svg>
-                                    <span>{{ cotizacion.tiempo_entrega || '?' }} días</span>
-                                </div>
-                                <div class="flex items-center gap-2 text-sm text-gray-600">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                    </svg>
-                                    <span>Válido {{ cotizacion.validez_dias || '?' }}d</span>
-                                </div>
-                                <div class="flex items-center gap-2 text-sm text-gray-600">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/>
-                                    </svg>
-                                    <span>{{ cotizacion.condicion_pago || 'Contado' }}</span>
-                                </div>
-                                <div class="flex items-center gap-2 text-sm text-gray-600">
-                                    <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                                    </svg>
-                                    <span>{{ cotizacion.respuestas?.length || 0 }} productos</span>
-                                </div>
+                            <!-- Sin ofertas -->
+                            <div v-if="comp.sin_ofertas" class="px-5 py-4 text-center">
+                                <p class="text-sm text-red-600 font-medium">Ningún proveedor cotizó este producto</p>
                             </div>
 
-                            <!-- Botón Ver Detalle -->
-                            <button 
-                                @click="toggleDetalles(cotizacion.id)"
-                                class="w-full flex items-center justify-between px-4 py-2.5 bg-gray-100 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200 transition-colors mb-4"
-                            >
-                                <span>Ver detalle de precios</span>
-                                <svg 
-                                    class="w-4 h-4 transition-transform duration-200" 
-                                    :class="mostrarDetalles[cotizacion.id] ? 'rotate-180' : ''"
-                                    fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                                >
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                                </svg>
-                            </button>
-
-                            <!-- Detalle Expandible -->
-                            <div v-if="mostrarDetalles[cotizacion.id]" class="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+                            <!-- Tabla de ofertas -->
+                            <div v-else class="overflow-x-auto">
                                 <table class="w-full text-sm">
-                                    <thead class="bg-gray-50">
+                                    <thead class="bg-gray-50/50">
                                         <tr>
-                                            <th class="px-3 py-2 text-left text-xs font-medium text-gray-500">Producto</th>
-                                            <th class="px-3 py-2 text-right text-xs font-medium text-gray-500">Precio</th>
+                                            <th class="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase w-10"></th>
+                                            <th class="px-5 py-2 text-left text-xs font-medium text-gray-500 uppercase">Proveedor</th>
+                                            <th class="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">Calificación</th>
+                                            <th class="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">Precio Unit.</th>
+                                            <th class="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">Cantidad</th>
+                                            <th class="px-5 py-2 text-center text-xs font-medium text-gray-500 uppercase">Plazo</th>
+                                            <th class="px-5 py-2 text-right text-xs font-medium text-gray-500 uppercase">Subtotal</th>
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-gray-100">
-                                        <tr v-for="respuesta in cotizacion.respuestas" :key="respuesta.id" class="hover:bg-gray-50">
-                                            <td class="px-3 py-2 text-gray-900">
-                                                {{ respuesta.producto?.nombre || `Producto #${respuesta.producto_id}` }}
+                                        <tr 
+                                            v-for="(oferta, oIdx) in comp.ofertas" 
+                                            :key="oferta.cotizacion_id"
+                                            :class="oferta.cotizacion_id === comp.mejor_cotizacion_id ? 'bg-emerald-50' : 'hover:bg-gray-50'"
+                                        >
+                                            <!-- Posición -->
+                                            <td class="px-5 py-2.5">
+                                                <span 
+                                                    class="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                                                    :class="oIdx === 0 ? 'bg-emerald-500 text-white' : 'bg-gray-200 text-gray-600'"
+                                                >
+                                                    {{ oIdx + 1 }}
+                                                </span>
                                             </td>
-                                            <td class="px-3 py-2 text-right font-medium" :class="getMejorPrecioProducto(respuesta.producto_id) === cotizacion.id ? 'text-emerald-600' : 'text-gray-900'">
-                                                {{ formatCurrency(respuesta.precio_unitario) }}
-                                                <svg v-if="getMejorPrecioProducto(respuesta.producto_id) === cotizacion.id" class="w-3.5 h-3.5 inline ml-1 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                                </svg>
+                                            <!-- Proveedor -->
+                                            <td class="px-5 py-2.5">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="font-medium text-gray-900">{{ oferta.proveedor }}</span>
+                                                    <svg v-if="oferta.cotizacion_id === comp.mejor_cotizacion_id" class="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                                                    </svg>
+                                                </div>
+                                            </td>
+                                            <!-- Calificación -->
+                                            <td class="px-5 py-2.5 text-center">
+                                                <div class="flex items-center justify-center gap-0.5">
+                                                    <svg v-for="i in 5" :key="i" class="w-3.5 h-3.5" :class="i <= getEstrellas(oferta.calificacion) ? 'text-amber-400' : 'text-gray-200'" fill="currentColor" viewBox="0 0 20 20">
+                                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                                    </svg>
+                                                    <span class="ml-1 text-xs text-gray-500">{{ parseFloat(oferta.calificacion || 0).toFixed(1) }}</span>
+                                                </div>
+                                            </td>
+                                            <!-- Precio -->
+                                            <td class="px-5 py-2.5 text-right font-semibold" :class="oIdx === 0 ? 'text-emerald-700' : 'text-gray-900'">
+                                                {{ formatCurrency(oferta.precio_unitario) }}
+                                            </td>
+                                            <!-- Cantidad -->
+                                            <td class="px-5 py-2.5 text-center text-gray-700">
+                                                {{ oferta.cantidad_disponible }}
+                                            </td>
+                                            <!-- Plazo -->
+                                            <td class="px-5 py-2.5 text-center text-gray-700">
+                                                {{ oferta.plazo_entrega_dias }} días
+                                            </td>
+                                            <!-- Subtotal -->
+                                            <td class="px-5 py-2.5 text-right font-semibold" :class="oIdx === 0 ? 'text-emerald-700' : 'text-gray-900'">
+                                                {{ formatCurrency(oferta.subtotal) }}
                                             </td>
                                         </tr>
                                     </tbody>
                                 </table>
                             </div>
-
-                            <!-- Botón Elegir -->
-                            <button 
-                                @click="abrirModalElegir(cotizacion)"
-                                class="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all duration-200"
-                                :class="esMejorPrecio(cotizacion) 
-                                    ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200' 
-                                    : 'bg-gray-900 text-white hover:bg-gray-800'"
-                            >
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
-                                </svg>
-                                {{ esMejorPrecio(cotizacion) ? 'Elegir Ganador' : 'Elegir esta oferta' }}
-                            </button>
                         </div>
                     </div>
                 </div>
 
-                <!-- Tabla Comparativa Colapsable -->
-                <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-                    <button 
-                        @click="mostrarTablaComparativa = !mostrarTablaComparativa"
-                        class="w-full px-6 py-4 flex items-center justify-between bg-gray-50 hover:bg-gray-100 transition-colors"
-                    >
-                        <div class="flex items-center gap-3">
-                            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
-                            </svg>
-                            <span class="font-semibold text-gray-900">Tabla Comparativa Detallada</span>
-                        </div>
-                        <svg 
-                            class="w-5 h-5 text-gray-400 transition-transform duration-200" 
-                            :class="mostrarTablaComparativa ? 'rotate-180' : ''"
-                            fill="none" stroke="currentColor" viewBox="0 0 24 24"
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- VISTA 2: RESUMEN POR PROVEEDOR (tarjetas)          -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div v-if="vistaActiva === 'proveedores'" class="bg-white rounded-b-xl rounded-tr-xl border border-gray-200 p-6">
+                    <div class="mb-4">
+                        <h3 class="font-semibold text-gray-900">Resumen por proveedor</h3>
+                        <p class="text-sm text-gray-500">Ordenados por cantidad de productos con mejor oferta, luego por calificación.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <div 
+                            v-for="(prov, pIdx) in resumenProveedores" 
+                            :key="prov.cotizacion_id"
+                            class="relative bg-white rounded-2xl border-2 shadow-sm overflow-hidden transition-all duration-300 hover:shadow-lg"
+                            :class="pIdx === 0 ? 'border-emerald-400 ring-2 ring-emerald-100' : 'border-gray-200 hover:border-gray-300'"
                         >
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-                        </svg>
-                    </button>
+                            <!-- Badge: Mejor proveedor -->
+                            <div v-if="pIdx === 0" class="bg-emerald-500 text-white text-xs font-bold py-1.5 px-3 flex items-center justify-center gap-1.5">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                                </svg>
+                                MEJOR PROVEEDOR
+                            </div>
+
+                            <div class="px-6 pb-6" :class="pIdx === 0 ? 'pt-4' : 'pt-6'">
+                                <!-- Encabezado -->
+                                <div class="flex items-start gap-4 mb-4">
+                                    <div class="h-12 w-12 flex-shrink-0 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center shadow-inner">
+                                        <span class="text-sm font-bold text-gray-500">{{ getInitials(prov.proveedor?.razon_social) }}</span>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <h3 class="font-bold text-gray-900 truncate">{{ prov.proveedor?.razon_social }}</h3>
+                                        <div class="flex items-center gap-1 mt-0.5">
+                                            <svg v-for="i in 5" :key="i" class="w-3.5 h-3.5" :class="i <= getEstrellas(prov.calificacion) ? 'text-amber-400' : 'text-gray-200'" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                            </svg>
+                                            <span class="text-xs text-gray-500 ml-0.5">{{ parseFloat(prov.calificacion || 0).toFixed(1) }}</span>
+                                        </div>
+                                    </div>
+                                    <span 
+                                        class="h-8 w-8 flex items-center justify-center rounded-full text-sm font-bold"
+                                        :class="pIdx === 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'"
+                                    >
+                                        #{{ pIdx + 1 }}
+                                    </span>
+                                </div>
+
+                                <!-- Métricas -->
+                                <div class="grid grid-cols-2 gap-3 mb-4">
+                                    <div class="bg-emerald-50 rounded-lg p-3 text-center">
+                                        <p class="text-xs text-emerald-600 font-medium">Productos ganados</p>
+                                        <p class="text-2xl font-bold text-emerald-700">{{ prov.productos_ganados }}</p>
+                                        <p class="text-xs text-emerald-600">de {{ prov.productos_requeridos }}</p>
+                                    </div>
+                                    <div class="bg-gray-50 rounded-lg p-3 text-center">
+                                        <p class="text-xs text-gray-500 font-medium">Productos cotizados</p>
+                                        <p class="text-2xl font-bold text-gray-900">{{ prov.productos_cotizados }}</p>
+                                        <p class="text-xs text-gray-500">de {{ prov.productos_requeridos }}</p>
+                                    </div>
+                                </div>
+
+                                <!-- Total y plazo -->
+                                <div class="bg-gray-50 rounded-xl p-4 mb-4">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <p class="text-xs text-gray-500 uppercase tracking-wider">Total cotizado</p>
+                                            <p class="text-xl font-bold" :class="pIdx === 0 ? 'text-emerald-600' : 'text-gray-900'">
+                                                {{ formatCurrency(prov.total_cotizado) }}
+                                            </p>
+                                        </div>
+                                        <div class="text-right">
+                                            <p class="text-xs text-gray-500 uppercase tracking-wider">Plazo máx.</p>
+                                            <p class="text-lg font-semibold text-gray-700">{{ prov.plazo_maximo || '?' }} días</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Barra de cobertura -->
+                                <div class="mb-4">
+                                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                                        <span>Cobertura de productos</span>
+                                        <span>{{ Math.round((prov.productos_cotizados / prov.productos_requeridos) * 100) }}%</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div 
+                                            class="h-2 rounded-full transition-all duration-500"
+                                            :class="prov.productos_cotizados >= prov.productos_requeridos ? 'bg-emerald-500' : 'bg-amber-500'"
+                                            :style="{ width: Math.min(100, (prov.productos_cotizados / prov.productos_requeridos) * 100) + '%' }"
+                                        ></div>
+                                    </div>
+                                </div>
+
+                                <!-- Botón Elegir -->
+                                <button 
+                                    @click="abrirModalElegir(prov)"
+                                    class="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-semibold transition-all duration-200"
+                                    :class="pIdx === 0 
+                                        ? 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-200' 
+                                        : 'bg-gray-900 text-white hover:bg-gray-800'"
+                                >
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/>
+                                    </svg>
+                                    {{ pIdx === 0 ? 'Elegir Ganador' : 'Elegir esta oferta' }}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+                <!-- ═══════════════════════════════════════════════════ -->
+                <!-- VISTA 3: TABLA COMPARATIVA CRUZADA                 -->
+                <!-- ═══════════════════════════════════════════════════ -->
+                <div v-if="vistaActiva === 'tabla'" class="bg-white rounded-b-xl rounded-tr-xl border border-gray-200 overflow-hidden">
+                    <div class="px-6 py-4 border-b border-gray-200">
+                        <h3 class="font-semibold text-gray-900">Tabla comparativa cruzada</h3>
+                        <p class="text-sm text-gray-500">Productos × Proveedores. El mejor precio por producto se resalta en verde.</p>
+                    </div>
                     
-                    <div v-if="mostrarTablaComparativa" class="overflow-x-auto">
+                    <div class="overflow-x-auto">
                         <table class="w-full">
-                            <thead class="bg-gray-50 border-t border-gray-200">
+                            <thead class="bg-gray-50 border-b border-gray-200">
                                 <tr>
-                                    <th class="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50">
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider sticky left-0 bg-gray-50 z-10 min-w-[180px]">
                                         Producto
+                                    </th>
+                                    <th class="px-5 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-20">
+                                        Cant.
                                     </th>
                                     <th 
                                         v-for="cot in cotizacionesOrdenadas" 
                                         :key="cot.id"
-                                        class="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider"
-                                        :class="esMejorPrecio(cot) ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500'"
+                                        class="px-5 py-3 text-center text-xs font-semibold uppercase tracking-wider min-w-[140px]"
+                                        :class="resumenProveedores?.[0]?.cotizacion_id === cot.id ? 'text-emerald-700 bg-emerald-50' : 'text-gray-500'"
                                     >
-                                        {{ cot.proveedor?.razon_social?.substring(0, 15) }}
-                                        <span v-if="esMejorPrecio(cot)" class="block text-emerald-600 text-[10px] font-bold">MEJOR</span>
+                                        <div class="truncate">{{ cot.proveedor?.razon_social?.substring(0, 18) }}</div>
+                                        <div class="flex items-center justify-center gap-0.5 mt-1">
+                                            <svg v-for="i in 5" :key="i" class="w-2.5 h-2.5" :class="i <= getEstrellas(cot.calificacion) ? 'text-amber-400' : 'text-gray-200'" fill="currentColor" viewBox="0 0 20 20">
+                                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                                            </svg>
+                                        </div>
+                                        <div class="text-[10px] mt-0.5">
+                                            {{ cot.productos_count || cot.respuestas?.length || 0 }}/{{ totalProductos }} prod.
+                                        </div>
                                     </th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100">
                                 <tr v-for="producto in productos" :key="producto.id" class="hover:bg-gray-50">
-                                    <td class="px-6 py-3 text-sm text-gray-900 sticky left-0 bg-white">
+                                    <td class="px-5 py-3 text-sm text-gray-900 sticky left-0 bg-white font-medium z-10">
                                         {{ producto.nombre }}
+                                    </td>
+                                    <td class="px-5 py-3 text-sm text-gray-500">
+                                        {{ producto.cantidad }}
                                     </td>
                                     <td 
                                         v-for="cot in cotizacionesOrdenadas" 
                                         :key="cot.id"
-                                        class="px-6 py-3 text-center"
-                                        :class="esMejorPrecio(cot) ? 'bg-emerald-50/50' : ''"
+                                        class="px-5 py-3 text-center"
                                     >
-                                        <span 
-                                            v-if="cot.respuestas?.find(r => r.producto_id === producto.id)"
-                                            class="text-sm font-medium"
-                                            :class="getMejorPrecioProducto(producto.id) === cot.id ? 'text-emerald-600 font-bold' : 'text-gray-700'"
-                                        >
-                                            {{ formatCurrency(cot.respuestas.find(r => r.producto_id === producto.id)?.precio_unitario) }}
+                                        <template v-if="cot.respuestas?.find(r => r.producto_id === producto.id)">
+                                            <span 
+                                                class="text-sm font-medium"
+                                                :class="getMejorPrecioProducto(producto.id) === cot.id ? 'text-emerald-600 font-bold' : 'text-gray-700'"
+                                            >
+                                                {{ formatCurrency(cot.respuestas.find(r => r.producto_id === producto.id)?.precio_unitario) }}
+                                            </span>
                                             <svg v-if="getMejorPrecioProducto(producto.id) === cot.id" class="w-3.5 h-3.5 inline ml-0.5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                             </svg>
-                                        </span>
-                                        <span v-else class="text-sm text-gray-400">-</span>
+                                            <div class="text-[10px] text-gray-400 mt-0.5">
+                                                {{ cot.respuestas.find(r => r.producto_id === producto.id)?.plazo_entrega_dias }}d
+                                            </div>
+                                        </template>
+                                        <span v-else class="text-sm text-gray-300 italic">No cotizó</span>
                                     </td>
                                 </tr>
                                 <!-- Fila Total -->
-                                <tr class="bg-gray-50 font-bold">
-                                    <td class="px-6 py-4 text-sm text-gray-900 sticky left-0 bg-gray-50">
+                                <tr class="bg-gray-50 font-bold border-t-2 border-gray-300">
+                                    <td class="px-5 py-4 text-sm text-gray-900 sticky left-0 bg-gray-50 z-10" colspan="2">
                                         TOTAL
                                     </td>
                                     <td 
                                         v-for="cot in cotizacionesOrdenadas" 
                                         :key="cot.id"
-                                        class="px-6 py-4 text-center text-base"
-                                        :class="esMejorPrecio(cot) ? 'text-emerald-700 bg-emerald-100' : 'text-gray-900'"
+                                        class="px-5 py-4 text-center text-base"
+                                        :class="resumenProveedores?.[0]?.cotizacion_id === cot.id ? 'text-emerald-700 bg-emerald-100' : 'text-gray-900'"
                                     >
                                         {{ formatCurrency(cot.total) }}
                                     </td>
@@ -373,6 +478,7 @@ function getInitials(name) {
                         </table>
                     </div>
                 </div>
+
 
                 <!-- Empty State -->
                 <div v-if="!cotizaciones?.length" class="text-center py-16">
@@ -413,7 +519,7 @@ function getInitials(name) {
                     <p class="text-lg font-bold text-gray-900">{{ cotizacionSeleccionada?.proveedor?.razon_social }}</p>
                     <div class="mt-3 pt-3 border-t border-gray-200">
                         <p class="text-sm text-gray-500 mb-1">Total de la oferta</p>
-                        <p class="text-2xl font-bold text-emerald-600">{{ formatCurrency(cotizacionSeleccionada?.total) }}</p>
+                        <p class="text-2xl font-bold text-emerald-600">{{ formatCurrency(cotizacionSeleccionada?.total || cotizacionSeleccionada?.total_cotizado) }}</p>
                     </div>
                 </div>
 

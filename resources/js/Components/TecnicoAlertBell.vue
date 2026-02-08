@@ -61,6 +61,21 @@ const timeAgo = (dateString) => {
     return date.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
 };
 
+// Detectar si un error indica sesión expirada (no solo CSRF)
+const isSessionExpired = (error) => {
+    const status = error.response?.status;
+    // 401 = no autenticado, 419 = CSRF (ya reintentado por interceptor, si llega acá falló)
+    return status === 401 || status === 419;
+};
+
+// Detener polling si la sesión expiró
+const stopPollingOnExpiry = (error) => {
+    if (isSessionExpired(error) && refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
+    }
+};
+
 // Cargar alertas del técnico
 const loadAlertas = async () => {
     if (!isAuthenticated.value) return;
@@ -71,7 +86,7 @@ const loadAlertas = async () => {
         alertas.value = response.data;
     } catch (error) {
         console.error('Error cargando alertas:', error);
-        alertas.value = [];
+        stopPollingOnExpiry(error);
     } finally {
         loading.value = false;
     }
@@ -85,6 +100,7 @@ const marcarLeida = async (alerta, event) => {
         alerta.leida = true;
     } catch (error) {
         console.error('Error marcando alerta como leída:', error);
+        stopPollingOnExpiry(error);
     }
 };
 
@@ -95,6 +111,7 @@ const marcarTodasLeidas = async () => {
         alertas.value.forEach(a => { a.leida = true; });
     } catch (error) {
         console.error('Error marcando todas como leídas:', error);
+        stopPollingOnExpiry(error);
     }
 };
 
@@ -130,10 +147,10 @@ const handleClickOutside = (event) => {
 
 let refreshInterval = null;
 
-// Cargar al montar y cada 30 segundos
+// Cargar al montar y cada 60 segundos
 onMounted(() => {
     loadAlertas();
-    refreshInterval = setInterval(loadAlertas, 30000);
+    refreshInterval = setInterval(loadAlertas, 60000);
     document.addEventListener('click', handleClickOutside);
 });
 

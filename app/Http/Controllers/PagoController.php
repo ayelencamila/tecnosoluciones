@@ -157,7 +157,7 @@ class PagoController extends Controller
 
         } catch (Exception $e) {
             Log::error("Error al registrar pago: " . $e->getMessage());
-            return back()->withErrors(['message' => 'Error inesperado al registrar el pago. Contacte a soporte.']);
+            return back()->withErrors(['message' => 'Error inesperado al registrar el pago. Contacte a soporte.'])->withInput();
         }
     }
 

@@ -94,7 +94,7 @@ class VentaController extends Controller
                 ->get(),
             
             'productos' => Producto::where('estadoProductoID', 1)
-                ->with(['categoria', 'precios'])
+                ->with(['categoria', 'precios' => fn($q) => $q->whereNull('fechaHasta')->with('tipoCliente')])
                 ->get()
                 ->map(function($p) {
                     $p->setAttribute('stock_total', $p->stock_total); 
@@ -124,12 +124,12 @@ class VentaController extends Controller
                 ->with('success', 'Venta registrada exitosamente.');
 
         } catch (SinStockException $e) {
-            return back()->withErrors(['items' => $e->getMessage()]);
+            return back()->withErrors(['items' => $e->getMessage()])->withInput();
         } catch (LimiteCreditoExcedidoException $e) {
-            return back()->withErrors(['medio_pago_id' => $e->getMessage()]);
+            return back()->withErrors(['medio_pago_id' => $e->getMessage()])->withInput();
         } catch (\Exception $e) {
             Log::error("Error al registrar venta: " . $e->getMessage());
-            return back()->withErrors(['error' => 'Ocurrió un error inesperado: ' . $e->getMessage()]);
+            return back()->withErrors(['error' => 'Ocurrió un error inesperado: ' . $e->getMessage()])->withInput();
         }
     }
 

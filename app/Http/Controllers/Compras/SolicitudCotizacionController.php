@@ -91,8 +91,9 @@ class SolicitudCotizacionController extends Controller
      */
     public function create(): Response
     {
-        // Obtener productos y proveedores para selectores
+        // Obtener productos y proveedores para selectores (solo productos con stock, no servicios)
         $productos = Producto::with(['categoria', 'stocks'])
+            ->where('es_servicio', false)
             ->whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))
             ->get()
             ->map(function ($producto) {
@@ -262,16 +263,23 @@ class SolicitudCotizacionController extends Controller
                     ? (int) max(0, now()->diffInDays($solicitud->fecha_vencimiento, false))
                     : null;
                 
+                $productosRequeridos = $solicitud->detalles->count();
+                $productosCotizados = $cotizacion->respuestas->count();
+                
                 return [
                     'id' => $cotizacion->id,
                     'proveedor' => $cotizacion->proveedor,
+                    'calificacion' => $cotizacion->proveedor->calificacion ?? 0,
                     'total' => $cotizacion->total_estimado ?: $total,
                     'tiempo_entrega' => $tiempoEntrega,
                     'validez_dias' => $validezDias,
-                    'condicion_pago' => 'Contado', // Por defecto, se puede extender el modelo si se necesita
+                    'condicion_pago' => 'Contado',
                     'fecha_respuesta' => $cotizacion->fecha_respuesta,
                     'respuestas' => $cotizacion->respuestas,
-                    'productos_count' => $cotizacion->respuestas->count(),
+                    'productos_count' => $productosCotizados,
+                    'productos_requeridos' => $productosRequeridos,
+                    'cotizo_completo' => $productosCotizados >= $productosRequeridos,
+                    'cobertura' => $productosRequeridos > 0 ? round(($productosCotizados / $productosRequeridos) * 100) : 0,
                 ];
             })
             ->sortBy('total')
@@ -285,10 +293,15 @@ class SolicitudCotizacionController extends Controller
             'cantidad' => $d->cantidad_sugerida,
         ]);
 
+        // Comparación producto por producto
+        $comparacion = $this->solicitudService->obtenerComparacionPorProducto($solicitud);
+
         return Inertia::render('Compras/SolicitudesCotizacion/Comparar', [
             'solicitud' => $solicitud->only(['id', 'codigo_solicitud', 'estado', 'fecha_vencimiento']),
             'cotizaciones' => $cotizaciones,
             'productos' => $productos,
+            'comparacionProductos' => $comparacion['comparacion_productos'],
+            'resumenProveedores' => $comparacion['resumen_proveedores'],
         ]);
     }
 
