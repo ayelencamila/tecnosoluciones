@@ -81,10 +81,22 @@ const getEstadoBadgeClass = (estado) => {
     return 'bg-gray-100 text-gray-800';
 };
 
-const getPrecioMinorista = (precios) => {
-    // Asumimos ID 2 = Minorista (ajustar si cambia)
-    const precio = precios.find(p => p.tipoClienteID === 2); 
-    return precio ? new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio.precio) : '-';
+const formatCurrency = (value) => {
+    if (value == null) return '-';
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+};
+
+const getPrecio = (precios, nombreTipo) => {
+    const precio = precios.find(p => {
+        const nombre = p.tipo_cliente?.nombreTipo?.toLowerCase() || '';
+        return nombre.includes(nombreTipo.toLowerCase());
+    });
+    return precio ? parseFloat(precio.precio) : null;
+};
+
+const getMargen = (costo, precioVenta) => {
+    if (!costo || !precioVenta || costo === 0) return null;
+    return ((precioVenta - costo) / costo * 100).toFixed(1);
 };
 
 const calcularStockTotal = (stocks) => {
@@ -164,7 +176,9 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                         Producto <span v-if="form.sort_column === 'nombre'">{{ form.sort_direction === 'asc' ? '↑' : '↓' }}</span>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Categoría</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Precio (Min)</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Costo</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Minorista</th>
+                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Mayorista</th>
                                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Stock</th>
                                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -186,8 +200,31 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                             Prov: {{ producto.proveedor_habitual.razon_social }}
                                         </div>
                                     </td>
-                                    <td class="px-6 py-4 text-right text-sm font-medium text-gray-900">
-                                        {{ getPrecioMinorista(producto.precios) }}
+                                    <td class="px-6 py-4 text-right text-sm">
+                                        <span v-if="producto.precio_costo" class="text-blue-700 font-medium">{{ formatCurrency(producto.precio_costo) }}</span>
+                                        <span v-else class="text-gray-400 text-xs">Sin definir</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right text-sm">
+                                        <template v-if="getPrecio(producto.precios, 'minorista') !== null">
+                                            <div class="font-medium text-gray-900">{{ formatCurrency(getPrecio(producto.precios, 'minorista')) }}</div>
+                                            <div v-if="producto.precio_costo" class="text-xs mt-0.5">
+                                                <span v-if="getMargen(producto.precio_costo, getPrecio(producto.precios, 'minorista')) < 0" class="text-red-600 font-bold" title="Margen negativo">{{ getMargen(producto.precio_costo, getPrecio(producto.precios, 'minorista')) }}%</span>
+                                                <span v-else-if="getMargen(producto.precio_costo, getPrecio(producto.precios, 'minorista')) < 15" class="text-amber-600 font-semibold" title="Margen bajo">{{ getMargen(producto.precio_costo, getPrecio(producto.precios, 'minorista')) }}%</span>
+                                                <span v-else class="text-green-600">{{ getMargen(producto.precio_costo, getPrecio(producto.precios, 'minorista')) }}%</span>
+                                            </div>
+                                        </template>
+                                        <span v-else class="text-gray-400">-</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right text-sm">
+                                        <template v-if="getPrecio(producto.precios, 'mayorista') !== null">
+                                            <div class="font-medium text-gray-900">{{ formatCurrency(getPrecio(producto.precios, 'mayorista')) }}</div>
+                                            <div v-if="producto.precio_costo" class="text-xs mt-0.5">
+                                                <span v-if="getMargen(producto.precio_costo, getPrecio(producto.precios, 'mayorista')) < 0" class="text-red-600 font-bold" title="Margen negativo">{{ getMargen(producto.precio_costo, getPrecio(producto.precios, 'mayorista')) }}%</span>
+                                                <span v-else-if="getMargen(producto.precio_costo, getPrecio(producto.precios, 'mayorista')) < 15" class="text-amber-600 font-semibold" title="Margen bajo">{{ getMargen(producto.precio_costo, getPrecio(producto.precios, 'mayorista')) }}%</span>
+                                                <span v-else class="text-green-600">{{ getMargen(producto.precio_costo, getPrecio(producto.precios, 'mayorista')) }}%</span>
+                                            </div>
+                                        </template>
+                                        <span v-else class="text-gray-400">-</span>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <template v-if="!producto.es_servicio">
@@ -217,7 +254,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                         </div>
                                     </td>
                                 </tr>
-                                <tr v-if="productos.data.length === 0"><td colspan="6" class="px-6 py-12 text-center text-gray-400">No se encontraron productos</td></tr>
+                                <tr v-if="productos.data.length === 0"><td colspan="8" class="px-6 py-12 text-center text-gray-400">No se encontraron productos</td></tr>
                             </tbody>
                         </table>
                     </div>

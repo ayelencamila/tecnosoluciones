@@ -5,6 +5,7 @@ import AppLayout from '@/Layouts/AppLayout.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import TextInput from '@/Components/TextInput.vue';
 import SelectInput from '@/Components/SelectInput.vue';
+import ConfigurableSelect from '@/Components/ConfigurableSelect.vue';
 import InputError from '@/Components/InputError.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
@@ -46,18 +47,41 @@ const form = useForm({
     estado_cuenta_corriente_id: props.cliente.cuenta_corriente?.estadoCuentaCorrienteID || '',
 });
 
-// --- COMPUTADAS PARA SELECTS (Igual que en Create) ---
+// --- LISTAS REACTIVAS PARA ConfigurableSelect ---
+const tiposClienteList = ref([...props.tiposCliente]);
+const estadosClienteList = ref([...props.estadosCliente]);
+
+// --- COMPUTADAS PARA SELECTS ---
 const provinciasOptions = computed(() => {
     return [{ value: '', label: 'Seleccione Provincia...' }, ...props.provincias.map(p => ({ value: p.provinciaID, label: p.nombre }))];
 });
 
 const tiposClienteOptions = computed(() => {
-    return [{ value: '', label: 'Seleccione Tipo...' }, ...props.tiposCliente.map(t => ({ value: t.tipoClienteID, label: t.nombreTipo }))];
+    return tiposClienteList.value.map(t => ({ value: t.tipoClienteID, label: t.nombreTipo }));
 });
 
 const estadosClienteOptions = computed(() => {
-    return props.estadosCliente.map(e => ({ value: e.estadoClienteID, label: e.nombreEstado }));
+    return estadosClienteList.value.map(e => ({ value: e.estadoClienteID, label: e.nombreEstado }));
 });
+
+// Refresh functions para ConfigurableSelect
+const refreshTiposCliente = async () => {
+    try {
+        const response = await axios.get(route('api.tipos-cliente.index'));
+        tiposClienteList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar tipos de cliente:', error);
+    }
+};
+
+const refreshEstadosCliente = async () => {
+    try {
+        const response = await axios.get(route('api.estados-cliente.index'));
+        estadosClienteList.value = response.data;
+    } catch (error) {
+        console.error('Error al refrescar estados de cliente:', error);
+    }
+};
 
 // Lógica de Localidades
 const localidades = ref([]);
@@ -71,7 +95,7 @@ const localidadesOptions = computed(() => {
 
 // Detectar si es Mayorista para mostrar campos de CC
 const esMayorista = computed(() => {
-    const tipo = props.tiposCliente?.find(t => t.tipoClienteID == form.tipo_cliente_id);
+    const tipo = tiposClienteList.value?.find(t => t.tipoClienteID == form.tipo_cliente_id);
     return tipo && tipo.nombreTipo.toLowerCase().includes('mayorista');
 });
 
@@ -114,12 +138,7 @@ const submit = () => {
 
     <AppLayout>
         <template #header>
-            <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">Modificar Cliente: {{ cliente.nombre }} {{ cliente.apellido }}</h2>
-                <Link :href="route('clientes.index')">
-                    <SecondaryButton>Cancelar</SecondaryButton>
-                </Link>
-            </div>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">Modificar Cliente: {{ cliente.nombre }} {{ cliente.apellido }}</h2>
         </template>
 
         <div class="py-12">
@@ -196,12 +215,29 @@ const submit = () => {
                         <h3 class="text-lg font-medium text-gray-900 mb-4 border-b pb-2">Configuración Comercial</h3>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                             <div>
-                                <InputLabel for="tipo_cliente_id">Tipo de Cliente <span class="text-red-600">*</span></InputLabel>
-                                <SelectInput id="tipo_cliente_id" v-model="form.tipo_cliente_id" :options="tiposClienteOptions" class="mt-1 block w-full" required />
+                                <ConfigurableSelect
+                                    id="tipo_cliente_id"
+                                    label="Tipo de Cliente"
+                                    v-model="form.tipo_cliente_id"
+                                    :options="tiposClienteOptions"
+                                    placeholder="Seleccione Tipo..."
+                                    :error="form.errors.tipo_cliente_id"
+                                    apiEndpoint="/api/tipos-cliente"
+                                    nameField="nombreTipo"
+                                    @refresh="refreshTiposCliente"
+                                />
                             </div>
                             <div>
-                                <InputLabel for="estado_cliente_id">Estado <span class="text-red-600">*</span></InputLabel>
-                                <SelectInput id="estado_cliente_id" v-model="form.estado_cliente_id" :options="estadosClienteOptions" class="mt-1 block w-full" required />
+                                <ConfigurableSelect
+                                    id="estado_cliente_id"
+                                    label="Estado"
+                                    v-model="form.estado_cliente_id"
+                                    :options="estadosClienteOptions"
+                                    :error="form.errors.estado_cliente_id"
+                                    apiEndpoint="/api/estados-cliente"
+                                    nameField="nombreEstado"
+                                    @refresh="refreshEstadosCliente"
+                                />
                             </div>
                         </div>
 
@@ -219,8 +255,11 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-end mt-4">
-                            <PrimaryButton class="ml-4" :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
+                        <div class="flex items-center justify-between mt-4 pt-4 border-t border-gray-200">
+                            <Link :href="route('clientes.show', cliente.clienteID)">
+                                <SecondaryButton type="button">Cancelar</SecondaryButton>
+                            </Link>
+                            <PrimaryButton :class="{ 'opacity-25': form.processing }" :disabled="form.processing">
                                 Guardar Cambios
                             </PrimaryButton>
                         </div>

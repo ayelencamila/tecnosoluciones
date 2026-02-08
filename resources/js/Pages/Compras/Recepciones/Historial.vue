@@ -88,24 +88,11 @@ const traducirPaginacion = (label) => {
     <AppLayout>
         <!-- HEADER -->
         <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                        Gestión de Compras
-                    </h2>
-                    <p class="text-sm font-medium text-indigo-800 dark:text-indigo-300 tracking-wide mt-1">
-                        Recepciones › Historial de Recepciones
-                    </p>
-                </div>
-                <Link 
-                    :href="route('recepciones.index')"
-                    class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-md transition-colors"
-                >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
-                    </svg>
-                    Volver a Recepcionar
-                </Link>
+            <div>
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                    Gestion de Compras
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">Recepciones de Mercaderia</p>
             </div>
         </template>
 
@@ -114,9 +101,27 @@ const traducirPaginacion = (label) => {
                 
                 <!-- Título y descripción -->
                 <div class="mb-6">
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-4">
-                        HISTORIAL DE RECEPCIONES DE MERCADERÍA
-                    </h1>
+                    <div class="flex items-center justify-between mb-4">
+                        <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                            HISTORIAL DE RECEPCIONES DE MERCADERIA
+                        </h1>
+                        <div class="flex items-center gap-2">
+                            <Link :href="route('recepciones.create-directo')" 
+                                  class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Recepcion Directa
+                            </Link>
+                            <Link :href="route('recepciones.index')" 
+                                  class="inline-flex items-center gap-2 px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-semibold rounded-lg transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                                </svg>
+                                Recepcionar OC
+                            </Link>
+                        </div>
+                    </div>
 
                     <!-- Tarjeta informativa -->
                     <div class="bg-gradient-to-r from-indigo-50 to-emerald-50 dark:from-indigo-900/20 dark:to-emerald-900/20 border border-indigo-200 dark:border-indigo-700 rounded-lg p-4">
@@ -128,10 +133,10 @@ const traducirPaginacion = (label) => {
                             </div>
                             <div class="flex-1">
                                 <p class="text-sm font-medium text-gray-900 dark:text-white">
-                                    Registro completo de todas las recepciones de mercadería realizadas.
+                                    Registro completo de todas las recepciones de mercaderia realizadas.
                                 </p>
                                 <p class="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                                    Use los filtros para buscar recepciones específicas por número, tipo o rango de fechas.
+                                    Use los filtros para buscar recepciones especificas por numero, tipo o rango de fechas.
                                 </p>
                             </div>
                         </div>
@@ -255,14 +260,21 @@ const traducirPaginacion = (label) => {
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         <Link 
+                                            v-if="recepcion.orden_compra_id"
                                             :href="route('ordenes.show', recepcion.orden_compra_id)"
                                             class="text-indigo-600 dark:text-indigo-400 hover:underline"
                                         >
                                             {{ recepcion.orden_compra?.numero_oc }}
                                         </Link>
+                                        <span v-else class="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+                                            </svg>
+                                            Compra directa
+                                        </span>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {{ recepcion.orden_compra?.proveedor?.razon_social || '-' }}
+                                        {{ recepcion.orden_compra?.proveedor?.razon_social || recepcion.proveedor?.razon_social || '-' }}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                                         {{ formatearFecha(recepcion.fecha_recepcion) }}

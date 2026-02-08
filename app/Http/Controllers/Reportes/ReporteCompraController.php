@@ -10,6 +10,7 @@ use App\Models\Proveedor;
 use App\Models\EstadoOrdenCompra;
 use App\Models\Auditoria;
 use App\Exports\CompraExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -123,13 +124,67 @@ class ReporteCompraController extends Controller
 
     public function exportar(Request $request)
     {
+        $formato = $request->input('formato', 'xlsx');
+        $timestamp = now()->format('Ymd_His');
+
         Auditoria::create([
             'accion' => 'EXPORTACION',
             'tablaAfectada' => 'reportes',
             'usuarioID' => Auth::id(),
-            'motivo' => 'Descarga Excel Compras'
+            'ip' => $request->ip(),
+            'motivo' => "Exportación {$formato} Compras"
         ]);
 
-        return Excel::download(new CompraExport($request->all()), 'reporte_compras.xlsx');
+        switch ($formato) {
+            case 'pdf':
+                $data = $this->getDataForPdf($request);
+                $pdf = Pdf::loadView('pdf.reportes.compras', $data)->setPaper('a4', 'landscape');
+                return $pdf->download("reporte_compras_{$timestamp}.pdf");
+
+            case 'csv':
+                return Excel::download(
+                    new CompraExport($request->all()),
+                    "reporte_compras_{$timestamp}.csv",
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+
+            default:
+                return Excel::download(
+                    new CompraExport($request->all()),
+                    "reporte_compras_{$timestamp}.xlsx"
+                );
+        }
+    }
+
+    private function getDataForPdf(Request $request): array
+    {
+        $fechaDesde = $request->input('fecha_desde', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $fechaHasta = $request->input('fecha_hasta', Carbon::now()->endOfMonth()->format('Y-m-d'));
+        $proveedorId = $request->input('proveedor_id');
+        $estadoId = $request->input('estado_id');
+
+        $query = OrdenCompra::with(['proveedor', 'estado', 'usuario'])
+            ->whereBetween('fecha_emision', [
+                Carbon::parse($fechaDesde)->startOfDay(),
+                Carbon::parse($fechaHasta)->endOfDay()
+            ]);
+
+        if ($proveedorId) $query->where('proveedor_id', $proveedorId);
+        if ($estadoId) $query->where('estado_id', $estadoId);
+
+        $ordenes = $query->latest('fecha_emision')->get();
+        $totalGastado = $ordenes->sum('total_final');
+        $cantidadOrdenes = $ordenes->count();
+        $ticketPromedio = $cantidadOrdenes > 0 ? $totalGastado / $cantidadOrdenes : 0;
+
+        return [
+            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y') . ' - ' . Carbon::parse($fechaHasta)->format('d/m/Y'),
+            'ordenes' => $ordenes,
+            'kpis' => [
+                'total_gastado' => $totalGastado,
+                'cantidad_ordenes' => $cantidadOrdenes,
+                'promedio_orden' => round($ticketPromedio, 2),
+            ],
+        ];
     }
 }

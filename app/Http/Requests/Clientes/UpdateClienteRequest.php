@@ -39,7 +39,7 @@ class UpdateClienteRequest extends FormRequest
                 'max:20',
                 Rule::unique('clientes', 'DNI')->ignore($clienteId, 'clienteID'), // Perfecto
             ],
-            'mail' => 'nullable|email|max:255',
+            'mail' => ['nullable', 'email', 'max:255', Rule::unique('clientes', 'mail')->ignore($clienteId, 'clienteID')],
             'whatsapp' => 'nullable|string|max:20', // <-- MEJORA: Sincronizado con Store (nullable)
             'telefono' => 'nullable|string|max:20',
 
@@ -75,6 +75,7 @@ class UpdateClienteRequest extends FormRequest
             'DNI.required' => 'El DNI es obligatorio.',
             'DNI.unique' => 'Ya existe otro cliente con este DNI.',
             'mail.email' => 'El formato del correo electrónico no es válido.',
+            'mail.unique' => 'Ya existe otro cliente registrado con este correo electrónico.',
             'calle.required' => 'La calle es obligatoria.',
             'altura.required' => 'La altura es obligatoria.',
             'codigoPostal.required' => 'El código postal es obligatorio.',

@@ -2,7 +2,7 @@
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Head, router } from '@inertiajs/vue3';
 import Pagination from '@/Components/Pagination.vue';
-import PrimaryButton from '@/Components/PrimaryButton.vue';
+import ExportDropdown from '@/Components/ExportDropdown.vue';
 import { ref, watch, onMounted, onUnmounted } from 'vue';
 import { Doughnut, Bar } from 'vue-chartjs'; 
 import { 
@@ -98,11 +98,6 @@ const limpiarProveedor = () => {
     proveedoresResultados.value = [];
 };
 
-const exportar = () => {
-    const params = new URLSearchParams(form.value).toString();
-    window.location.href = route('reportes.compras.exportar') + '?' + params;
-};
-
 // Observar cambios en los filtros
 watch(() => [form.value.fecha_desde, form.value.fecha_hasta, form.value.proveedor_id, form.value.estado_id], () => {
     router.get(route('reportes.compras'), form.value, {
@@ -149,7 +144,7 @@ const formatCurrency = (value) => {
                     <div class="bg-white p-6 rounded-lg shadow border-l-4 border-green-500">
                         <div class="text-gray-500 text-xs font-bold uppercase">Costo Promedio Orden</div>
                         <div class="text-3xl font-bold text-gray-800 mt-2">{{ formatCurrency(kpis.promedio_orden) }}</div>
-                        <div class="text-xs text-green-600 mt-1">Ticket medio proveedor</div>
+                        <div class="text-xs text-green-600 mt-1">Promedio por orden</div>
                     </div>
                 </div>
 
@@ -226,9 +221,10 @@ const formatCurrency = (value) => {
                             </select>
                         </div>
                         <div>
-                            <PrimaryButton @click="exportar" class="w-full justify-center h-10">
-                                Exportar
-                            </PrimaryButton>
+                            <ExportDropdown
+                                :exportUrl="route('reportes.compras.exportar')"
+                                :params="form"
+                            />
                         </div>
                     </div>
                 </div>
@@ -237,13 +233,48 @@ const formatCurrency = (value) => {
                     <div class="bg-white p-6 rounded-lg shadow">
                         <h3 class="font-bold text-gray-700 mb-4 text-center">Top Proveedores (Por Gasto)</h3>
                         <div class="h-64 relative">
-                            <Bar :data="graficos.proveedores" :options="{ responsive: true, maintainAspectRatio: false }" />
+                            <Bar :data="graficos.proveedores" :options="{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(0,0,0,0.8)',
+                                        padding: 12,
+                                        cornerRadius: 8,
+                                        callbacks: { label: (ctx) => '  ' + formatCurrency(ctx.raw) }
+                                    }
+                                },
+                                scales: {
+                                    y: { beginAtZero: true, grid: { color: 'rgba(0,0,0,0.04)' }, ticks: { callback: (v) => '$' + new Intl.NumberFormat('es-AR').format(v) } },
+                                    x: { grid: { display: false }, ticks: { font: { size: 10 }, maxRotation: 30 } }
+                                }
+                            }" />
                         </div>
                     </div>
                     <div class="bg-white p-6 rounded-lg shadow">
                         <h3 class="font-bold text-gray-700 mb-4 text-center">Estado de Órdenes</h3>
                         <div class="h-64 relative flex justify-center">
-                            <Doughnut :data="graficos.estados" :options="{ responsive: true, maintainAspectRatio: false }" />
+                            <Doughnut :data="graficos.estados" :options="{
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '55%',
+                                plugins: {
+                                    legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', padding: 14, font: { size: 12 } } },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(0,0,0,0.8)',
+                                        padding: 12,
+                                        cornerRadius: 8,
+                                        callbacks: {
+                                            label: (ctx) => {
+                                                const total = ctx.dataset.data.reduce((a, b) => a + Number(b), 0);
+                                                const pct = total > 0 ? ((ctx.raw / total) * 100).toFixed(1) : 0;
+                                                return `  ${ctx.label}: ${ctx.raw} (${pct}%)`;
+                                            }
+                                        }
+                                    }
+                                }
+                            }" />
                         </div>
                     </div>
                 </div>

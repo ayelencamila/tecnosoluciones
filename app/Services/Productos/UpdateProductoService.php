@@ -32,6 +32,7 @@ class UpdateProductoService
                 'categoriaProductoID' => $validatedData['categoriaProductoID'],
                 'estadoProductoID' => $validatedData['estadoProductoID'],
                 'proveedor_habitual_id' => $validatedData['proveedor_habitual_id'] ?? null,
+                'precio_costo' => $validatedData['precio_costo'] ?? $producto->precio_costo,
             ];
 
             // Manejar foto
@@ -66,21 +67,26 @@ class UpdateProductoService
                     ->first();
 
                  if ($precioVigente && (float)$precioVigente->precio != (float)$precioData['precio']) {
-                    $precioVigente->update(['fechaHasta' => $fechaActual]);
-                    PrecioProducto::create([
-                        'productoID' => $producto->id,
-                        'tipoClienteID' => $precioData['tipoClienteID'],
-                        'precio' => $precioData['precio'],
-                        'fechaDesde' => $fechaActual,
-                        'usuarioID' => $userID,
-                    ]);
+                    // Si el precio vigente fue creado HOY, actualizar directamente
+                    // para no violar el constraint unique(productoID, tipoClienteID, fechaDesde)
+                    if ($precioVigente->fechaDesde->toDateString() === $fechaActual) {
+                        $precioVigente->update(['precio' => $precioData['precio']]);
+                    } else {
+                        // Cerrar el precio anterior y crear uno nuevo
+                        $precioVigente->update(['fechaHasta' => $fechaActual]);
+                        PrecioProducto::create([
+                            'productoID' => $producto->id,
+                            'tipoClienteID' => $precioData['tipoClienteID'],
+                            'precio' => $precioData['precio'],
+                            'fechaDesde' => $fechaActual,
+                        ]);
+                    }
                  } elseif (!$precioVigente) {
                     PrecioProducto::create([
                         'productoID' => $producto->id,
                         'tipoClienteID' => $precioData['tipoClienteID'],
                         'precio' => $precioData['precio'],
                         'fechaDesde' => $fechaActual,
-                        'usuarioID' => $userID,
                     ]);
                  }
             }

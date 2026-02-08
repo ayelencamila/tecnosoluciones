@@ -14,7 +14,6 @@ use Illuminate\Support\Facades\Cache;
  * - Cache: Optimización para evitar queries repetitivas
  * 
  * Estados del flujo:
- * - Borrador: Orden creada pero no enviada
  * - Enviada: Orden enviada al proveedor (WhatsApp/Email)
  * - Envío Fallido: Error al enviar (requiere reintento manual)
  * - Confirmada: Proveedor confirmó la orden
@@ -29,7 +28,6 @@ class EstadoOrdenCompra extends Model
     protected $fillable = ['nombre', 'descripcion', 'activo', 'orden'];
 
     // Constantes de estados (para evitar hardcodeo en el código)
-    public const BORRADOR = 'Borrador';
     public const ENVIADA = 'Enviada';
     public const ENVIO_FALLIDO = 'Envío Fallido';
     public const CONFIRMADA = 'Confirmada';

@@ -1,19 +1,103 @@
 <script setup>
-import { ref } from 'vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
+import SelectInput from '@/Components/SelectInput.vue';
+import AlertMessage from '@/Components/AlertMessage.vue';
 
 const props = defineProps({
     reparacion: Object,
+    mediosPago: Array,
 });
 
+const page = usePage();
+
 const showDeleteModal = ref(false);
+const showCobrarModal = ref(false);
 const deleteForm = useForm({ motivo: '' });
+
+const cobrarForm = useForm({
+    medio_pago_id: '',
+});
+
+// --- Calcular total a cobrar ---
+// Prioridad: total_final (si fue cargado manualmente) > repuestos + mano de obra
+const totalACobrar = computed(() => {
+    const totalFinal = Number(props.reparacion.total_final || 0);
+    if (totalFinal > 0) {
+        return totalFinal;
+    }
+    const repuestos = props.reparacion.repuestos || [];
+    const totalRepuestos = repuestos.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+    const manoObra = Number(props.reparacion.costo_mano_obra || 0);
+    return totalRepuestos + manoObra;
+});
+
+const yaFueCobrada = computed(() => {
+    return ['pagado', 'cuenta_corriente'].includes(props.reparacion.estado_pago);
+});
+
+const puedeCobrar = computed(() => {
+    const estado = props.reparacion.estado?.nombreEstado;
+    return !props.reparacion.anulada 
+        && !yaFueCobrada.value 
+        && totalACobrar.value > 0
+        && ['Reparado', 'Entregado'].includes(estado);
+});
+
+const estadoPagoLabel = computed(() => {
+    const map = {
+        'pendiente': 'Pendiente de Cobro',
+        'pagado': 'Cobrado',
+        'cuenta_corriente': 'Cta. Corriente',
+    };
+    return map[props.reparacion.estado_pago] || 'Pendiente de Cobro';
+});
+
+const estadoPagoColor = computed(() => {
+    const map = {
+        'pendiente': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+        'pagado': 'bg-green-100 text-green-800 border-green-200',
+        'cuenta_corriente': 'bg-blue-100 text-blue-800 border-blue-200',
+    };
+    return map[props.reparacion.estado_pago] || 'bg-yellow-100 text-yellow-800 border-yellow-200';
+});
+
+const formatCurrency = (value) => {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+};
+
+// --- Cobrar ---
+const confirmarCobro = () => {
+    cobrarForm.post(route('reparaciones.cobrar', props.reparacion.reparacionID), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showCobrarModal.value = false;
+            cobrarForm.reset();
+        },
+    });
+};
+
+// Filtrar medios de pago: Cuenta Corriente solo para clientes con CC (mayoristas)
+const mediosPagoFiltrados = computed(() => {
+    const tieneCC = !!props.reparacion.cliente?.cuenta_corriente || !!props.reparacion.cliente?.cuentaCorrienteID;
+    if (tieneCC) return props.mediosPago || [];
+    return (props.mediosPago || []).filter(mp => !mp.nombre.toLowerCase().includes('corriente'));
+});
+
+const abrirModalCobro = () => {
+    cobrarForm.clearErrors();
+    cobrarForm.reset();
+    if (mediosPagoFiltrados.value.length > 0) {
+        cobrarForm.medio_pago_id = mediosPagoFiltrados.value[0].medioPagoID;
+    }
+    showCobrarModal.value = true;
+};
 
 const anularReparacion = () => {
     deleteForm.delete(route('reparaciones.destroy', props.reparacion.reparacionID), {
@@ -68,6 +152,13 @@ const imprimirComprobanteEntrega = () => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+
+                <AlertMessage 
+                    v-if="cobrarForm.errors.cobro" 
+                    type="error"
+                    :message="cobrarForm.errors.cobro"
+                    class="mb-0"
+                />
                 
                 <!-- Barra de acciones reorganizada -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -99,7 +190,7 @@ const imprimirComprobanteEntrega = () => {
                                         <span class="hidden sm:inline">Ingreso</span>
                                     </button>
                                     <button 
-                                        v-if="['Reparado', 'Entregado', 'Listo para entregar'].includes(reparacion.estado?.nombreEstado)" 
+                                        v-if="['Reparado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" 
                                         @click="imprimirComprobanteEntrega" 
                                         class="inline-flex items-center px-3 py-2 text-sm font-medium rounded-md border border-green-300 bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
                                         title="Imprimir comprobante de entrega"
@@ -112,6 +203,30 @@ const imprimirComprobanteEntrega = () => {
                                 </div>
                             </div>
                             
+                            <!-- Separador visual -->
+                            <div class="hidden sm:block w-px bg-gray-200"></div>
+                            
+                            <!-- Grupo: Cobro -->
+                            <div class="flex items-center gap-2">
+                                <button 
+                                    v-if="puedeCobrar"
+                                    @click="abrirModalCobro" 
+                                    class="inline-flex items-center px-4 py-2 text-sm font-bold rounded-md border-2 border-emerald-500 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 transition-colors shadow-sm"
+                                    title="Registrar cobro de esta reparación"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Cobrar
+                                </button>
+                                <span v-if="yaFueCobrada" class="inline-flex items-center px-3 py-2 text-sm font-bold rounded-md border" :class="estadoPagoColor">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {{ estadoPagoLabel }}
+                                </span>
+                            </div>
+
                             <!-- Separador visual -->
                             <div class="hidden sm:block w-px bg-gray-200"></div>
                             
@@ -178,7 +293,7 @@ const imprimirComprobanteEntrega = () => {
                                 </div>
                                 
                                 <!-- Gran Total destacado según Kendall: alineación derecha, visualmente prominente -->
-                                <div class="mt-4 bg-indigo-50 border-2 border-indigo-200 rounded-lg p-4">
+                                <div class="mt-4 rounded-lg p-4" :class="yaFueCobrada ? 'bg-green-50 border-2 border-green-200' : 'bg-indigo-50 border-2 border-indigo-200'">
                                     <div class="space-y-2 text-sm">
                                         <div class="flex justify-between">
                                             <span class="text-gray-700">Subtotal Repuestos:</span>
@@ -188,10 +303,27 @@ const imprimirComprobanteEntrega = () => {
                                             <span class="text-gray-700">Mano de Obra:</span>
                                             <span class="font-semibold text-gray-900">${{ Number(reparacion.costo_mano_obra || 0).toFixed(2) }}</span>
                                         </div>
-                                        <div class="flex justify-between pt-2 border-t-2 border-indigo-300">
-                                            <span class="text-lg font-bold text-indigo-900">TOTAL A COBRAR:</span>
-                                            <span class="text-xl font-bold text-indigo-900">${{ (reparacion.repuestos.reduce((sum, item) => sum + Number(item.subtotal), 0) + Number(reparacion.costo_mano_obra || 0)).toFixed(2) }}</span>
+                                        <div class="flex justify-between pt-2 border-t-2" :class="yaFueCobrada ? 'border-green-300' : 'border-indigo-300'">
+                                            <span class="text-lg font-bold" :class="yaFueCobrada ? 'text-green-900' : 'text-indigo-900'">{{ yaFueCobrada ? 'TOTAL COBRADO:' : 'TOTAL A COBRAR:' }}</span>
+                                            <span class="text-xl font-bold" :class="yaFueCobrada ? 'text-green-900' : 'text-indigo-900'">${{ totalACobrar.toFixed(2) }}</span>
                                         </div>
+                                    </div>
+                                    
+                                    <!-- Info del cobro si ya fue cobrada -->
+                                    <div v-if="yaFueCobrada" class="mt-3 pt-3 border-t border-green-200 text-xs text-green-700 space-y-1">
+                                        <p><span class="font-semibold">Medio de pago:</span> {{ reparacion.medio_pago?.nombre || '-' }}</p>
+                                        <p><span class="font-semibold">Cobrado por:</span> {{ reparacion.cobrador?.name || '-' }}</p>
+                                        <p v-if="reparacion.fecha_cobro"><span class="font-semibold">Fecha:</span> {{ formatDate(reparacion.fecha_cobro) }}</p>
+                                    </div>
+                                    
+                                    <!-- Botón cobrar inline -->
+                                    <div v-if="puedeCobrar" class="mt-3 pt-3 border-t border-indigo-200">
+                                        <button @click="abrirModalCobro" class="w-full inline-flex items-center justify-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-md transition-colors shadow-sm">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                            </svg>
+                                            Registrar Cobro
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -238,6 +370,51 @@ const imprimirComprobanteEntrega = () => {
                             </div>
                             <div v-else class="text-sm text-gray-400 italic text-center">Sin imágenes.</div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <div v-if="showCobrarModal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 px-4">
+                <div class="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all">
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Registrar Cobro de Reparación</h3>
+                    <p class="text-sm text-gray-500 mb-4">{{ reparacion.codigo_reparacion }} &mdash; {{ reparacion.cliente?.apellido }}, {{ reparacion.cliente?.nombre }}</p>
+                    
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4 border">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-gray-600">Repuestos:</span>
+                            <span class="font-medium">${{ reparacion.repuestos?.reduce((s, i) => s + Number(i.subtotal), 0).toFixed(2) }}</span>
+                        </div>
+                        <div class="flex justify-between text-sm mt-1">
+                            <span class="text-gray-600">Mano de Obra:</span>
+                            <span class="font-medium">${{ Number(reparacion.costo_mano_obra || 0).toFixed(2) }}</span>
+                        </div>
+                        <div class="flex justify-between text-lg font-bold mt-2 pt-2 border-t">
+                            <span>TOTAL:</span>
+                            <span class="text-emerald-700">{{ formatCurrency(totalACobrar) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <InputLabel value="Medio de Pago" class="mb-1" />
+                        <select v-model="cobrarForm.medio_pago_id" class="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500">
+                            <option value="" disabled>Seleccione...</option>
+                            <option v-for="mp in mediosPagoFiltrados" :key="mp.medioPagoID" :value="mp.medioPagoID">
+                                {{ mp.nombre }} {{ parseFloat(mp.recargo_porcentaje) > 0 ? `(+${parseFloat(mp.recargo_porcentaje)}%)` : '' }}
+                            </option>
+                        </select>
+                        <InputError :message="cobrarForm.errors.medio_pago_id" class="mt-1" />
+                        <InputError :message="cobrarForm.errors.cobro" class="mt-1" />
+                    </div>
+
+                    <div class="flex justify-end space-x-3">
+                        <SecondaryButton @click="showCobrarModal = false"> Cancelar </SecondaryButton>
+                        <button 
+                            @click="confirmarCobro" 
+                            :disabled="cobrarForm.processing || !cobrarForm.medio_pago_id"
+                            class="inline-flex items-center px-4 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-sm rounded-md transition-colors"
+                        >
+                            {{ cobrarForm.processing ? 'Procesando...' : 'Confirmar Cobro' }}
+                        </button>
                     </div>
                 </div>
             </div>

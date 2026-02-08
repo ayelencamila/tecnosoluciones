@@ -44,6 +44,10 @@ class StoreReparacionRequest extends FormRequest
             'imagenes' => ['nullable', 'array', 'max:5'], 
             'imagenes.*' => ['image', 'mimes:jpeg,png,jpg,webp', 'max:5120'], 
 
+            // Presupuesto inmediato (flujo simplificado)
+            'costo_mano_obra' => ['nullable', 'numeric', 'min:0'],
+            'total_final' => ['nullable', 'numeric', 'min:0'],
+
             // Repuestos/Servicios iniciales
             'items' => ['nullable', 'array'],
             'items.*.producto_id' => ['required', 'exists:productos,id'],

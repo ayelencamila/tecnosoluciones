@@ -48,8 +48,9 @@ class RegistrarReparacionService
                 'observaciones' => $datosValidados['observaciones'] ?? null,
                 'fecha_ingreso' => Carbon::now(),
                 'fecha_promesa' => $datosValidados['fecha_promesa'] ?? null,
-                'costo_mano_obra' => 0, 
-                'total_final' => 0,
+                // Presupuesto inmediato (flujo simplificado)
+                'costo_mano_obra' => $datosValidados['costo_mano_obra'] ?? 0, 
+                'total_final' => $datosValidados['total_final'] ?? 0,
             ]);
 
             // 3.1 REGISTRAR EN AUDITORÍA (CU-11 Paso 10)
@@ -171,19 +172,17 @@ class RegistrarReparacionService
 
         // 4. Crear Movimiento usando datos dinámicos
         MovimientoStock::create([
+            'stock_id' => $stockRegistro->stock_id,
             'productoID' => $producto->id,
-            'deposito_id' => $stockRegistro->deposito_id,
-            'tipoMovimiento' => 'SALIDA', 
-            'tipo_movimiento_id' => $tipoMovimiento->id, 
+            'tipo_movimiento_id' => $tipoMovimiento->id,
             'cantidad' => $cantidad,
-            'signo' => $tipoMovimiento->signo, 
             'stockAnterior' => $stockAnterior,
             'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
             'motivo' => 'Uso en Reparación: ' . $reparacion->codigo_reparacion,
             'referenciaID' => $reparacion->reparacionID,
             'referenciaTabla' => 'reparaciones',
             'user_id' => $usuarioID,
-            'fecha_movimiento' => now()
+            'fecha_movimiento' => now(),
         ]);
     }
 

@@ -102,8 +102,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
         // Proveedores MOVIDO al grupo principal (es un módulo operativo)
         Route::resource('unidades-medida', \App\Http\Controllers\Admin\UnidadMedidaController::class);
-        // 2. Otras posibles rutas para  maestros
-        Route::resource('estados-reparacion', \App\Http\Controllers\Admin\EstadoReparacionController::class);
+        // 2. Otras posibles rutas para maestros
+        // NOTA: estados-reparacion ELIMINADO - Los estados son FIJOS (no parametrizables)
         Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class);
         Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class);
         Route::resource('depositos', \App\Http\Controllers\Admin\DepositoController::class);
@@ -297,6 +297,9 @@ Route::middleware(['auth'])->group(function () {
     // Acceso restringido solo a Administradores (y Gerentes si existiera el rol)
     Route::prefix('reportes')->name('reportes.')->middleware(['role:administrador'])->group(function () {
         
+        // Ruta base /reportes → redirige al Reporte Mensual
+        Route::get('/', fn () => redirect()->route('reportes.mensual'));
+
         // CU-33: Reporte de Ventas
         Route::get('/ventas', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'index'])->name('ventas');
         Route::get('/ventas/exportar', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'exportar'])->name('ventas.exportar');
@@ -309,9 +312,13 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/compras', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'index'])->name('compras');
         Route::get('/compras/exportar', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'exportar'])->name('compras.exportar');
 
-        // CU-36 y CU-37: Reporte de Stock y Uso de Repuestos
+        // CU-36 y CU-37: Reporte de Stock
         Route::get('/stock', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'index'])->name('stock');
         Route::get('/stock/exportar', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'exportar'])->name('stock.exportar');
+
+        // CU-36: Reporte de Uso de Repuestos
+        Route::get('/repuestos', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'index'])->name('repuestos');
+        Route::get('/repuestos/exportar', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'exportar'])->name('repuestos.exportar');
 
         // Reporte Mensual Consolidado (Entradas, Salidas, Balance)
         Route::get('/mensual', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'index'])->name('mensual');
@@ -364,6 +371,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{cliente}/editar', [ClienteController::class, 'edit'])->name('edit');
         Route::post('/', [ClienteController::class, 'store'])->name('store');
         Route::put('/{cliente}', [ClienteController::class, 'update'])->name('update');
+        Route::get('/{cliente}/verificar-baja', [ClienteController::class, 'verificarBaja'])->name('verificarBaja');
         Route::get('/{cliente}/confirmar-baja', [ClienteController::class, 'confirmDelete'])->name('confirmDelete');   
         Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])->name('darDeBaja'); 
     });
@@ -482,6 +490,7 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{reparacion}/imprimir-entrega', [ReparacionController::class, 'imprimirComprobanteEntrega'])->name('imprimir-entrega');
         Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])->name('edit');
         Route::put('/{reparacion}', [ReparacionController::class, 'update'])->name('update');
+        Route::post('/{reparacion}/cobrar', [ReparacionController::class, 'cobrar'])->name('cobrar');
         Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])->name('destroy');
     });
 
@@ -519,6 +528,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [\App\Http\Controllers\OrdenCompraController::class, 'index'])->name('index'); // Lista cotizaciones elegidas listas para OC
         Route::get('/historial', [\App\Http\Controllers\OrdenCompraController::class, 'historial'])->name('historial'); // CU-24: Consultar OC generadas
         Route::get('/create', [\App\Http\Controllers\OrdenCompraController::class, 'create'])->name('create'); // Resumen + Motivo + Confirmación
+        Route::get('/create-directo', [\App\Http\Controllers\OrdenCompraController::class, 'createDirecto'])->name('create-directo'); // OC sin cotización
+        Route::post('/store-directo', [\App\Http\Controllers\OrdenCompraController::class, 'storeDirecto'])->name('store-directo'); // Guardar OC directa
         Route::post('/', [\App\Http\Controllers\OrdenCompraController::class, 'store'])->name('store'); // Resultado
         Route::get('/{orden}', [\App\Http\Controllers\OrdenCompraController::class, 'show'])->name('show')->whereNumber('orden');
         Route::get('/{orden}/descargar-pdf', [\App\Http\Controllers\OrdenCompraController::class, 'descargarPdf'])->name('descargar-pdf')->whereNumber('orden');
@@ -534,6 +545,8 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'index'])->name('index'); // P1: Seleccionar OC pendiente
         Route::get('/historial', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'historial'])->name('historial'); // Historial de recepciones
         Route::get('/crear', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'create'])->name('create');
+        Route::get('/crear-directo', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'createDirecto'])->name('create-directo'); // Sin OC
+        Route::post('/store-directo', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'storeDirecto'])->name('store-directo'); // Guardar sin OC
         Route::post('/', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'store'])->name('store');
         Route::get('/{recepcion}', [\App\Http\Controllers\Compras\RecepcionMercaderiaController::class, 'show'])->name('show');
     });
@@ -559,6 +572,14 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/monitoreo-stock', [\App\Http\Controllers\Compras\SolicitudCotizacionController::class, 'monitoreoStock'])
         ->name('monitoreo-stock.index')
         ->middleware('role:administrador');
+
+    // Egresos de Stock (robo, pérdida, defectuosos, etc.)
+    Route::prefix('egresos-stock')->name('egresos-stock.')->middleware('role:administrador|deposito')->group(function () {
+        Route::get('/', [\App\Http\Controllers\EgresoStockController::class, 'index'])->name('index');
+        Route::get('/crear', [\App\Http\Controllers\EgresoStockController::class, 'create'])->name('create');
+        Route::post('/', [\App\Http\Controllers\EgresoStockController::class, 'store'])->name('store');
+        Route::get('/{egreso}', [\App\Http\Controllers\EgresoStockController::class, 'show'])->name('show');
+    });
 
 });
 

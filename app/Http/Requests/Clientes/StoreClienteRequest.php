@@ -36,7 +36,7 @@ class StoreClienteRequest extends FormRequest
                 'max:20',
                 Rule::unique('clientes', 'DNI'), // Valida unicidad en la tabla clientes
             ],
-            'mail' => 'nullable|email|max:255',
+            'mail' => ['nullable', 'email', 'max:255', Rule::unique('clientes', 'mail')],
             'whatsapp' => 'nullable|string|max:20', // Lo dejamos nullable, es más flexible
             'telefono' => 'nullable|string|max:20',
 
@@ -71,6 +71,7 @@ class StoreClienteRequest extends FormRequest
             'DNI.required' => 'El DNI es obligatorio.',
             'DNI.unique' => 'Ya existe un cliente con este DNI.',
             'mail.email' => 'El formato del correo electrónico no es válido.',
+            'mail.unique' => 'Ya existe un cliente registrado con este correo electrónico.',
             'calle.required' => 'La calle es obligatoria.',
             'altura.required' => 'La altura es obligatoria.',
             'codigoPostal.required' => 'El código postal es obligatorio.',

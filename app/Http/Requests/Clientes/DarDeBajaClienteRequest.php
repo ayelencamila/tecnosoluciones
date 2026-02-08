@@ -14,7 +14,7 @@ class DarDeBajaClienteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'motivo' => 'required|string|min:5|max:255',
+            'motivo' => 'required|string|min:3|max:255',
         ];
     }
 
@@ -22,7 +22,7 @@ class DarDeBajaClienteRequest extends FormRequest
     {
         return [
             'motivo.required' => 'Debe ingresar un motivo para dar de baja el cliente.',
-            'motivo.min' => 'El motivo debe tener al menos 5 caracteres.',
+            'motivo.min' => 'El motivo debe tener al menos 3 caracteres.',
         ];
     }
 }

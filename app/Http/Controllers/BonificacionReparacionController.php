@@ -64,8 +64,17 @@ class BonificacionReparacionController extends Controller
         // Agregar decision_cliente manualmente para que llegue a la vista
         $bonificacion->decision_cliente = $bonificacion->estadoDecision?->nombre;
 
+        // Generar URL pública para que el cliente responda (si está aprobada)
+        $urlCliente = null;
+        if ($bonificacion->estado === 'aprobada') {
+            $token = \App\Http\Controllers\Api\ClienteBonificacionController::generarToken($bonificacion->bonificacionID);
+            $baseUrl = env('NGROK_URL', config('app.url'));
+            $urlCliente = rtrim($baseUrl, '/') . "/bonificacion/{$token}";
+        }
+
         return Inertia::render('Reparaciones/Bonificaciones/Detalle', [
             'bonificacion' => $bonificacion,
+            'urlCliente' => $urlCliente,
         ]);
     }
 

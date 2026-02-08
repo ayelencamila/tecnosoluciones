@@ -75,17 +75,23 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div>
-                                <InputLabel for="valor" value="Valor (Monto o %)" />
+                                <InputLabel for="valor" value="Valor (Monto o %) *" />
                                 <div class="relative mt-1">
                                     <TextInput id="valor" type="number" step="0.01" v-model="form.valor" class="w-full pl-4" />
                                 </div>
                                 <InputError :message="form.errors.valor" class="mt-2" />
                             </div>
                             <div>
-                                <InputLabel for="valido_hasta" value="Válido Hasta (Opcional)" />
+                                <InputLabel for="valido_desde" value="Válido Desde" />
+                                <TextInput id="valido_desde" type="date" v-model="form.valido_desde" class="w-full mt-1" />
+                                <InputError :message="form.errors.valido_desde" class="mt-2" />
+                            </div>
+                            <div>
+                                <InputLabel for="valido_hasta" value="Válido Hasta" />
                                 <TextInput id="valido_hasta" type="date" v-model="form.valido_hasta" class="w-full mt-1" />
+                                <InputError :message="form.errors.valido_hasta" class="mt-2" />
                             </div>
                         </div>
 

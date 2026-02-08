@@ -20,7 +20,9 @@ class StorePagoRequest extends FormRequest
             'observaciones' => ['nullable', 'string', 'max:255'],
             // Imputaciones manuales (opcional - si no se envía, será automático)
             'imputaciones' => ['nullable', 'array'],
-            'imputaciones.*.venta_id' => ['required', 'exists:ventas,venta_id'],
+            'imputaciones.*.tipo' => ['required_with:imputaciones', 'in:venta,reparacion'],
+            'imputaciones.*.venta_id' => ['nullable', 'required_if:imputaciones.*.tipo,venta', 'exists:ventas,venta_id'],
+            'imputaciones.*.reparacion_id' => ['nullable', 'required_if:imputaciones.*.tipo,reparacion', 'exists:reparaciones,reparacionID'],
             'imputaciones.*.monto_imputado' => ['required', 'numeric', 'min:0.01'],
         ];
     }
@@ -32,7 +34,9 @@ class StorePagoRequest extends FormRequest
             'medioPagoID.required' => 'Debe seleccionar un método de pago válido.',
             'monto.min' => 'El monto del pago debe ser mayor a 0.',
             'imputaciones.*.venta_id.exists' => 'Una de las ventas seleccionadas no existe.',
-            'imputaciones.*.monto_imputado.required' => 'Debe especificar el monto a imputar para cada venta.',
+            'imputaciones.*.reparacion_id.exists' => 'Una de las reparaciones seleccionadas no existe.',
+            'imputaciones.*.monto_imputado.required' => 'Debe especificar el monto a imputar para cada documento.',
+            'imputaciones.*.tipo.required_with' => 'Debe especificar el tipo de documento (venta o reparacion).',
         ];
     }
 

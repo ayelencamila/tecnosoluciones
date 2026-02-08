@@ -191,7 +191,13 @@ class RecepcionarMercaderiaService
             $detalleOrden->increment('cantidad_recibida', $item['cantidad_recibida']);
             
             // Actualizar stock del producto
-            $this->actualizarStock($detalleOrden->producto_id, $item['cantidad_recibida'], $recepcion, $usuarioId);
+            $this->actualizarStock(
+                $detalleOrden->producto_id,
+                $item['cantidad_recibida'],
+                $recepcion,
+                $usuarioId,
+                (float) $detalleOrden->precio_unitario
+            );
         }
     }
 
@@ -200,7 +206,7 @@ class RecepcionarMercaderiaService
      * 
      * Excepción 10a: Error al actualizar stock (se maneja con try-catch y alerta interna)
      */
-    private function actualizarStock(int $productoId, int $cantidad, RecepcionMercaderia $recepcion, int $usuarioId): void
+    private function actualizarStock(int $productoId, int $cantidad, RecepcionMercaderia $recepcion, int $usuarioId, float $precioUnitario = 0): void
     {
         try {
             // Buscar o crear stock en depósito principal (ID 1)
@@ -229,6 +235,12 @@ class RecepcionarMercaderiaService
                 'motivo' => "Recepción de mercadería {$recepcion->numero_recepcion}",
                 'fecha_movimiento' => now(),
             ]);
+
+            // Actualizar costo promedio ponderado del producto
+            if ($precioUnitario > 0) {
+                $producto = \App\Models\Producto::find($productoId);
+                $producto?->actualizarCostoPonderado($cantidad, $precioUnitario);
+            }
             
             Log::info("Stock actualizado para producto {$productoId}: +{$cantidad} (anterior: {$stockAnterior}, nuevo: {$stock->cantidad_disponible})");
             

@@ -10,12 +10,24 @@ import { createPinia } from 'pinia';
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 const pinia = createPinia();
 
-// Manejar errores de sesión expirada (419) globalmente
+// Función para renovar la cookie XSRF-TOKEN silenciosamente vía Sanctum.
+function refreshCsrfToken() {
+    return fetch('/sanctum/csrf-cookie', { method: 'GET', credentials: 'same-origin' })
+        .catch(() => fetch('/', { method: 'HEAD', credentials: 'same-origin' }));
+}
+
+// Manejar errores de sesión expirada (419) en navegaciones Inertia
+// — renovar cookie CSRF y reintentar automáticamente
+let isRefreshing419 = false;
 router.on('invalid', (event) => {
-    if (event.detail.response.status === 419) {
+    if (event.detail.response.status === 419 && !isRefreshing419) {
         event.preventDefault();
-        // Recargar la página para obtener un nuevo token CSRF
-        window.location.reload();
+        isRefreshing419 = true;
+        refreshCsrfToken()
+            .finally(() => {
+                isRefreshing419 = false;
+                router.reload({ preserveState: true, preserveScroll: true });
+            });
     }
 });
 

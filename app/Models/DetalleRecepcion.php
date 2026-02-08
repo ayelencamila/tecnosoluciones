@@ -12,9 +12,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * 
  * @property int $id
  * @property int $recepcion_id
- * @property int $detalle_orden_id
- * @property int $producto_id
+ * @property int|null $detalle_orden_id
+ * @property int|null $producto_id
  * @property int $cantidad_recibida
+ * @property float|null $precio_unitario
  * @property string|null $observacion_item
  */
 class DetalleRecepcion extends Model
@@ -24,9 +25,14 @@ class DetalleRecepcion extends Model
     protected $fillable = [
         'recepcion_id',
         'detalle_orden_id',
-        // producto_id se obtiene vía detalleOrden (3FN)
+        'producto_id',
         'cantidad_recibida',
+        'precio_unitario',
         'observacion_item',
+    ];
+
+    protected $casts = [
+        'precio_unitario' => 'decimal:2',
     ];
 
     // --- RELACIONES ---
@@ -42,20 +48,23 @@ class DetalleRecepcion extends Model
     }
 
     /**
-     * Accessor para obtener el producto vía detalleOrden (3FN)
-     * Uso: $detalleRecepcion->producto
+     * Relación directa con producto (para recepciones sin OC)
      */
     public function producto(): BelongsTo
     {
-        // Relación through para acceder al producto vía detalle de orden
-        return $this->detalleOrden->producto();
+        return $this->belongsTo(Producto::class, 'producto_id');
     }
 
     /**
-     * Accessor directo al producto (atajo conveniente)
+     * Obtener el producto resuelto (directo o vía detalleOrden)
      */
-    public function getProductoAttribute()
+    public function getProductoResueltoAttribute()
     {
+        // Si tiene producto_id directo, usarlo
+        if ($this->producto_id) {
+            return $this->producto;
+        }
+        // Sino obtener vía detalleOrden (3FN)
         return $this->detalleOrden?->producto;
     }
 }

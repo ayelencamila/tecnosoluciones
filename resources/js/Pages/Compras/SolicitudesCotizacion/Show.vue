@@ -23,6 +23,7 @@ const mostrarModalEnvio = ref(false)
 const mostrarModalReenvio = ref(false)
 const mostrarModalEliminar = ref(false)
 const cotizacionReenviar = ref(null)
+const enlaceCopiado = ref(null) // ID de cotización cuyo enlace se copió
 
 // --- Formularios ---
 const formEnvio = useForm({ canal: 'inteligente' })
@@ -148,6 +149,24 @@ function formatDate(date) {
 
 function formatCurrency(value) {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value || 0)
+}
+
+// --- Enlace de Cotización ---
+function getUrlCotizacion(cotizacion) {
+    return route('portal.cotizacion', cotizacion.token_unico)
+}
+
+async function copiarEnlace(cotizacion) {
+    try {
+        const url = getUrlCotizacion(cotizacion)
+        await navigator.clipboard.writeText(url)
+        enlaceCopiado.value = cotizacion.id
+        setTimeout(() => {
+            enlaceCopiado.value = null
+        }, 2000)
+    } catch (err) {
+        console.error('Error al copiar:', err)
+    }
 }
 </script>
 
@@ -434,6 +453,26 @@ function formatCurrency(value) {
                                                 </svg>
                                                 Pendiente
                                             </span>
+
+                                            <!-- Botón Copiar Enlace -->
+                                            <button 
+                                                v-if="cotizacion.token_unico && cotizacion.estado_envio !== 'Pendiente'"
+                                                @click="copiarEnlace(cotizacion)"
+                                                class="p-1.5 rounded-lg transition-colors"
+                                                :class="enlaceCopiado === cotizacion.id 
+                                                    ? 'text-emerald-600 bg-emerald-50' 
+                                                    : 'text-gray-400 hover:text-indigo-500 hover:bg-indigo-50'"
+                                                :title="enlaceCopiado === cotizacion.id ? 'Enlace copiado' : 'Copiar enlace de respuesta'"
+                                            >
+                                                <!-- Icono Check cuando se copió -->
+                                                <svg v-if="enlaceCopiado === cotizacion.id" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                                </svg>
+                                                <!-- Icono Link normal -->
+                                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                                </svg>
+                                            </button>
 
                                             <!-- Botón Reenviar -->
                                             <button 

@@ -35,10 +35,12 @@ class RecepcionMercaderia extends Model
     protected $fillable = [
         'numero_recepcion',
         'orden_compra_id',
+        'proveedor_id',
         'user_id',
         'fecha_recepcion',
         'observaciones',
         'tipo',
+        'origen',
     ];
 
     protected $casts = [
@@ -48,12 +50,21 @@ class RecepcionMercaderia extends Model
     // --- CONSTANTES ---
     public const TIPO_PARCIAL = 'parcial';
     public const TIPO_TOTAL = 'total';
+    
+    public const ORIGEN_ORDEN_COMPRA = 'orden_compra';
+    public const ORIGEN_COMPRA_DIRECTA = 'compra_directa';
+    public const ORIGEN_AJUSTE = 'ajuste_inventario';
 
     // --- RELACIONES ---
 
     public function ordenCompra(): BelongsTo
     {
         return $this->belongsTo(OrdenCompra::class, 'orden_compra_id');
+    }
+
+    public function proveedor(): BelongsTo
+    {
+        return $this->belongsTo(Proveedor::class, 'proveedor_id');
     }
 
     public function usuario(): BelongsTo

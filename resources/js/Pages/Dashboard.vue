@@ -19,11 +19,9 @@ const isAdmin = computed(() => props.userRole === 'administrador');
 // Vendedor y técnico pueden ver/ingresar reparaciones
 const canAccessReparaciones = computed(() => ['vendedor', 'tecnico', 'administrador'].includes(props.userRole));
 
-// Mapeo de estados de reparación a colores (usando nombres reales de la BD)
+// Mapeo de estados de reparación a colores (flujo simplificado)
 const estadoReparacion = {
     'Recibido': { color: 'bg-yellow-100 text-yellow-800' },
-    'Diagnóstico': { color: 'bg-blue-100 text-blue-800' },
-    'Presupuestado': { color: 'bg-indigo-100 text-indigo-800' },
     'En Reparación': { color: 'bg-purple-100 text-purple-800' },
     'Espera de Repuesto': { color: 'bg-orange-100 text-orange-800' },
     'Reparado': { color: 'bg-green-100 text-green-800' },

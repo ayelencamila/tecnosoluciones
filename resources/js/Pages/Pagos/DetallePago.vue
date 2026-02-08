@@ -21,10 +21,14 @@ const formatDate = (dateString) => {
 
 // --- CALCULAR ANTICIPO (CU-10 Post-condición) ---
 const totalImputado = computed(() => {
-    if (!props.pago.ventas_imputadas || props.pago.ventas_imputadas.length === 0) {
-        return 0;
+    let total = 0;
+    if (props.pago.ventas_imputadas?.length > 0) {
+        total += props.pago.ventas_imputadas.reduce((sum, v) => sum + parseFloat(v.pivot.monto_imputado || 0), 0);
     }
-    return props.pago.ventas_imputadas.reduce((sum, venta) => sum + parseFloat(venta.pivot.monto_imputado || 0), 0);
+    if (props.pago.reparaciones_imputadas?.length > 0) {
+        total += props.pago.reparaciones_imputadas.reduce((sum, r) => sum + parseFloat(r.pivot.monto_imputado || 0), 0);
+    }
+    return total;
 });
 
 const anticipoGenerado = computed(() => {
@@ -32,6 +36,10 @@ const anticipoGenerado = computed(() => {
     const imputado = totalImputado.value;
     const anticipo = monto - imputado;
     return anticipo > 0 ? anticipo : 0;
+});
+
+const hayImputaciones = computed(() => {
+    return (props.pago.ventas_imputadas?.length > 0) || (props.pago.reparaciones_imputadas?.length > 0);
 });
 
 // --- ACCIÓN DE ANULAR ---
@@ -117,12 +125,22 @@ const imprimirRecibo = () => {
                         </dl>
                     </div>
                     
-                    <div class="px-6 py-5 border-t border-gray-200 bg-gray-50" v-if="pago.ventas_imputadas && pago.ventas_imputadas.length > 0">
+                    <div class="px-6 py-5 border-t border-gray-200 bg-gray-50" v-if="hayImputaciones">
                         <h4 class="text-sm font-bold text-gray-700 uppercase tracking-wider mb-3">Imputación (Deudas canceladas)</h4>
                         <ul class="space-y-2">
-                            <li v-for="venta in pago.ventas_imputadas" :key="venta.venta_id" class="flex justify-between text-sm border-b border-gray-200 pb-2 last:border-0">
-                                <span>Venta N° <strong>{{ venta.numero_comprobante }}</strong></span>
+                            <li v-for="venta in pago.ventas_imputadas" :key="'v-' + venta.venta_id" class="flex justify-between text-sm border-b border-gray-200 pb-2 last:border-0">
+                                <span>
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-700 mr-1">Venta</span>
+                                    N° <strong>{{ venta.numero_comprobante }}</strong>
+                                </span>
                                 <span class="font-mono">Abonado: {{ formatCurrency(venta.pivot.monto_imputado) }}</span>
+                            </li>
+                            <li v-for="rep in pago.reparaciones_imputadas" :key="'r-' + rep.reparacionID" class="flex justify-between text-sm border-b border-gray-200 pb-2 last:border-0">
+                                <span>
+                                    <span class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase bg-orange-100 text-orange-700 mr-1">Rep.</span>
+                                    <strong>{{ rep.codigo_reparacion }}</strong>
+                                </span>
+                                <span class="font-mono">Abonado: {{ formatCurrency(rep.pivot.monto_imputado) }}</span>
                             </li>
                         </ul>
                         <div class="mt-3 pt-3 border-t border-gray-300 flex justify-between text-sm font-bold">
@@ -151,7 +169,7 @@ const imprimirRecibo = () => {
                     </div>
 
                     <!-- Mensaje cuando no hay documentos imputados (todo es anticipo) -->
-                    <div v-else-if="!pago.ventas_imputadas || pago.ventas_imputadas.length === 0" class="px-6 py-4 border-t border-blue-200 bg-blue-50">
+                    <div v-else-if="!hayImputaciones" class="px-6 py-4 border-t border-blue-200 bg-blue-50">
                         <div class="flex items-center gap-3">
                             <div class="flex-shrink-0">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>

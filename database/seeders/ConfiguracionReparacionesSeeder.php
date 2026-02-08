@@ -48,10 +48,12 @@ class ConfiguracionReparacionesSeeder extends Seeder
             ],
             
             // ===== ESTADOS QUE PAUSAN SLA =====
+            // NOTA: Estos estados son FIJOS y coinciden con EstadoReparacionSeeder
+            // Ya NO es configurable desde el panel (se eliminó la parametrización)
             [
                 'clave' => 'estados_pausa_sla',
-                'valor' => 'En espera de aprobación,En espera de repuesto,Listo para retiro',
-                'descripcion' => 'Estados que pausan el conteo de días efectivos para SLA (separados por coma). Deben coincidir exactamente con los nombres establecidos en Gestión de Maestros → Estados de Reparación',
+                'valor' => 'Espera de Repuesto,Reparado',
+                'descripcion' => '[Sistema - No editable] Estados que pausan el conteo de días efectivos para SLA. Coinciden con los estados fijos del sistema.',
             ],
             
             // ===== PLANTILLAS WHATSAPP =====

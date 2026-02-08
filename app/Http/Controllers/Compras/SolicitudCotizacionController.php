@@ -91,8 +91,9 @@ class SolicitudCotizacionController extends Controller
      */
     public function create(): Response
     {
-        // Obtener productos y proveedores para selectores
+        // Obtener productos y proveedores para selectores (solo productos con stock, no servicios)
         $productos = Producto::with(['categoria', 'stocks'])
+            ->where('es_servicio', false)
             ->whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))
             ->get()
             ->map(function ($producto) {
@@ -262,16 +263,23 @@ class SolicitudCotizacionController extends Controller
                     ? (int) max(0, now()->diffInDays($solicitud->fecha_vencimiento, false))
                     : null;
                 
+                $productosRequeridos = $solicitud->detalles->count();
+                $productosCotizados = $cotizacion->respuestas->count();
+                
                 return [
                     'id' => $cotizacion->id,
                     'proveedor' => $cotizacion->proveedor,
+                    'calificacion' => $cotizacion->proveedor->calificacion ?? 0,
                     'total' => $cotizacion->total_estimado ?: $total,
                     'tiempo_entrega' => $tiempoEntrega,
                     'validez_dias' => $validezDias,
-                    'condicion_pago' => 'Contado', // Por defecto, se puede extender el modelo si se necesita
+                    'condicion_pago' => 'Contado',
                     'fecha_respuesta' => $cotizacion->fecha_respuesta,
                     'respuestas' => $cotizacion->respuestas,
-                    'productos_count' => $cotizacion->respuestas->count(),
+                    'productos_count' => $productosCotizados,
+                    'productos_requeridos' => $productosRequeridos,
+                    'cotizo_completo' => $productosCotizados >= $productosRequeridos,
+                    'cobertura' => $productosRequeridos > 0 ? round(($productosCotizados / $productosRequeridos) * 100) : 0,
                 ];
             })
             ->sortBy('total')
@@ -285,10 +293,15 @@ class SolicitudCotizacionController extends Controller
             'cantidad' => $d->cantidad_sugerida,
         ]);
 
+        // Comparación producto por producto
+        $comparacion = $this->solicitudService->obtenerComparacionPorProducto($solicitud);
+
         return Inertia::render('Compras/SolicitudesCotizacion/Comparar', [
             'solicitud' => $solicitud->only(['id', 'codigo_solicitud', 'estado', 'fecha_vencimiento']),
             'cotizaciones' => $cotizaciones,
             'productos' => $productos,
+            'comparacionProductos' => $comparacion['comparacion_productos'],
+            'resumenProveedores' => $comparacion['resumen_proveedores'],
         ]);
     }
 
@@ -453,24 +466,46 @@ class SolicitudCotizacionController extends Controller
         }
 
         try {
+            DB::beginTransaction();
+
             // Marcar la cotización como elegida
             $cotizacion->update(['elegida' => true]);
+
+            // Generar orden de compra automáticamente
+            $registrarCompraService = app(\App\Services\Compras\RegistrarCompraService::class);
+            $observaciones = $request->input('observaciones') ?? 'Seleccionada como mejor cotización';
+            
+            $resultado = $registrarCompraService->ejecutar(
+                $cotizacion->id,
+                auth()->id(),
+                $observaciones
+            );
+
+            $orden = $resultado['orden'];
+            $advertencias = $resultado['advertencias'];
 
             // Cerrar la solicitud si está abierta/enviada
             if (in_array($solicitud->estado->nombre, ['Abierta', 'Enviada'])) {
                 $this->solicitudService->cerrarSolicitud($solicitud);
             }
 
-            // Si el usuario quiere generar orden directamente
-            if ($request->input('generar_orden')) {
-                // Redirigir a crear orden de compra con la cotización elegida
-                return redirect()->route('ordenes.create', ['cotizacion_id' => $cotizacion->id])
-                    ->with('success', "Cotización de {$cotizacion->proveedor->razon_social} elegida. Complete la orden de compra.");
+            DB::commit();
+
+            // Mensaje de éxito con información de la orden
+            $mensaje = "Cotización de {$cotizacion->proveedor->razon_social} elegida. Orden {$orden->numero_oc} generada y enviada automáticamente.";
+            
+            // Agregar advertencias si las hay
+            if (!empty($advertencias)) {
+                foreach ($advertencias as $adv) {
+                    $mensaje .= " " . $adv['mensaje'];
+                }
             }
 
-            return back()->with('success', "Cotización de {$cotizacion->proveedor->razon_social} elegida como ganadora.");
+            return redirect()->route('solicitudes-cotizacion.show', $solicitud)
+                ->with('success', $mensaje);
 
         } catch (\Exception $e) {
+            DB::rollBack();
             return back()->with('error', 'Error al elegir cotización: ' . $e->getMessage());
         }
     }

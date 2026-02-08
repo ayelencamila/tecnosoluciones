@@ -34,6 +34,9 @@ class UpdateProductoRequest extends FormRequest
             'estadoProductoID' => 'required|exists:estados_producto,id',
             'proveedor_habitual_id' => 'nullable|exists:proveedores,id',
 
+            // Costo
+            'precio_costo' => 'nullable|numeric|min:0|max:9999999999.99',
+
             // --- Motivo de Auditoría ---
             'motivo' => 'required|string|min:5|max:255', 
             

@@ -43,7 +43,7 @@ class DashboardController extends Controller
             $kpis['totalProductos'] = Producto::whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))->count();
 
             // Clientes activos (para vendedor)
-            $kpis['totalClientes'] = Cliente::whereHas('estadoCliente', fn($q) => $q->where('nombre', 'Activo'))->count();
+            $kpis['totalClientes'] = Cliente::whereHas('estadoCliente', fn($q) => $q->where('nombreEstado', 'Activo'))->count();
 
             // Últimas 5 ventas
             $tablas['ultimasVentas'] = Venta::with(['cliente', 'vendedor'])
@@ -83,7 +83,7 @@ class DashboardController extends Controller
                 $q->whereNotIn('nombreEstado', $estadosFinales)
             )->count();
             
-            // Reparaciones pendientes de diagnóstico (estado "Recibido")
+            // Reparaciones recién ingresadas pendientes de iniciar trabajo (estado "Recibido")
             $kpis['reparacionesPendientes'] = Reparacion::whereHas('estado', fn($q) => 
                 $q->where('nombreEstado', 'Recibido')
             )->count();

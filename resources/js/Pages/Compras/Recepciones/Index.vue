@@ -121,9 +121,12 @@ const traducirPaginacion = (label) => {
     <AppLayout>
         <!-- HEADER -->
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
-                Gestión de Compras
-            </h2>
+            <div>
+                <h2 class="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">
+                    Gestion de Compras
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">Recepcion de Mercaderia</p>
+            </div>
         </template>
 
         <div class="py-6">
@@ -133,13 +136,32 @@ const traducirPaginacion = (label) => {
                 <!-- TÍTULO PRINCIPAL (CU-23 P1: Punto de Partida)  -->
                 <!-- ============================================== -->
                 <div class="mb-6">
-                    <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200 mb-1">
-                        RECEPCIÓN DE MERCADERÍA
-                    </h1>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                        <span class="text-indigo-600 dark:text-indigo-400 font-medium">›</span> 
-                        SELECCIONAR ORDEN DE COMPRA PENDIENTE
-                    </p>
+                    <div class="flex items-center justify-between mb-4">
+                        <div>
+                            <h1 class="text-2xl font-bold text-gray-800 dark:text-gray-200">
+                                RECEPCION DE MERCADERIA
+                            </h1>
+                            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                Seleccionar Orden de Compra pendiente de recepcion
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <Link :href="route('recepciones.create-directo')" 
+                                  class="inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                                </svg>
+                                Recepcion Directa
+                            </Link>
+                            <Link :href="route('recepciones.historial')" 
+                                  class="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                </svg>
+                                Ver Historial
+                            </Link>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Mensaje de éxito -->

@@ -23,6 +23,7 @@ class Producto extends Model
         'descripcion',
         'foto',
         'es_servicio',
+        'precio_costo',
         'marca_id',
         'unidad_medida_id',
         'categoriaProductoID',
@@ -33,6 +34,7 @@ class Producto extends Model
     
     protected $casts = [
         'es_servicio' => 'boolean',
+        'precio_costo' => 'decimal:2',
     ]; 
 
     // --- RELACIONES ---
@@ -95,6 +97,28 @@ class Producto extends Model
     public function tieneStock(float $cantidadRequerida): bool
     {
         return $this->stock_total >= $cantidadRequerida; 
+    }
+
+    /**
+     * Calcula y actualiza el costo promedio ponderado al recibir mercadería.
+     *
+     * Fórmula: (stockActual × costoActual + cantidadNueva × precioNuevo) / (stockActual + cantidadNueva)
+     */
+    public function actualizarCostoPonderado(int $cantidadRecibida, float $precioUnitario): void
+    {
+        $stockActual = $this->stock_total; // Ya incluye la cantidad recién sumada
+        $stockAnterior = $stockActual - $cantidadRecibida;
+        $costoActual = (float) ($this->precio_costo ?? 0);
+
+        if ($stockAnterior <= 0 || $costoActual <= 0) {
+            // No había stock previo o no tenía costo → el costo es directamente el precio nuevo
+            $nuevoCosto = $precioUnitario;
+        } else {
+            // Promedio ponderado
+            $nuevoCosto = (($stockAnterior * $costoActual) + ($cantidadRecibida * $precioUnitario)) / $stockActual;
+        }
+
+        $this->update(['precio_costo' => round($nuevoCosto, 2)]);
     }
 
     /**

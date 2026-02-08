@@ -43,10 +43,10 @@ const estadosOptions = computed(() => [
 
 const calificacionOptions = computed(() => [
     { value: '', label: 'Todas las Calificaciones' },
-    { value: '4', label: '⭐ 4 o más' },
-    { value: '3', label: '⭐ 3 o más' },
-    { value: '2', label: '⭐ 2 o más' },
-    { value: '1', label: '⭐ 1 o más' }
+    { value: '4', label: '★ 4 o más' },
+    { value: '3', label: '★ 3 o más' },
+    { value: '2', label: '★ 2 o más' },
+    { value: '1', label: '★ 1 o más' }
 ]);
 
 // --- WATCHERS & FILTROS ---
@@ -102,8 +102,8 @@ const getPaginationLabel = (label, index, totalLinks) => {
 };
 
 const getCalificacionStars = (calificacion) => {
-    if (!calificacion) return '-';
-    return '⭐'.repeat(Math.round(calificacion)) + ` (${calificacion})`;
+    if (!calificacion) return { count: 0, total: 5, value: null };
+    return { count: Math.round(calificacion), total: 5, value: calificacion };
 };
 </script>
 
@@ -130,7 +130,15 @@ const getCalificacionStars = (calificacion) => {
                     </div>
                     <div class="bg-white p-4 rounded-lg shadow-md border-l-4 border-amber-500">
                         <p class="text-sm font-medium text-gray-500">Mejor Calificación</p>
-                        <p class="text-2xl font-bold text-gray-900">{{ stats.mejorCalificacion ? '⭐ ' + stats.mejorCalificacion : '-' }}</p>
+                        <p class="text-2xl font-bold text-gray-900 flex items-center justify-center gap-1">
+                            <template v-if="stats.mejorCalificacion">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 text-amber-400">
+                                    <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd" />
+                                </svg>
+                                {{ stats.mejorCalificacion }}
+                            </template>
+                            <template v-else>-</template>
+                        </p>
                     </div>
                 </div>
                 
@@ -165,13 +173,29 @@ const getCalificacionStars = (calificacion) => {
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th @click="sortBy('razon_social')" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none">
-                                        Proveedor / CUIT <span v-if="form.sort_column === 'razon_social'">{{ form.sort_direction === 'asc' ? '↑' : '↓' }}</span>
+                                        <span class="inline-flex items-center gap-1">
+                                            Proveedor / CUIT
+                                            <svg v-if="form.sort_column === 'razon_social' && form.sort_direction === 'asc'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                <path fill-rule="evenodd" d="M9.47 6.47a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25Z" clip-rule="evenodd" />
+                                            </svg>
+                                            <svg v-else-if="form.sort_column === 'razon_social' && form.sort_direction === 'desc'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0l-4.25-4.25a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                                            </svg>
+                                        </span>
                                     </th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contacto</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Ubicación</th>
                                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Condiciones</th>
                                     <th @click="sortBy('calificacion')" class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase cursor-pointer hover:bg-gray-100 select-none">
-                                        Calificación <span v-if="form.sort_column === 'calificacion'">{{ form.sort_direction === 'asc' ? '↑' : '↓' }}</span>
+                                        <span class="inline-flex items-center justify-center gap-1">
+                                            Calificación
+                                            <svg v-if="form.sort_column === 'calificacion' && form.sort_direction === 'asc'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                <path fill-rule="evenodd" d="M9.47 6.47a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 1 1-1.06 1.06L10 8.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25Z" clip-rule="evenodd" />
+                                            </svg>
+                                            <svg v-else-if="form.sort_column === 'calificacion' && form.sort_direction === 'desc'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                                <path fill-rule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0l-4.25-4.25a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" />
+                                            </svg>
+                                        </span>
                                     </th>
                                     <th class="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Estado</th>
                                     <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Acciones</th>
@@ -222,9 +246,15 @@ const getCalificacionStars = (calificacion) => {
                                         </div>
                                     </td>
                                     <td class="px-6 py-4 text-center text-sm">
-                                        <span class="text-amber-500 font-semibold">
-                                            {{ getCalificacionStars(prov.calificacion) }}
-                                        </span>
+                                        <div class="flex items-center justify-center gap-0.5" v-if="prov.calificacion">
+                                            <template v-for="i in 5" :key="i">
+                                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" :fill="i <= Math.round(prov.calificacion) ? 'currentColor' : 'none'" :stroke="i <= Math.round(prov.calificacion) ? 'none' : 'currentColor'" stroke-width="1.5" class="w-4 h-4" :class="i <= Math.round(prov.calificacion) ? 'text-amber-400' : 'text-gray-300'">
+                                                    <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd" />
+                                                </svg>
+                                            </template>
+                                            <span class="text-amber-600 font-semibold ml-1">({{ prov.calificacion }})</span>
+                                        </div>
+                                        <span v-else class="text-gray-400">-</span>
                                     </td>
                                     <td class="px-6 py-4 text-center">
                                         <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full"

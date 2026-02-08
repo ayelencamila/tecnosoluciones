@@ -19,35 +19,35 @@ class ActualizarReparacionService
     /**
      * Mapa de Transiciones Válidas por ID de Estado
      * 
-     * FLUJO FLEXIBLE: Permite avanzar lógicamente sin forzar todos los pasos intermedios.
-     * Un técnico puede recibir, diagnosticar y reparar en una sola sesión.
+     * FLUJO SIMPLIFICADO (sin Diagnóstico ni Presupuestado):
+     * El cliente da presupuesto al momento del ingreso.
      * 
-     * Estados según BD:
-     * 1 = Recibido
-     * 2 = Diagnóstico  
-     * 3 = Presupuestado
-     * 4 = En Reparación
-     * 5 = Espera de Repuesto
-     * 6 = Reparado (listo para entregar)
-     * 7 = Entregado (estado final)
-     * 8 = Anulado (estado final)
+     * Estados según BD (nueva numeración):
+     * 1 = Recibido (con presupuesto)
+     * 2 = En Reparación
+     * 3 = Espera de Repuesto [PAUSA SLA]
+     * 4 = Reparado (listo para entregar) [PAUSA SLA]
+     * 5 = Entregado (estado final)
+     * 6 = Anulado (estado final)
+     * 
+     * Flujo principal: 1 → 2 → 4 → 5
+     * Con desvío:      2 → 3 → 2 (espera repuesto)
+     * Anulación:       Desde cualquier estado no-final → 6
      */
     private const TRANSICIONES_VALIDAS = [
-        1 => [2, 3, 4, 5, 6, 8], // Recibido → puede avanzar a cualquiera (excepto Entregado directo)
-        2 => [1, 3, 4, 5, 6, 8], // Diagnóstico → puede volver a Recibido o avanzar
-        3 => [2, 4, 5, 6, 8],    // Presupuestado → puede retroceder a Diagnóstico o avanzar
-        4 => [2, 3, 5, 6, 8],    // En Reparación → puede retroceder o completar
-        5 => [2, 4, 6, 8],       // Espera de Repuesto → puede retomar o completar
-        6 => [4, 7, 8],          // Reparado → puede volver a reparación, entregar o anular
-        7 => [],                 // Entregado (estado final)
-        8 => [],                 // Anulado (estado final)
+        1 => [2, 3, 4, 6],       // Recibido → En Reparación, Espera Repuesto, Reparado, Anulado
+        2 => [1, 3, 4, 6],       // En Reparación → Recibido (corrección), Espera Repuesto, Reparado, Anulado
+        3 => [2, 4, 6],          // Espera de Repuesto → En Reparación (retoma), Reparado, Anulado
+        4 => [2, 5, 6],          // Reparado → En Reparación (volver a trabajar), Entregado, Anulado
+        5 => [],                 // Entregado (estado final)
+        6 => [],                 // Anulado (estado final)
     ];
 
     public function handle(Reparacion $reparacion, array $datos, int $userId): Reparacion
     {
-        // 1. Validar Estado Final usando el método del modelo
+        // CU-12 Pre-condición/Excepción 3b: Validar que no esté en estado final
         if ($reparacion->estado->esFinal()) {
-            throw new \Exception("La reparación está en estado '{$reparacion->estado->nombreEstado}' y no admite más modificaciones.");
+            throw new \DomainException("La reparación se encuentra en estado '{$reparacion->estado->nombreEstado}' que no permite modificaciones.");
         }
 
         // 2. Validar Transición de Estado usando IDs (respeta la BD)
@@ -55,9 +55,10 @@ class ActualizarReparacionService
         $nuevoEstadoId = $datos['estado_reparacion_id'];
         $nuevoEstado = EstadoReparacion::findOrFail($nuevoEstadoId);
         
+        // CU-12 Excepción 5b: Validar transición de estado permitida
         if ($estadoActualId != $nuevoEstadoId) {
             if (!$this->esTransicionValidaPorId($estadoActualId, $nuevoEstadoId)) {
-                throw new \Exception("Transición de estado inválida: No se puede pasar de '{$reparacion->estado->nombreEstado}' a '{$nuevoEstado->nombreEstado}'.");
+                throw new \DomainException("Cambio de estado no permitido: No se puede pasar de '{$reparacion->estado->nombreEstado}' a '{$nuevoEstado->nombreEstado}'. Por favor, seleccione un estado válido para el flujo actual.");
             }
         }
 
@@ -89,8 +90,8 @@ class ActualizarReparacionService
                 }
             }
 
-            // 5. Lógica de Cierre (ID 7 = Entregado según BD)
-            if ($nuevoEstado->estadoReparacionID == 7 && !$reparacion->fecha_entrega_real) {
+            // 5. Lógica de Cierre (ID 5 = Entregado según nueva numeración BD)
+            if ($nuevoEstado->estadoReparacionID == 5 && !$reparacion->fecha_entrega_real) {
                 $reparacion->update(['fecha_entrega_real' => now()]);
 
                 // CU-32: Registrar comprobante de Entrega de Reparación
@@ -175,19 +176,17 @@ class ActualizarReparacionService
             $stockRegistro->decrement('cantidad_disponible', $cantidad);
 
             MovimientoStock::create([
+                'stock_id' => $stockRegistro->stock_id,
                 'productoID' => $producto->id,
-                'deposito_id' => $stockRegistro->deposito_id,
-                'tipoMovimiento' => 'SALIDA',
                 'tipo_movimiento_id' => $tipoMovimiento->id,
                 'cantidad' => $cantidad,
-                'signo' => $tipoMovimiento->signo,
                 'stockAnterior' => $stockAnterior,
                 'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
                 'motivo' => 'Repuesto en Reparación ' . $reparacion->codigo_reparacion,
                 'referenciaID' => $reparacion->reparacionID,
                 'referenciaTabla' => 'reparaciones',
                 'user_id' => $userId,
-                'fecha_movimiento' => now()
+                'fecha_movimiento' => now(),
             ]);
         }
 

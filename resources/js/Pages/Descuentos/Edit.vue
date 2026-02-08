@@ -23,7 +23,8 @@ const form = useForm({
     aplicabilidad_descuento_id: props.descuento.aplicabilidad_descuento_id,
     
     valor: props.descuento.valor,
-    valido_hasta: props.descuento.valido_hasta,
+    valido_desde: props.descuento.valido_desde?.substring(0, 10) || '',
+    valido_hasta: props.descuento.valido_hasta?.substring(0, 10) || '',
     activo: Boolean(props.descuento.activo),
 });
 
@@ -93,13 +94,21 @@ const reactivarDescuento = () => {
                                 <InputError :message="form.errors.aplicabilidad_descuento_id" class="mt-2" />
                             </div>
 
-                            <div class="md:col-span-1">
+                            <div class="md:col-span-2">
                                 <InputLabel for="valor" value="Valor" />
                                 <TextInput id="valor" v-model="form.valor" type="number" step="0.01" class="block w-full" required />
                                 <InputError :message="form.errors.valor" class="mt-2" />
                             </div>
+                        </div>
 
-                            <div class="md:col-span-1">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <InputLabel for="valido_desde" value="Válido Desde" />
+                                <TextInput id="valido_desde" v-model="form.valido_desde" type="date" class="mt-1 block w-full" />
+                                <InputError :message="form.errors.valido_desde" class="mt-2" />
+                            </div>
+
+                            <div>
                                 <InputLabel for="valido_hasta" value="Válido Hasta" />
                                 <TextInput id="valido_hasta" v-model="form.valido_hasta" type="date" class="mt-1 block w-full" />
                                 <InputError :message="form.errors.valido_hasta" class="mt-2" />

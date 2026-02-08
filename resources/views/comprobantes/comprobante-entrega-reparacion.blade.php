@@ -131,16 +131,36 @@
                 margin: 0;
             }
             .no-print { display: none; }
+            .watermark {
+                position: fixed;
+                color: rgba(0, 0, 0, 0.08);
+            }
         }
 
         /* Aviso Legal */
-        .legal-notice {5mm;
+        .legal-notice {
+            margin-top: 5mm;
             padding: 2mm;
             background: #f3f4f6;
             border-left: 2mm solid #9ca3af;
-            font-size: 7 3mm solid #9ca3af;
-            font-size: 9pt;
+            font-size: 7pt;
             color: #4b5563;
+        }
+
+        /* Marca de agua diagonal */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            font-weight: bold;
+            color: rgba(0, 0, 0, 0.06);
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 0;
+            text-transform: uppercase;
+            letter-spacing: 5px;
         }
     </style>
     <script>
@@ -151,6 +171,9 @@
     </script>
 </head>
 <body>
+    <!-- Marca de agua -->
+    <div class="watermark">Comprobante no fiscal</div>
+
     <!-- ENCABEZADO: Información CONSTANTE (Kendall) -->
     <div class="header">
         <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -265,10 +288,44 @@
             <span class="monto">${{ number_format($totales['mano_obra'], 2, ',', '.') }}</span>
         </div>
         <div class="total-row final">
-            <span>TOTAL A ABONAR:</span>
+            <span>{{ isset($cobro) && $cobro['fue_cobrada'] ? 'TOTAL COBRADO:' : 'TOTAL A ABONAR:' }}</span>
             <span>${{ number_format($totales['total_final'], 2, ',', '.') }}</span>
         </div>
     </div>
+
+    <!-- Datos del Cobro (si ya fue cobrada) -->
+    @if(isset($cobro) && $cobro['fue_cobrada'])
+        <div class="section" style="background: #ecfdf5; border: 2px solid #10b981; margin-top: 3mm;">
+            <div class="section-title" style="color: #059669; border-bottom-color: #10b981;">Datos del Cobro</div>
+            <table style="border: none;">
+                <tr>
+                    <td style="border: none; width: 25%; font-weight: bold;">Medio de Pago:</td>
+                    <td style="border: none; font-weight: bold; color: #059669;">{{ $cobro['medio_pago'] }}</td>
+                    <td style="border: none; width: 25%; font-weight: bold;">Fecha de Cobro:</td>
+                    <td style="border: none;">{{ $cobro['fecha_cobro'] }}</td>
+                </tr>
+                <tr>
+                    <td style="border: none; font-weight: bold;">Monto Cobrado:</td>
+                    <td style="border: none; font-weight: bold; font-size: 10pt; color: #059669;">${{ number_format($cobro['monto_cobrado'], 2, ',', '.') }}</td>
+                    <td style="border: none; font-weight: bold;">Cobrado por:</td>
+                    <td style="border: none;">{{ $cobro['cobrado_por'] ?? 'Sistema' }}</td>
+                </tr>
+                @if($cobro['es_cuenta_corriente'])
+                    <tr>
+                        <td colspan="4" style="border: none; padding-top: 2mm;">
+                            <div style="background: #dbeafe; padding: 2mm; border-left: 2mm solid #3b82f6; font-size: 8pt; color: #1e40af;">
+                                <strong>CUENTA CORRIENTE:</strong> El monto fue cargado a la cuenta corriente del cliente.
+                            </div>
+                        </td>
+                    </tr>
+                @endif
+            </table>
+        </div>
+    @elseif(isset($cobro) && !$cobro['fue_cobrada'])
+        <div style="margin-top: 3mm; padding: 2mm; background: #fef3c7; border: 1px solid #f59e0b; text-align: center; font-size: 9pt; font-weight: bold; color: #92400e;">
+            ⚠ PENDIENTE DE COBRO — El cliente aún no ha abonado esta reparación.
+        </div>
+    @endif
 
     <!-- Firma del Cliente -->
     <div class="firma-box">

@@ -154,6 +154,11 @@ class Comprobante extends Model
                 };
             }
 
+            // Obtener el ID del tipo de comprobante a partir del código
+            $tipoComprobanteId = \DB::table('tipos_comprobante')
+                ->where('codigo', $tipoComprobante)
+                ->value('tipo_id');
+
             // PESSIMISTIC LOCKING: Bloquea la fila hasta que termine la transacción
             // Esto previene que dos usuarios lean el mismo "último número"
             $ultimoComprobante = self::where('tipo_comprobante_id', $tipoComprobanteId)
@@ -217,13 +222,18 @@ class Comprobante extends Model
             throw new \Exception('No se puede reemitir un comprobante anulado');
         }
 
+        // Obtener el código string del tipo de comprobante para generarNumeroCorrelativo
+        $codigoTipoComprobante = \DB::table('tipos_comprobante')
+            ->where('tipo_id', $this->tipo_comprobante_id)
+            ->value('codigo');
+
         // Crear nuevo comprobante vinculado al original
         $nuevoComprobante = self::create([
             'tipo_entidad' => $this->tipo_entidad,
             'entidad_id' => $this->entidad_id,
             'usuario_id' => $usuarioId,
             'tipo_comprobante_id' => $this->tipo_comprobante_id,
-            'numero_correlativo' => self::generarNumeroCorrelativo($this->tipo_comprobante_id),
+            'numero_correlativo' => self::generarNumeroCorrelativo($codigoTipoComprobante),
             'fecha_emision' => now(),
             'estado_comprobante_id' => $estadoEmitido,
             'original_id' => $this->comprobante_id,

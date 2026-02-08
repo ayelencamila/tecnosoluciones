@@ -9,6 +9,7 @@ use App\Models\Venta;
 use App\Models\Cliente;
 use App\Models\Auditoria;
 use App\Exports\VentaExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -122,13 +123,68 @@ class ReporteVentaController extends Controller
 
     public function exportar(Request $request)
     {
+        $formato = $request->input('formato', 'xlsx');
+        $timestamp = now()->format('Ymd_His');
+
         Auditoria::create([
             'accion' => 'EXPORTACION',
             'tablaAfectada' => 'reportes',
             'usuarioID' => Auth::id(),
-            'motivo' => 'Descarga Excel Ventas'
+            'ip' => $request->ip(),
+            'motivo' => "Exportación {$formato} Ventas"
         ]);
 
-        return Excel::download(new VentaExport($request->all()), 'reporte_ventas.xlsx');
+        switch ($formato) {
+            case 'pdf':
+                $data = $this->getDataForPdf($request);
+                $pdf = Pdf::loadView('pdf.reportes.ventas', $data)->setPaper('a4', 'landscape');
+                return $pdf->download("reporte_ventas_{$timestamp}.pdf");
+
+            case 'csv':
+                return Excel::download(
+                    new VentaExport($request->all()),
+                    "reporte_ventas_{$timestamp}.csv",
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+
+            default:
+                return Excel::download(
+                    new VentaExport($request->all()),
+                    "reporte_ventas_{$timestamp}.xlsx"
+                );
+        }
+    }
+
+    private function getDataForPdf(Request $request): array
+    {
+        $fechaDesde = $request->input('fecha_desde', Carbon::now()->startOfMonth()->format('Y-m-d'));
+        $fechaHasta = $request->input('fecha_hasta', Carbon::now()->endOfMonth()->format('Y-m-d'));
+        $clienteId = $request->input('cliente_id');
+
+        $query = Venta::with(['cliente', 'vendedor', 'estado'])
+            ->where('estado_venta_id', '!=', 3)
+            ->whereBetween('fecha_venta', [
+                Carbon::parse($fechaDesde)->startOfDay(),
+                Carbon::parse($fechaHasta)->endOfDay()
+            ]);
+
+        if ($clienteId) {
+            $query->where('clienteID', $clienteId);
+        }
+
+        $ventas = $query->latest('fecha_venta')->get();
+        $totalIngresos = $ventas->sum('total');
+        $cantidadVentas = $ventas->count();
+        $ticketPromedio = $cantidadVentas > 0 ? $totalIngresos / $cantidadVentas : 0;
+
+        return [
+            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y') . ' - ' . Carbon::parse($fechaHasta)->format('d/m/Y'),
+            'ventas' => $ventas,
+            'kpis' => [
+                'total_ingresos' => $totalIngresos,
+                'cantidad_ventas' => $cantidadVentas,
+                'ticket_promedio' => round($ticketPromedio, 2),
+            ],
+        ];
     }
 }

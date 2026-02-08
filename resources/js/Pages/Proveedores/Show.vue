@@ -8,7 +8,7 @@ const props = defineProps({
     proveedor: Object
 });
 
-const currentRating = ref(props.proveedor?.calificacion || 0);
+const currentRating = ref(parseFloat(props.proveedor?.calificacion) || 0);
 
 // Guardar automáticamente cuando cambia la calificación
 const updateRating = (newRating) => {
@@ -50,8 +50,11 @@ const clearRating = () => {
                     <div class="p-6">
                         <!-- Botones de acción -->
                         <div class="flex justify-between items-center mb-6">
-                            <Link :href="route('proveedores.index')" class="text-blue-600 hover:text-blue-800">
-                                ← Volver al listado
+                            <Link :href="route('proveedores.index')" class="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="w-4 h-4">
+                                    <path fill-rule="evenodd" d="M17 10a.75.75 0 0 1-.75.75H5.612l4.158 3.96a.75.75 0 1 1-1.04 1.08l-5.5-5.25a.75.75 0 0 1 0-1.08l5.5-5.25a.75.75 0 1 1 1.04 1.08L5.612 9.25H16.25A.75.75 0 0 1 17 10Z" clip-rule="evenodd" />
+                                </svg>
+                                Volver al listado
                             </Link>
                             <Link 
                                 :href="route('proveedores.edit', proveedor.id)" 
@@ -90,27 +93,36 @@ const clearRating = () => {
                                         <label class="block text-sm font-medium text-gray-700">Plazo de Entrega Estimado</label>
                                         <p class="mt-1 text-sm text-gray-900">{{ proveedor.plazo_entrega_estimado }} días</p>
                                     </div>
+                                </div>
+                            </div>
+
+                            <!-- Calificación destacada -->
+                            <div class="bg-amber-50 border border-amber-200 rounded-lg p-5">
+                                <div class="flex items-center justify-between">
                                     <div>
-                                        <div class="flex items-center gap-2 mb-1">
-                                            <label class="block text-sm font-medium text-gray-700">Calificación</label>
-                                            <span class="text-xs text-gray-500">(Click para calificar)</span>
-                                        </div>
-                                        <div class="flex items-center gap-3">
-                                            <StarRating 
-                                                :modelValue="currentRating" 
-                                                @update:modelValue="updateRating"
-                                                :readonly="false" 
-                                            />
-                                            <button 
-                                                v-if="currentRating > 0"
-                                                @click="clearRating"
-                                                class="text-xs text-red-600 hover:text-red-800 underline"
-                                                title="Eliminar calificación"
-                                            >
-                                                Quitar
-                                            </button>
-                                        </div>
+                                        <h3 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-5 h-5 text-amber-500">
+                                                <path fill-rule="evenodd" d="M10.788 3.21c.448-1.077 1.976-1.077 2.424 0l2.082 5.006 5.404.434c1.164.093 1.636 1.545.749 2.305l-4.117 3.527 1.257 5.273c.271 1.136-.964 2.033-1.96 1.425L12 18.354 7.373 21.18c-.996.608-2.231-.29-1.96-1.425l1.257-5.273-4.117-3.527c-.887-.76-.415-2.212.749-2.305l5.404-.434 2.082-5.005Z" clip-rule="evenodd" />
+                                            </svg>
+                                            Calificación del Proveedor
+                                        </h3>
+                                        <p class="text-sm text-amber-700 mt-1">Hacé click en las estrellas para calificar</p>
                                     </div>
+                                    <button 
+                                        v-if="currentRating > 0"
+                                        @click="clearRating"
+                                        class="text-xs text-red-600 hover:text-red-800 underline font-medium"
+                                        title="Eliminar calificación"
+                                    >
+                                        Quitar calificación
+                                    </button>
+                                </div>
+                                <div class="mt-3">
+                                    <StarRating 
+                                        :modelValue="currentRating" 
+                                        @update:modelValue="updateRating"
+                                        :readonly="false" 
+                                    />
                                 </div>
                             </div>
 

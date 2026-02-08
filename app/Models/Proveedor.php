@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use App\Models\EstadoOrdenCompra;
 use Illuminate\Notifications\Notifiable;
 
 /**
@@ -139,11 +140,19 @@ class Proveedor extends Model
             // Bloquear el registro para evitar race conditions
             $proveedor = self::lockForUpdate()->find($this->id);
             
-            // Verificar excepción de Kendall: productos asociados
-            if ($proveedor->productosHabituales()->count() > 0) {
+            // Verificar excepción crítica: órdenes de compra activas
+            $ordenesActivas = $proveedor->ordenesCompra()
+                ->whereIn('estado_id', [
+                    EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::ENVIADA),
+                    EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::CONFIRMADA),
+                    EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL)
+                ])
+                ->count();
+
+            if ($ordenesActivas > 0) {
                 throw new \Exception(
-                    'No se puede dar de baja un proveedor con productos asociados. ' .
-                    'Reasigne los productos primero.'
+                    "No se puede dar de baja un proveedor con {$ordenesActivas} órdenes de compra pendientes. " .
+                    'Complete o cancele las órdenes primero.'
                 );
             }
 

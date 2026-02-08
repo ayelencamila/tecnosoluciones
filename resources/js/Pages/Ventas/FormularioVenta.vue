@@ -206,14 +206,22 @@ const addProductToCart = () => {
 };
 
 const buscarYAplicarDescuento = () => {
-    const descuentoEncontrado = props.descuentos.find(d => 
-        d.codigo?.toLowerCase() === applyDiscountCode.value.toLowerCase() && d.aplicabilidad !== 'item'
-    );
+    const codigoIngresado = applyDiscountCode.value.trim().toLowerCase();
+    if (!codigoIngresado) return;
+
+    const descuentoEncontrado = props.descuentos.find(d => {
+        const codigoMatch = d.codigo?.toLowerCase() === codigoIngresado;
+        // Excluir descuentos que son solo por ítem (POR_ITEM)
+        const aplicabilidadCodigo = d.aplicabilidad?.codigo?.toUpperCase() || '';
+        const esGlobal = aplicabilidadCodigo !== 'POR_ITEM';
+        return codigoMatch && esGlobal;
+    });
+
     if (descuentoEncontrado) {
         ventaStore.aplicarDescuentoGlobal(descuentoEncontrado);
         applyDiscountCode.value = ''; 
     } else {
-        alert('Código de descuento inválido.');
+        alert('Código de descuento inválido o no aplicable como descuento global.');
     }
 };
 
@@ -327,7 +335,7 @@ onMounted(() => {
                                 <ul v-if="showClienteDropdown && filteredClientes.length" class="absolute z-10 w-full bg-white border border-gray-300 rounded-md shadow-lg mt-1 max-h-40 overflow-y-auto">
                                     <li v-for="cli in filteredClientes" :key="cli.clienteID" @click="selectCliente(cli)" class="px-4 py-2 cursor-pointer hover:bg-indigo-50 text-sm border-b">
                                         <span class="font-bold text-indigo-700">{{ cli.apellido }}, {{ cli.nombre }}</span> 
-                                        <span class="text-gray-500 ml-2 text-xs">DNI: {{ cli.dni }}</span>
+                                        <span class="text-gray-500 ml-2 text-xs">DNI: {{ cli.DNI }}</span>
                                     </li>
                                 </ul>
                                 <InputError :message="form.errors.clienteID" class="mt-2" />

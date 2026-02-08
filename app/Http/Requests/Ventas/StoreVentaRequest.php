@@ -34,8 +34,17 @@ class StoreVentaRequest extends FormRequest
             'items' => ['required', 'array', 'min:1'],
             'items.*.producto_id' => ['required', 'exists:productos,id'],
             'items.*.cantidad' => ['required', 'integer', 'min:1'],
-            
-            'descuento_global_id' => ['nullable', 'exists:descuentos,id'],
+            'items.*.precio_producto_id' => ['nullable', 'integer', 'exists:precios_producto,id'],
+
+            // Descuentos por ítem
+            'items.*.descuentos_item' => ['nullable', 'array'],
+            'items.*.descuentos_item.*.descuento_id' => ['required', 'exists:descuentos,descuento_id'],
+            'items.*.descuentos_item.*.monto_aplicado_item' => ['nullable', 'numeric', 'min:0'],
+
+            // Descuentos globales (aplicados a la venta completa)
+            'descuentos_globales' => ['nullable', 'array'],
+            'descuentos_globales.*.descuento_id' => ['required', 'exists:descuentos,descuento_id'],
+
             'observaciones' => ['nullable', 'string', 'max:500'],
         ];
     }

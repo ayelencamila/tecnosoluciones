@@ -5,9 +5,10 @@ namespace App\Services\Ventas;
 use App\Events\VentaAnulada;
 use App\Exceptions\Ventas\VentaYaAnuladaException;
 use App\Models\Venta;
-use App\Models\Stock; 
-use App\Models\MovimientoStock; 
-use App\Models\EstadoVenta; // <--- Importante: Usamos el modelo de estados
+use App\Models\Stock;
+use App\Models\MovimientoStock;
+use App\Models\TipoMovimientoStock;
+use App\Models\EstadoVenta;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -64,15 +65,17 @@ class AnularVentaService
     {
         $venta->load('detalles.producto'); 
         
+        $tipoDevolucion = TipoMovimientoStock::where('nombre', 'Devolución (Entrada)')->firstOrFail();
+
         foreach ($venta->detalles as $detalle) {
             $producto = $detalle->producto;
             $cantidadRevertida = (int) $detalle->cantidad;
 
-            if ($producto && $producto->unidadMedida !== 'Servicio') {
+            if ($producto && !$producto->es_servicio) {
                 
-                // Buscamos stock por productoID (asumiendo que Stock no cambió de nombre)
-                // Si DetalleVenta usa 'producto_id', asegúrate de mapearlo bien.
-                $stockRegistro = Stock::where('productoID', $producto->id)->first();
+                $stockRegistro = Stock::where('productoID', $producto->id)
+                                      ->lockForUpdate()
+                                      ->first();
 
                 if ($stockRegistro) {
                     $stockAnterior = $stockRegistro->cantidad_disponible;
@@ -80,18 +83,19 @@ class AnularVentaService
                     // 1. Incrementar (Devolver)
                     $stockRegistro->increment('cantidad_disponible', $cantidadRevertida); 
                     
-                    // 2. Registrar Movimiento (ENTRADA por Anulación)
+                    // 2. Registrar Movimiento (Devolución por Anulación)
                     MovimientoStock::create([
+                        'stock_id' => $stockRegistro->stock_id,
                         'productoID' => $producto->id,
-                        'tipoMovimiento' => 'ENTRADA', 
+                        'tipo_movimiento_id' => $tipoDevolucion->id,
                         'cantidad' => $cantidadRevertida,
                         'stockAnterior' => $stockAnterior,
                         'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
                         'motivo' => 'Anulación Venta ' . $venta->numero_comprobante,
                         'referenciaID' => $venta->venta_id,
                         'referenciaTabla' => 'ventas',
-                        'user_id' => $userID, 
-                        // 'fecha_movimiento' => now(), // Si tu migración lo pide, descomenta
+                        'user_id' => $userID,
+                        'fecha_movimiento' => now(),
                     ]);
                 } else {
                     Log::error("Stock no encontrado para Producto ID {$producto->id} al anular Venta {$venta->venta_id}");

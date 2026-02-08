@@ -2,22 +2,22 @@
 
 namespace Tests\Feature\Compras;
 
-use App\Models\CotizacionProveedor;
-use App\Models\EstadoSolicitud;
-use App\Models\Proveedor;
-use App\Models\Producto;
 use App\Models\CategoriaProducto;
+use App\Models\CotizacionProveedor;
+use App\Models\EstadoProducto;
+use App\Models\EstadoSolicitud;
+use App\Models\Producto;
+use App\Models\Proveedor;
+use App\Models\Rol;
 use App\Models\SolicitudCotizacion;
 use App\Models\User;
-use App\Models\Rol;
 use App\Services\Compras\SolicitudCotizacionService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 /**
  * Tests Feature para CU-20: Gestión de Solicitudes de Cotización
- * 
+ *
  * Verifica:
  * - Creación de solicitudes
  * - Envío de Magic Links a proveedores
@@ -42,36 +42,35 @@ class SolicitudCotizacionTest extends TestCase
     {
         parent::setUp();
 
-        // Crear estados de solicitud
-        $this->estadoAbierta = EstadoSolicitud::create([
-            'nombre' => 'Abierta',
-            'descripcion' => 'Solicitud abierta',
-            'color' => '#10B981',
-        ]);
-        $this->estadoEnviada = EstadoSolicitud::create([
-            'nombre' => 'Enviada',
-            'descripcion' => 'Solicitud enviada',
-            'color' => '#3B82F6',
-        ]);
-        $this->estadoVencida = EstadoSolicitud::create([
-            'nombre' => 'Vencida',
-            'descripcion' => 'Solicitud vencida',
-            'color' => '#EF4444',
-        ]);
-        $this->estadoCerrada = EstadoSolicitud::create([
-            'nombre' => 'Cerrada',
-            'descripcion' => 'Solicitud cerrada',
-            'color' => '#6B7280',
-        ]);
+        // Crear estados (la migración ya los seedeó, usar firstOrCreate)
+        $this->estadoAbierta = EstadoSolicitud::firstOrCreate(
+            ['nombre' => 'Abierta'],
+            ['descripcion' => 'Solicitud abierta', 'activo' => true]
+        );
+        $this->estadoEnviada = EstadoSolicitud::firstOrCreate(
+            ['nombre' => 'Enviada'],
+            ['descripcion' => 'Solicitud enviada', 'activo' => true]
+        );
+        $this->estadoVencida = EstadoSolicitud::firstOrCreate(
+            ['nombre' => 'Vencida'],
+            ['descripcion' => 'Solicitud vencida', 'activo' => true]
+        );
+        $this->estadoCerrada = EstadoSolicitud::firstOrCreate(
+            ['nombre' => 'Cerrada'],
+            ['descripcion' => 'Solicitud cerrada', 'activo' => true]
+        );
 
         // Crear rol y usuario
-        $rol = Rol::create(['nombre' => 'Administrador']);
-        $this->usuario = User::factory()->create(['rolID' => $rol->rolID]);
+        $rol = Rol::firstOrCreate(
+            ['nombre' => 'administrador'],
+            ['descripcion' => 'Administrador', 'activo' => true]
+        );
+        $this->usuario = User::factory()->create(['rol_id' => $rol->rol_id]);
 
         // Crear proveedor
         $this->proveedor = Proveedor::create([
             'razon_social' => 'Proveedor Test S.A.',
-            'cuit' => '30-12345678-9',
+            'cuit' => '30123456789',
             'email' => 'proveedor@test.com',
             'telefono' => '1112345678',
             'direccion' => 'Calle Falsa 123',
@@ -86,9 +85,15 @@ class SolicitudCotizacionTest extends TestCase
         $this->producto = Producto::create([
             'codigo' => 'PROD001',
             'nombre' => 'Producto Test',
-            'categoriaProductoID' => $categoria->categoriaProductoID,
-            'precioVenta' => 1000,
-            'stock_minimo' => 10,
+            'categoriaProductoID' => $categoria->id,
+            'unidad_medida_id' => \App\Models\UnidadMedida::firstOrCreate(
+                ['nombre' => 'Unidad'],
+                ['abreviatura' => 'u', 'activo' => true]
+            )->id,
+            'estadoProductoID' => EstadoProducto::create([
+                'nombre' => 'Activo',
+                'descripcion' => 'Producto activo',
+            ])->id,
         ]);
 
         $this->service = app(SolicitudCotizacionService::class);
@@ -106,7 +111,7 @@ class SolicitudCotizacionTest extends TestCase
         ];
         $productos = [
             [
-                'producto_id' => $this->producto->productoID,
+                'producto_id' => $this->producto->id,
                 'cantidad_sugerida' => 50,
                 'observaciones' => 'Urgente',
             ],
@@ -123,7 +128,7 @@ class SolicitudCotizacionTest extends TestCase
 
         // ASSERT
         $this->assertNotNull($solicitud);
-        $this->assertStringStartsWith('SC-', $solicitud->codigo_solicitud);
+        $this->assertStringStartsWith('SOL-', $solicitud->codigo_solicitud);
         $this->assertEquals($this->estadoAbierta->id, $solicitud->estado_id);
         $this->assertCount(1, $solicitud->detalles);
         $this->assertCount(1, $solicitud->cotizacionesProveedores);
@@ -137,7 +142,7 @@ class SolicitudCotizacionTest extends TestCase
         // ARRANGE
         $proveedor2 = Proveedor::create([
             'razon_social' => 'Otro Proveedor S.R.L.',
-            'cuit' => '30-87654321-0',
+            'cuit' => '30876543210',
             'email' => 'otro@test.com',
             'telefono' => '1187654321',
             'direccion' => 'Calle Real 456',
@@ -146,7 +151,7 @@ class SolicitudCotizacionTest extends TestCase
 
         $solicitud = $this->service->crearSolicitud(
             ['fecha_vencimiento' => now()->addDays(7)],
-            [['producto_id' => $this->producto->productoID, 'cantidad_sugerida' => 20]],
+            [['producto_id' => $this->producto->id, 'cantidad_sugerida' => 20]],
             [$this->proveedor->id, $proveedor2->id],
             $this->usuario->id
         );
@@ -154,11 +159,11 @@ class SolicitudCotizacionTest extends TestCase
         // ASSERT
         $cotizaciones = $solicitud->cotizacionesProveedores;
         $this->assertCount(2, $cotizaciones);
-        
+
         // Cada cotización tiene token único
         $tokens = $cotizaciones->pluck('token_unico');
         $this->assertCount(2, $tokens->unique());
-        
+
         foreach ($tokens as $token) {
             $this->assertNotNull($token);
             $this->assertEquals(36, strlen($token)); // UUID format
@@ -173,12 +178,11 @@ class SolicitudCotizacionTest extends TestCase
         // ARRANGE
         $solicitud = $this->service->crearSolicitud(
             ['fecha_vencimiento' => now()->addDays(7)],
-            [['producto_id' => $this->producto->productoID, 'cantidad_sugerida' => 20]],
+            [['producto_id' => $this->producto->id, 'cantidad_sugerida' => 20]],
             [$this->proveedor->id],
             $this->usuario->id
         );
 
-        // Marcar como enviada (simula el envío)
         $cotizacion = $solicitud->cotizacionesProveedores->first();
         $cotizacion->marcarEnviado();
 
@@ -220,8 +224,8 @@ class SolicitudCotizacionTest extends TestCase
     {
         // ARRANGE
         $solicitud = $this->service->crearSolicitud(
-            ['fecha_vencimiento' => now()->subDays(1)], // Ya vencida
-            [['producto_id' => $this->producto->productoID, 'cantidad_sugerida' => 20]],
+            ['fecha_vencimiento' => now()->subDays(1)],
+            [['producto_id' => $this->producto->id, 'cantidad_sugerida' => 20]],
             [$this->proveedor->id],
             $this->usuario->id
         );
@@ -235,8 +239,7 @@ class SolicitudCotizacionTest extends TestCase
         // ASSERT
         $response->assertStatus(200);
         $response->assertInertia(fn ($page) => $page
-            ->component('Portal/Error')
-            ->where('titulo', 'Solicitud vencida')
+            ->component('Portal/Vencida')
         );
     }
 
@@ -248,7 +251,7 @@ class SolicitudCotizacionTest extends TestCase
         // ARRANGE
         $solicitud = $this->service->crearSolicitud(
             ['fecha_vencimiento' => now()->addDays(7)],
-            [['producto_id' => $this->producto->productoID, 'cantidad_sugerida' => 50]],
+            [['producto_id' => $this->producto->id, 'cantidad_sugerida' => 50]],
             [$this->proveedor->id],
             $this->usuario->id
         );
@@ -260,7 +263,7 @@ class SolicitudCotizacionTest extends TestCase
         $response = $this->post(route('portal.cotizacion.responder', $cotizacion->token_unico), [
             'respuestas' => [
                 [
-                    'producto_id' => $this->producto->productoID,
+                    'producto_id' => $this->producto->id,
                     'precio_unitario' => 850.50,
                     'cantidad_disponible' => 50,
                     'plazo_entrega_dias' => 5,
@@ -273,7 +276,7 @@ class SolicitudCotizacionTest extends TestCase
         $cotizacion->refresh();
         $this->assertNotNull($cotizacion->fecha_respuesta);
         $this->assertCount(1, $cotizacion->respuestas);
-        
+
         $respuesta = $cotizacion->respuestas->first();
         $this->assertEquals(850.50, $respuesta->precio_unitario);
         $this->assertEquals(50, $respuesta->cantidad_disponible);
@@ -287,9 +290,9 @@ class SolicitudCotizacionTest extends TestCase
     {
         // ARRANGE
         $solicitud = SolicitudCotizacion::create([
-            'codigo_solicitud' => 'SC-TEST-001',
+            'codigo_solicitud' => 'SOL-TEST-001',
             'fecha_emision' => now()->subDays(10),
-            'fecha_vencimiento' => now()->subDays(3), // Vencida hace 3 días
+            'fecha_vencimiento' => now()->subDays(3),
             'estado_id' => $this->estadoEnviada->id,
             'user_id' => $this->usuario->id,
         ]);
@@ -311,14 +314,14 @@ class SolicitudCotizacionTest extends TestCase
         // ARRANGE
         $proveedor2 = Proveedor::create([
             'razon_social' => 'Proveedor Caro S.A.',
-            'cuit' => '30-11111111-1',
+            'cuit' => '30111111111',
             'email' => 'caro@test.com',
             'activo' => true,
         ]);
 
         $solicitud = $this->service->crearSolicitud(
             ['fecha_vencimiento' => now()->addDays(7)],
-            [['producto_id' => $this->producto->productoID, 'cantidad_sugerida' => 10]],
+            [['producto_id' => $this->producto->id, 'cantidad_sugerida' => 10]],
             [$this->proveedor->id, $proveedor2->id],
             $this->usuario->id
         );
@@ -332,12 +335,12 @@ class SolicitudCotizacionTest extends TestCase
 
         // Proveedor 1: precio bajo
         $this->service->registrarRespuestaProveedor($cotizacion1, [
-            ['producto_id' => $this->producto->productoID, 'precio_unitario' => 500, 'cantidad_disponible' => 10, 'plazo_entrega_dias' => 5],
+            ['producto_id' => $this->producto->id, 'precio_unitario' => 500, 'cantidad_disponible' => 10, 'plazo_entrega_dias' => 5],
         ]);
 
         // Proveedor 2: precio alto
         $this->service->registrarRespuestaProveedor($cotizacion2, [
-            ['producto_id' => $this->producto->productoID, 'precio_unitario' => 800, 'cantidad_disponible' => 10, 'plazo_entrega_dias' => 3],
+            ['producto_id' => $this->producto->id, 'precio_unitario' => 800, 'cantidad_disponible' => 10, 'plazo_entrega_dias' => 3],
         ]);
 
         // ACT
@@ -345,11 +348,11 @@ class SolicitudCotizacionTest extends TestCase
 
         // ASSERT
         $this->assertCount(2, $ranking);
-        
+
         // El primero debe ser el más barato
         $this->assertEquals($this->proveedor->id, $ranking[0]['proveedor']->id);
         $this->assertEquals(5000, $ranking[0]['total']); // 500 * 10
-        
+
         // El segundo debe ser el más caro
         $this->assertEquals($proveedor2->id, $ranking[1]['proveedor']->id);
         $this->assertEquals(8000, $ranking[1]['total']); // 800 * 10

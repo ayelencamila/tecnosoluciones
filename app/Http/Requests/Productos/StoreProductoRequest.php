@@ -28,6 +28,9 @@ class StoreProductoRequest extends FormRequest
             'estadoProductoID' => ['required', 'exists:estados_producto,id'],
             'proveedor_habitual_id' => ['nullable', 'exists:proveedores,id'],
 
+            // Costo
+            'precio_costo' => ['nullable', 'numeric', 'min:0', 'max:9999999999.99'],
+
             // Stock (Opcionales)
             'stock_minimo' => ['nullable', 'integer', 'min:0'],
             'cantidad_inicial' => ['nullable', 'integer', 'min:0'],

@@ -14,7 +14,10 @@ use App\Models\CategoriaGasto;
 use App\Models\Auditoria;
 use App\Models\EstadoVenta;
 use App\Models\EstadoOrdenCompra;
+use App\Models\RecepcionMercaderia;
+use App\Models\DetalleRecepcion;
 use App\Exports\ReporteMensualExport;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Maatwebsite\Excel\Facades\Excel;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -42,9 +45,16 @@ class ReporteMensualController extends Controller
         $fechaInicio = Carbon::createFromDate($anio, $mes, 1)->startOfMonth();
         $fechaFin = Carbon::createFromDate($anio, $mes, 1)->endOfMonth();
 
+        // ================================================================
+        // BALANCE MENSUAL — Formato Libro Diario (Entradas / Salidas)
+        // Buenas prácticas: Partida doble, principio de devengado,
+        // separación clara de flujos de fondos.
+        // ================================================================
+
         // ==================== ENTRADAS ====================
-        
-        // Ventas (no anuladas)
+        // Todo ingreso de dinero al negocio en el período
+
+        // 1. Ventas de productos (no anuladas)
         $totalVentas = Venta::where('estado_venta_id', '!=', EstadoVenta::ANULADA)
             ->whereBetween('fecha_venta', [$fechaInicio, $fechaFin])
             ->sum('total');
@@ -52,7 +62,7 @@ class ReporteMensualController extends Controller
             ->whereBetween('fecha_venta', [$fechaInicio, $fechaFin])
             ->count();
 
-        // Reparaciones entregadas
+        // 2. Servicios de reparación (entregadas y cobradas)
         $totalReparaciones = Reparacion::where('anulada', false)
             ->whereNotNull('fecha_entrega_real')
             ->whereBetween('fecha_entrega_real', [$fechaInicio, $fechaFin])
@@ -62,63 +72,113 @@ class ReporteMensualController extends Controller
             ->whereBetween('fecha_entrega_real', [$fechaInicio, $fechaFin])
             ->count();
 
-        // Pagos recibidos de clientes
-        $totalPagosRecibidos = Pago::where('anulado', false)
+        // 3. Cobranzas de Cuenta Corriente (pagos recibidos de clientes CC)
+        $totalCobranzas = Pago::where('anulado', false)
             ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])
             ->sum('monto');
-        $cantidadPagos = Pago::where('anulado', false)
+        $cantidadCobranzas = Pago::where('anulado', false)
             ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])
             ->count();
 
-        $totalEntradas = $totalVentas + $totalReparaciones;
+        // Desglose de cobranzas por medio de pago
+        $cobranzasPorMedioPago = Pago::where('anulado', false)
+            ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])
+            ->join('medios_pago', 'pagos.medioPagoID', '=', 'medios_pago.medioPagoID')
+            ->select(
+                'medios_pago.nombre as concepto',
+                DB::raw('COUNT(*) as cantidad'),
+                DB::raw('SUM(pagos.monto) as total')
+            )
+            ->groupBy('medios_pago.medioPagoID', 'medios_pago.nombre')
+            ->orderBy('total', 'desc')
+            ->get()
+            ->map(fn($item) => [
+                'concepto' => 'Cobranza CC — ' . $item->concepto,
+                'cantidad' => (int) $item->cantidad,
+                'total' => (float) $item->total,
+            ])
+            ->toArray();
+
+        $totalEntradas = $totalVentas + $totalReparaciones + $totalCobranzas;
 
         // ==================== SALIDAS ====================
-        
-        // Compras a proveedores (recibidas)
+        // Todo egreso de dinero del negocio en el período
+
+        // 1. Compras a proveedores (OC recibidas)
         $estadosRecibidos = [
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
             EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL),
         ];
-        
-        $totalCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+
+        $totalComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
             ->sum('total_final');
-        $cantidadCompras = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+        $cantidadComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
             ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
             ->count();
 
-        // Gastos operativos (no anulados, tipo = gasto)
+        // 2. Compras directas (reposiciones sin OC)
+        $recepcionesDirectas = RecepcionMercaderia::whereNull('orden_compra_id')
+            ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
+            ->with('detalles')
+            ->get();
+        $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
+        $cantidadComprasDirectas = $recepcionesDirectas->count();
+
+        // 3. Gastos operativos (por categoría)
         $totalGastosOperativos = Gasto::activos()
             ->gastos()
             ->delMes($mes, $anio)
             ->sum('monto');
 
-        // Pérdidas (no anuladas, tipo = perdida)
+        $gastosOpPorCategoria = Gasto::activos()
+            ->gastos()
+            ->delMes($mes, $anio)
+            ->join('categorias_gasto', 'gastos.categoria_gasto_id', '=', 'categorias_gasto.categoria_gasto_id')
+            ->select(
+                DB::raw("CONCAT('Gasto — ', categorias_gasto.nombre) as concepto"),
+                DB::raw('COUNT(*) as cantidad'),
+                DB::raw('SUM(gastos.monto) as total')
+            )
+            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
+            ->orderBy('total', 'desc')
+            ->get()
+            ->map(fn($item) => [
+                'concepto' => $item->concepto,
+                'cantidad' => (int) $item->cantidad,
+                'total' => (float) $item->total,
+            ])
+            ->toArray();
+
+        // 4. Pérdidas extraordinarias (por categoría)
         $totalPerdidas = Gasto::activos()
             ->perdidas()
             ->delMes($mes, $anio)
             ->sum('monto');
 
-        $totalSalidas = $totalCompras + $totalGastosOperativos + $totalPerdidas;
-
-        // Balance
-        $balance = $totalEntradas - $totalSalidas;
-
-        // ==================== DETALLE GASTOS POR CATEGORÍA ====================
-        
-        $gastosPorCategoria = Gasto::activos()
+        $perdidasPorCategoria = Gasto::activos()
+            ->perdidas()
             ->delMes($mes, $anio)
             ->join('categorias_gasto', 'gastos.categoria_gasto_id', '=', 'categorias_gasto.categoria_gasto_id')
             ->select(
-                'categorias_gasto.nombre',
-                'categorias_gasto.tipo',
-                DB::raw('SUM(gastos.monto) as total'),
-                DB::raw('COUNT(*) as cantidad')
+                DB::raw("CONCAT('Pérdida — ', categorias_gasto.nombre) as concepto"),
+                DB::raw('COUNT(*) as cantidad'),
+                DB::raw('SUM(gastos.monto) as total')
             )
-            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre', 'categorias_gasto.tipo')
-            ->orderBy('categorias_gasto.tipo')
+            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
             ->orderBy('total', 'desc')
-            ->get();
+            ->get()
+            ->map(fn($item) => [
+                'concepto' => $item->concepto,
+                'cantidad' => (int) $item->cantidad,
+                'total' => (float) $item->total,
+            ])
+            ->toArray();
+
+        $totalSalidas = $totalComprasOC + $totalComprasDirectas + $totalGastosOperativos + $totalPerdidas;
+
+        // ==================== BALANCE ====================
+        $balance = $totalEntradas - $totalSalidas;
 
         // ==================== GRÁFICOS SEGÚN FILTRO ====================
         
@@ -157,24 +217,30 @@ class ReporteMensualController extends Controller
                 'fin' => $fechaFin->format('d/m/Y'),
             ],
             'planilla' => [
-                'entradas' => [
-                    ['concepto' => 'Ventas', 'cantidad' => $cantidadVentas, 'total' => $totalVentas],
-                    ['concepto' => 'Reparaciones', 'cantidad' => $cantidadReparaciones, 'total' => $totalReparaciones],
-                ],
+                // ENTRADAS (todo ingreso de dinero)
+                'entradas' => array_merge(
+                    [
+                        ['concepto' => 'Ventas de Productos', 'cantidad' => $cantidadVentas, 'total' => $totalVentas],
+                        ['concepto' => 'Servicios de Reparación', 'cantidad' => $cantidadReparaciones, 'total' => $totalReparaciones],
+                    ],
+                    $cobranzasPorMedioPago
+                ),
                 'total_entradas' => $totalEntradas,
-                'salidas' => [
-                    ['concepto' => 'Compras a Proveedores', 'cantidad' => $cantidadCompras, 'total' => $totalCompras],
-                    ['concepto' => 'Gastos Operativos', 'cantidad' => null, 'total' => $totalGastosOperativos],
-                    ['concepto' => 'Pérdidas', 'cantidad' => null, 'total' => $totalPerdidas],
-                ],
+
+                // SALIDAS (todo egreso de dinero)
+                'salidas' => array_merge(
+                    [
+                        ['concepto' => 'Compras a Proveedores (OC)', 'cantidad' => $cantidadComprasOC, 'total' => $totalComprasOC],
+                        ['concepto' => 'Compras Directas (Reposiciones)', 'cantidad' => $cantidadComprasDirectas, 'total' => $totalComprasDirectas],
+                    ],
+                    $gastosOpPorCategoria,
+                    $perdidasPorCategoria
+                ),
                 'total_salidas' => $totalSalidas,
+
+                // BALANCE
                 'balance' => $balance,
-                'pagos_recibidos' => [
-                    'cantidad' => $cantidadPagos,
-                    'total' => $totalPagosRecibidos,
-                ],
             ],
-            'gastosPorCategoria' => $gastosPorCategoria,
             'graficos' => [
                 'evolucion' => $graficoEvolucion,
                 'distribucion' => $graficoDistribucion,
@@ -217,11 +283,24 @@ class ReporteMensualController extends Controller
                     EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
                     EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL),
                 ];
-                $datosPorDia = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+                // OCs recibidas por día
+                $datosPorDiaOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
                     ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])
                     ->select(DB::raw('DATE(fecha_emision) as fecha'), DB::raw('SUM(total_final) as total'))
                     ->groupBy('fecha')
                     ->pluck('total', 'fecha');
+                // Compras directas por día
+                $datosPorDiaDirectas = DetalleRecepcion::join('recepciones_mercaderia', 'detalle_recepciones.recepcion_id', '=', 'recepciones_mercaderia.id')
+                    ->whereNull('recepciones_mercaderia.orden_compra_id')
+                    ->whereBetween('recepciones_mercaderia.fecha_recepcion', [$fechaInicio, $fechaFin])
+                    ->select(DB::raw('DATE(recepciones_mercaderia.fecha_recepcion) as fecha'), DB::raw('SUM(detalle_recepciones.cantidad_recibida * detalle_recepciones.precio_unitario) as total'))
+                    ->groupBy('fecha')
+                    ->pluck('total', 'fecha');
+                // Merge ambos
+                $datosPorDia = collect($diasDelMes)->mapWithKeys(function ($dia) use ($datosPorDiaOC, $datosPorDiaDirectas) {
+                    $total = ($datosPorDiaOC[$dia] ?? 0) + ($datosPorDiaDirectas[$dia] ?? 0);
+                    return [$dia => $total];
+                })->filter(fn($v) => $v > 0);
                 $color = '#EF4444';
                 $label = 'Compras';
                 break;
@@ -259,7 +338,9 @@ class ReporteMensualController extends Controller
                     'borderColor' => $color,
                     'backgroundColor' => $color . '20',
                     'fill' => true,
-                    'tension' => 0.3
+                    'tension' => 0,
+                    'pointRadius' => 3,
+                    'pointHoverRadius' => 5,
                 ]
             ]
         ];
@@ -363,19 +444,135 @@ class ReporteMensualController extends Controller
     {
         $mes = $request->input('mes', Carbon::now()->month);
         $anio = $request->input('anio', Carbon::now()->year);
+        $formato = $request->input('formato', 'xlsx');
+        $timestamp = now()->format('Ymd_His');
 
         // Auditoría
         Auditoria::create([
             'accion' => 'EXPORTACION',
             'tablaAfectada' => 'reportes',
-            'valorNuevo' => "Reporte Mensual {$mes}/{$anio}",
+            'valorNuevo' => "Reporte Mensual {$mes}/{$anio} ({$formato})",
             'usuarioID' => Auth::id(),
             'ip' => $request->ip(),
-            'motivo' => 'Exportación reporte mensual'
+            'motivo' => "Exportación {$formato} reporte mensual"
         ]);
 
-        $nombreArchivo = "reporte_mensual_{$anio}_{$mes}.xlsx";
-        
-        return Excel::download(new ReporteMensualExport($mes, $anio), $nombreArchivo);
+        switch ($formato) {
+            case 'pdf':
+                $data = $this->getDataForPdf($mes, $anio);
+                $pdf = Pdf::loadView('pdf.reportes.mensual', $data)->setPaper('a4', 'portrait');
+                return $pdf->download("reporte_mensual_{$anio}_{$mes}_{$timestamp}.pdf");
+
+            case 'csv':
+                return Excel::download(
+                    new ReporteMensualExport($mes, $anio),
+                    "reporte_mensual_{$anio}_{$mes}_{$timestamp}.csv",
+                    \Maatwebsite\Excel\Excel::CSV
+                );
+
+            default:
+                return Excel::download(
+                    new ReporteMensualExport($mes, $anio),
+                    "reporte_mensual_{$anio}_{$mes}_{$timestamp}.xlsx"
+                );
+        }
+    }
+
+    private function getDataForPdf(int $mes, int $anio): array
+    {
+        $fechaInicio = Carbon::createFromDate($anio, $mes, 1)->startOfMonth();
+        $fechaFin = Carbon::createFromDate($anio, $mes, 1)->endOfMonth();
+
+        // ENTRADAS
+        $totalVentas = Venta::where('estado_venta_id', '!=', EstadoVenta::ANULADA)
+            ->whereBetween('fecha_venta', [$fechaInicio, $fechaFin])->sum('total');
+        $cantidadVentas = Venta::where('estado_venta_id', '!=', EstadoVenta::ANULADA)
+            ->whereBetween('fecha_venta', [$fechaInicio, $fechaFin])->count();
+
+        $totalReparaciones = Reparacion::where('anulada', false)->whereNotNull('fecha_entrega_real')
+            ->whereBetween('fecha_entrega_real', [$fechaInicio, $fechaFin])->sum('total_final');
+        $cantidadReparaciones = Reparacion::where('anulada', false)->whereNotNull('fecha_entrega_real')
+            ->whereBetween('fecha_entrega_real', [$fechaInicio, $fechaFin])->count();
+
+        $totalCobranzas = Pago::where('anulado', false)
+            ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])->sum('monto');
+        $cantidadCobranzas = Pago::where('anulado', false)
+            ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])->count();
+
+        $cobranzasPorMedioPago = Pago::where('anulado', false)
+            ->whereBetween('fecha_pago', [$fechaInicio, $fechaFin])
+            ->join('medios_pago', 'pagos.medioPagoID', '=', 'medios_pago.medioPagoID')
+            ->select('medios_pago.nombre as concepto', DB::raw('COUNT(*) as cantidad'), DB::raw('SUM(pagos.monto) as total'))
+            ->groupBy('medios_pago.medioPagoID', 'medios_pago.nombre')
+            ->orderBy('total', 'desc')->get()
+            ->map(fn($i) => ['concepto' => 'Cobranza CC — ' . $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
+            ->toArray();
+
+        $totalEntradas = $totalVentas + $totalReparaciones + $totalCobranzas;
+
+        // SALIDAS
+        $estadosRecibidos = [
+            EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_PARCIAL),
+            EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::RECIBIDA_TOTAL),
+        ];
+        $totalComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+            ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])->sum('total_final');
+        $cantidadComprasOC = OrdenCompra::whereIn('estado_id', $estadosRecibidos)
+            ->whereBetween('fecha_emision', [$fechaInicio, $fechaFin])->count();
+
+        $recepcionesDirectas = RecepcionMercaderia::whereNull('orden_compra_id')
+            ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
+            ->with('detalles')->get();
+        $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
+        $cantidadComprasDirectas = $recepcionesDirectas->count();
+
+        $totalGastosOp = Gasto::activos()->gastos()->delMes($mes, $anio)->sum('monto');
+        $gastosOpPorCategoria = Gasto::activos()->gastos()->delMes($mes, $anio)
+            ->join('categorias_gasto', 'gastos.categoria_gasto_id', '=', 'categorias_gasto.categoria_gasto_id')
+            ->select(DB::raw("CONCAT('Gasto — ', categorias_gasto.nombre) as concepto"), DB::raw('COUNT(*) as cantidad'), DB::raw('SUM(gastos.monto) as total'))
+            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
+            ->orderBy('total', 'desc')->get()
+            ->map(fn($i) => ['concepto' => $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
+            ->toArray();
+
+        $totalPerdidas = Gasto::activos()->perdidas()->delMes($mes, $anio)->sum('monto');
+        $perdidasPorCategoria = Gasto::activos()->perdidas()->delMes($mes, $anio)
+            ->join('categorias_gasto', 'gastos.categoria_gasto_id', '=', 'categorias_gasto.categoria_gasto_id')
+            ->select(DB::raw("CONCAT('Pérdida — ', categorias_gasto.nombre) as concepto"), DB::raw('COUNT(*) as cantidad'), DB::raw('SUM(gastos.monto) as total'))
+            ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
+            ->orderBy('total', 'desc')->get()
+            ->map(fn($i) => ['concepto' => $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
+            ->toArray();
+
+        $totalSalidas = $totalComprasOC + $totalComprasDirectas + $totalGastosOp + $totalPerdidas;
+        $balance = $totalEntradas - $totalSalidas;
+
+        return [
+            'periodo' => [
+                'nombre' => $fechaInicio->translatedFormat('F Y'),
+                'inicio' => $fechaInicio->format('d/m/Y'),
+                'fin' => $fechaFin->format('d/m/Y'),
+            ],
+            'planilla' => [
+                'entradas' => array_merge(
+                    [
+                        ['concepto' => 'Ventas de Productos', 'cantidad' => $cantidadVentas, 'total' => $totalVentas],
+                        ['concepto' => 'Servicios de Reparación', 'cantidad' => $cantidadReparaciones, 'total' => $totalReparaciones],
+                    ],
+                    $cobranzasPorMedioPago
+                ),
+                'total_entradas' => $totalEntradas,
+                'salidas' => array_merge(
+                    [
+                        ['concepto' => 'Compras a Proveedores (OC)', 'cantidad' => $cantidadComprasOC, 'total' => $totalComprasOC],
+                        ['concepto' => 'Compras Directas (Reposiciones)', 'cantidad' => $cantidadComprasDirectas, 'total' => $totalComprasDirectas],
+                    ],
+                    $gastosOpPorCategoria,
+                    $perdidasPorCategoria
+                ),
+                'total_salidas' => $totalSalidas,
+                'balance' => $balance,
+            ],
+        ];
     }
 }

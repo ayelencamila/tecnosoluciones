@@ -90,7 +90,7 @@ const localidadesOptions = computed(() => {
 
 // Lógica Reactiva: Detectar si es Mayorista
 const esMayorista = computed(() => {
-    const tipo = props.tiposCliente?.find(t => t.tipoClienteID == form.tipo_cliente_id);
+    const tipo = tiposClienteList.value?.find(t => t.tipoClienteID == form.tipo_cliente_id);
     return tipo && tipo.nombreTipo.toLowerCase().includes('mayorista');
 });
 

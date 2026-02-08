@@ -12,10 +12,23 @@ import Modal from '@/Components/Modal.vue';
 
 const props = defineProps({
     bonificacion: Object,
+    urlCliente: String,
 });
 
 const showAprobarModal = ref(false);
 const showRechazarModal = ref(false);
+const enlaceCopiado = ref(false);
+
+const copiarEnlace = async () => {
+    if (!props.urlCliente) return;
+    try {
+        await navigator.clipboard.writeText(props.urlCliente);
+        enlaceCopiado.value = true;
+        setTimeout(() => { enlaceCopiado.value = false; }, 2500);
+    } catch (err) {
+        console.error('Error al copiar:', err);
+    }
+};
 
 const formAprobar = useForm({
     porcentaje_ajustado: props.bonificacion.porcentaje_sugerido,
@@ -49,11 +62,11 @@ const rechazar = () => {
 
 const getEstadoConfig = (estado) => {
     const config = {
-        'pendiente': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: '⏳' },
-        'aprobada': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: '✓' },
-        'rechazada': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', icon: '✗' },
+        'pendiente': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', icon: 'clock' },
+        'aprobada': { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', icon: 'check' },
+        'rechazada': { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', icon: 'x' },
     };
-    return config[estado] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: '?' };
+    return config[estado] || { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', icon: 'question' };
 };
 
 const formatFecha = (fecha) => {
@@ -124,7 +137,22 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                         <div class="flex items-center gap-5">
                             <div :class="[estadoConfig.bg, estadoConfig.border]"
                                  class="w-16 h-16 rounded-xl border-2 flex items-center justify-center">
-                                <span class="text-2xl">{{ estadoConfig.icon }}</span>
+                                <!-- Clock icon (pendiente) -->
+                                <svg v-if="estadoConfig.icon === 'clock'" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-amber-500">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+                                </svg>
+                                <!-- Check icon (aprobada) -->
+                                <svg v-else-if="estadoConfig.icon === 'check'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-emerald-500">
+                                    <path fill-rule="evenodd" d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12Zm13.36-1.814a.75.75 0 1 0-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 0 0-1.06 1.06l2.25 2.25a.75.75 0 0 0 1.14-.094l3.75-5.25Z" clip-rule="evenodd" />
+                                </svg>
+                                <!-- X icon (rechazada) -->
+                                <svg v-else-if="estadoConfig.icon === 'x'" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8 text-rose-500">
+                                    <path fill-rule="evenodd" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25Zm-1.72 6.97a.75.75 0 0 0-1.06 1.06L10.94 12l-1.72 1.72a.75.75 0 1 0 1.06 1.06L12 13.06l1.72 1.72a.75.75 0 1 0 1.06-1.06L13.06 12l1.72-1.72a.75.75 0 1 0-1.06-1.06L12 10.94l-1.72-1.72Z" clip-rule="evenodd" />
+                                </svg>
+                                <!-- Fallback -->
+                                <svg v-else xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-8 h-8 text-gray-400">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 5.25h.008v.008H12v-.008Z" />
+                                </svg>
                             </div>
                             <div>
                                 <div class="flex items-center gap-3 mb-1">
@@ -160,6 +188,25 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                                 Rechazar
                             </button>
                         </div>
+
+                        <!-- Botón Copiar Enlace del Cliente (visible cuando la bonificación está aprobada) -->
+                        <div v-if="bonificacion.estado === 'aprobada' && urlCliente" class="flex gap-3">
+                            <button 
+                                @click="copiarEnlace"
+                                class="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-lg transition-all duration-200"
+                                :class="enlaceCopiado 
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-300' 
+                                    : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'"
+                            >
+                                <svg v-if="enlaceCopiado" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                                </svg>
+                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                </svg>
+                                {{ enlaceCopiado ? 'Enlace copiado' : 'Copiar enlace cliente' }}
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -182,12 +229,12 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                                 </p>
                             </div>
                             <div>
-                                <span class="text-xs text-gray-400 uppercase tracking-wide">Teléfono</span>
-                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.telefono }}</p>
+                                <span class="text-xs text-gray-400 uppercase tracking-wide">Teléfono / WhatsApp</span>
+                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.whatsapp || bonificacion.reparacion.cliente.telefono || '—' }}</p>
                             </div>
                             <div>
                                 <span class="text-xs text-gray-400 uppercase tracking-wide">Email</span>
-                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.email || '—' }}</p>
+                                <p class="text-sm text-gray-700">{{ bonificacion.reparacion.cliente.mail || '—' }}</p>
                             </div>
                         </div>
                     </div>
@@ -332,16 +379,34 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                     <!-- Pendiente -->
                     <div v-if="bonificacion.decision_cliente === 'pendiente'" 
                          class="bg-amber-50 border border-amber-200 rounded-xl p-5">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-                                <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
+                                    <svg class="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                    </svg>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-amber-800">Esperando respuesta</p>
+                                    <p class="text-sm text-amber-700">Se envió notificación por WhatsApp al cliente.</p>
+                                </div>
+                            </div>
+                            <button 
+                                v-if="urlCliente"
+                                @click="copiarEnlace"
+                                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200"
+                                :class="enlaceCopiado 
+                                    ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' 
+                                    : 'bg-white text-amber-700 border border-amber-300 hover:bg-amber-100'"
+                            >
+                                <svg v-if="enlaceCopiado" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
                                 </svg>
-                            </div>
-                            <div>
-                                <p class="font-semibold text-amber-800">Esperando respuesta</p>
-                                <p class="text-sm text-amber-700">Se envió notificación por WhatsApp al cliente.</p>
-                            </div>
+                                <svg v-else class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                                </svg>
+                                {{ enlaceCopiado ? 'Enlace copiado' : 'Copiar enlace' }}
+                            </button>
                         </div>
                     </div>
 
@@ -489,6 +554,7 @@ const estadoConfig = getEstadoConfig(props.bonificacion.estado);
                             Cancelar
                         </SecondaryButton>
                         <DangerButton 
+                            type="submit"
                             :class="{ 'opacity-50 cursor-not-allowed': formRechazar.processing }" 
                             :disabled="formRechazar.processing"
                         >

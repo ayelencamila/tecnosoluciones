@@ -74,13 +74,21 @@ class OrdenCompraProveedor extends Notification implements ShouldQueue
         
         // Adjuntar PDF si existe
         if ($this->orden->archivo_pdf && Storage::disk('public')->exists($this->orden->archivo_pdf)) {
-            $mail->attach(
-                Storage::disk('public')->path($this->orden->archivo_pdf),
-                [
-                    'as' => "{$this->orden->numero_oc}.pdf",
-                    'mime' => 'application/pdf',
-                ]
-            );
+            $pdfPath = Storage::disk('public')->path($this->orden->archivo_pdf);
+            
+            if (file_exists($pdfPath)) {
+                $mail->attach(
+                    $pdfPath,
+                    [
+                        'as' => "{$this->orden->numero_oc}.pdf",
+                        'mime' => 'application/pdf',
+                    ]
+                );
+            } else {
+                \Log::warning("PDF no encontrado en disco: {$pdfPath}");
+            }
+        } else {
+            \Log::warning("PDF no existe para OC {$this->orden->numero_oc}: " . ($this->orden->archivo_pdf ?? 'null'));
         }
 
         return $mail;

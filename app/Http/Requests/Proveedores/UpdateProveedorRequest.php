@@ -19,7 +19,7 @@ class UpdateProveedorRequest extends FormRequest
         return [
             'razon_social' => ['required', 'string', 'max:100', Rule::unique('proveedores')->ignore($proveedorId)],
             'cuit' => ['nullable', 'digits:11', Rule::unique('proveedores')->ignore($proveedorId)], // Opcional
-            'email' => ['nullable', 'email', 'max:100'], // Opcional
+            'email' => ['nullable', 'email', 'max:100', Rule::unique('proveedores', 'email')->ignore($proveedorId)], // Opcional
             'telefono' => ['nullable', 'string', 'max:20'],
             'whatsapp' => ['nullable', 'string', 'max:20'],
             'forma_pago_preferida' => ['nullable', 'string', 'max:50'],

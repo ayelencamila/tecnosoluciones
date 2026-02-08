@@ -4,6 +4,7 @@
  * 
  * Página pública donde el proveedor puede:
  * - Ver los productos solicitados
+ * - Seleccionar cuáles puede cotizar (respuesta parcial)
  * - Ingresar precios, cantidades y plazos
  * - Enviar o rechazar la cotización
  * 
@@ -18,6 +19,11 @@ const props = defineProps({
     solicitud: Object,
     productos: Array,
 })
+
+// Control de productos incluidos (por defecto todos activados)
+const productosIncluidos = ref(
+    Object.fromEntries(props.productos.map(p => [p.id, true]))
+)
 
 // Formulario de respuestas
 const form = useForm({
@@ -37,31 +43,62 @@ const formRechazo = useForm({
 
 const mostrarModalRechazo = ref(false)
 
-// Calcular totales
+// Respuestas activas (solo productos incluidos)
+const respuestasActivas = computed(() => {
+    return form.respuestas.filter(r => productosIncluidos.value[r.producto_id])
+})
+
+// Cantidad de productos incluidos
+const productosSeleccionados = computed(() => {
+    return respuestasActivas.value.length
+})
+
+// Calcular totales (solo productos incluidos)
 const totalCotizado = computed(() => {
-    return form.respuestas.reduce((sum, r) => {
+    return respuestasActivas.value.reduce((sum, r) => {
         const precio = parseFloat(r.precio_unitario) || 0
         const cantidad = parseInt(r.cantidad_disponible) || 0
         return sum + (precio * cantidad)
     }, 0)
 })
 
+// Validar solo los productos incluidos
 const todosCompletos = computed(() => {
-    return form.respuestas.every(r => 
+    if (respuestasActivas.value.length === 0) return false
+    return respuestasActivas.value.every(r => 
         r.precio_unitario > 0 && 
         r.cantidad_disponible > 0 && 
         r.plazo_entrega_dias > 0
     )
 })
 
-// Enviar cotización
+// Helper: verificar si un producto está completo
+function productoCompleto(productoId) {
+    const r = form.respuestas.find(r => r.producto_id === productoId)
+    if (!r) return false
+    return r.precio_unitario > 0 && r.cantidad_disponible > 0 && r.plazo_entrega_dias > 0
+}
+
+// Enviar cotización (solo productos incluidos)
 function enviarCotizacion() {
-    form.post(route('portal.cotizacion.responder', props.token))
+    // Filtrar solo las respuestas de productos incluidos
+    const respuestasFiltradas = form.respuestas.filter(r => productosIncluidos.value[r.producto_id])
+    
+    const formFiltrado = useForm({
+        respuestas: respuestasFiltradas
+    })
+    
+    formFiltrado.post(route('portal.cotizacion.responder', props.token))
 }
 
 // Rechazar cotización
 function rechazarCotizacion() {
     formRechazo.post(route('portal.cotizacion.rechazar', props.token))
+}
+
+// Toggle producto
+function toggleProducto(productoId) {
+    productosIncluidos.value[productoId] = !productosIncluidos.value[productoId]
 }
 
 // Formatear moneda
@@ -99,9 +136,15 @@ function formatCurrency(value) {
                     Hola, {{ proveedor.razon_social }}
                 </h2>
                 <p class="text-gray-600">
-                    Le invitamos a cotizar los siguientes productos. Complete los campos requeridos
-                    para cada producto y envíe su cotización.
+                    Le invitamos a cotizar los siguientes productos. Puede cotizar todos o solo los que tenga disponibles.
+                    Active los productos que desea cotizar y complete los campos requeridos.
                 </p>
+                <div class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p class="text-sm text-blue-800">
+                        <strong>Cotización parcial:</strong> No es necesario cotizar todos los productos. 
+                        Desactive los que no pueda ofrecer usando el interruptor de cada producto.
+                    </p>
+                </div>
                 <div class="mt-4 flex gap-4 text-sm">
                     <div class="flex items-center text-gray-500">
                         <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -129,18 +172,40 @@ function formatCurrency(value) {
                     <div 
                         v-for="(producto, index) in productos" 
                         :key="producto.id"
-                        class="bg-white rounded-xl shadow-sm overflow-hidden"
+                        class="bg-white rounded-xl shadow-sm overflow-hidden transition-all duration-200"
+                        :class="productosIncluidos[producto.id] ? 'ring-1 ring-indigo-200' : 'opacity-60'"
                     >
                         <!-- Cabecera del producto -->
-                        <div class="bg-gray-50 px-6 py-4 border-b">
+                        <div class="px-6 py-4 border-b" :class="productosIncluidos[producto.id] ? 'bg-gray-50' : 'bg-gray-100'">
                             <div class="flex justify-between items-start">
-                                <div>
-                                    <h3 class="font-semibold text-gray-900">{{ producto.nombre }}</h3>
-                                    <p class="text-sm text-gray-500">{{ producto.categoria }}</p>
+                                <div class="flex items-center gap-3">
+                                    <!-- Toggle Switch -->
+                                    <button 
+                                        type="button"
+                                        @click="toggleProducto(producto.id)"
+                                        class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2"
+                                        :class="productosIncluidos[producto.id] ? 'bg-indigo-600' : 'bg-gray-200'"
+                                        role="switch"
+                                        :aria-checked="productosIncluidos[producto.id]"
+                                    >
+                                        <span 
+                                            class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                            :class="productosIncluidos[producto.id] ? 'translate-x-5' : 'translate-x-0'"
+                                        />
+                                    </button>
+                                    <div>
+                                        <h3 class="font-semibold text-gray-900">{{ producto.nombre }}</h3>
+                                        <p class="text-sm text-gray-500">{{ producto.categoria }}</p>
+                                    </div>
                                 </div>
-                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
-                                    Cantidad sugerida: {{ producto.cantidad_sugerida }}
-                                </span>
+                                <div class="flex items-center gap-2">
+                                    <span v-if="!productosIncluidos[producto.id]" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600">
+                                        No cotizar
+                                    </span>
+                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-indigo-100 text-indigo-800">
+                                        Cantidad sugerida: {{ producto.cantidad_sugerida }}
+                                    </span>
+                                </div>
                             </div>
                             <p v-if="producto.observaciones" class="mt-2 text-sm text-gray-600">
                                 {{ producto.observaciones }}
@@ -148,7 +213,7 @@ function formatCurrency(value) {
                         </div>
 
                         <!-- Campos de cotización -->
-                        <div class="px-6 py-4">
+                        <div v-if="productosIncluidos[producto.id]" class="px-6 py-4">
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <!-- Precio Unitario -->
                                 <div>
@@ -164,7 +229,6 @@ function formatCurrency(value) {
                                             v-model="form.respuestas[index].precio_unitario"
                                             class="pl-8 w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                             placeholder="0.00"
-                                            required
                                         />
                                     </div>
                                 </div>
@@ -179,7 +243,6 @@ function formatCurrency(value) {
                                         min="1"
                                         v-model="form.respuestas[index].cantidad_disponible"
                                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                        required
                                     />
                                 </div>
 
@@ -194,7 +257,6 @@ function formatCurrency(value) {
                                         v-model="form.respuestas[index].plazo_entrega_dias"
                                         class="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                                         placeholder="Días"
-                                        required
                                     />
                                 </div>
 
@@ -222,6 +284,14 @@ function formatCurrency(value) {
                                 ></textarea>
                             </div>
                         </div>
+
+                        <!-- Mensaje cuando está excluido -->
+                        <div v-else class="px-6 py-6 text-center text-gray-400">
+                            <p class="text-sm">Producto no incluido en la cotización</p>
+                            <button type="button" @click="toggleProducto(producto.id)" class="mt-1 text-xs text-indigo-500 hover:text-indigo-700 underline">
+                                Activar para cotizar
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -229,8 +299,18 @@ function formatCurrency(value) {
                 <div class="mt-6 bg-white rounded-xl shadow-sm p-6">
                     <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                         <div>
-                            <p class="text-sm text-gray-500">Total de la cotización</p>
-                            <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(totalCotizado) }}</p>
+                            <div class="flex items-center gap-4 mb-1">
+                                <div>
+                                    <p class="text-sm text-gray-500">Total de la cotización</p>
+                                    <p class="text-3xl font-bold text-gray-900">{{ formatCurrency(totalCotizado) }}</p>
+                                </div>
+                                <div class="border-l border-gray-200 pl-4">
+                                    <p class="text-sm text-gray-500">Productos cotizados</p>
+                                    <p class="text-lg font-semibold" :class="productosSeleccionados > 0 ? 'text-indigo-600' : 'text-red-500'">
+                                        {{ productosSeleccionados }} / {{ productos.length }}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                         <div class="flex gap-3">
                             <button
@@ -250,8 +330,14 @@ function formatCurrency(value) {
                             </button>
                         </div>
                     </div>
-                    <p v-if="!todosCompletos" class="mt-2 text-sm text-orange-600">
-                        Complete todos los campos obligatorios para enviar la cotización
+                    <p v-if="productosSeleccionados === 0" class="mt-2 text-sm text-red-600">
+                        Debe incluir al menos un producto para enviar la cotización
+                    </p>
+                    <p v-else-if="!todosCompletos" class="mt-2 text-sm text-orange-600">
+                        Complete todos los campos obligatorios de los productos activados
+                    </p>
+                    <p v-else-if="productosSeleccionados < productos.length" class="mt-2 text-sm text-blue-600">
+                        Cotización parcial: {{ productosSeleccionados }} de {{ productos.length }} productos
                     </p>
                 </div>
             </form>

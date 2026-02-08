@@ -36,19 +36,7 @@ Schedule::command('reparaciones:monitorear-sla')
 
 // --- SCHEDULER PARA CU-20: Gestión Automática de Cotizaciones ---
 
-// Verifica solicitudes pendientes y envía recordatorios cada 6 horas
-Schedule::command('compras:verificar-solicitudes')
-    ->everySixHours()
-    ->timezone('America/Argentina/Buenos_Aires')
-    ->withoutOverlapping()
-    ->onSuccess(function () {
-        \Log::info('Verificación de solicitudes pendientes ejecutada con éxito.');
-    })
-    ->onFailure(function () {
-        \Log::error('Error al ejecutar verificación de solicitudes pendientes.');
-    });
-
-// Envía recordatorios automáticos diariamente a las 09:00
+// Envía recordatorios automáticos a proveedores que no respondieron
 // Modo INTELIGENTE: envía por WhatsApp Y Email según lo que tenga cada proveedor
 Schedule::command('cotizaciones:enviar-recordatorios --canal=inteligente')
     ->dailyAt('09:00')

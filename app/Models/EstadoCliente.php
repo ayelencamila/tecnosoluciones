@@ -27,6 +27,8 @@ class EstadoCliente extends Model
 
     const ACTIVO = 1;
     const INACTIVO = 2;
+    const SUSPENDIDO = 3;
+    const MOROSO = 4;
 
     /**
      * Nombre de la tabla en la base de datos
@@ -91,5 +93,15 @@ class EstadoCliente extends Model
     public static function inactivo()
     {
         return static::find(static::INACTIVO);
+    }
+
+    public static function suspendido()
+    {
+        return static::find(static::SUSPENDIDO);
+    }
+
+    public static function moroso()
+    {
+        return static::find(static::MOROSO);
     }
 }

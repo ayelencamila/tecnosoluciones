@@ -396,4 +396,128 @@ class OrdenCompraController extends Controller
             return back()->with('error', 'Error al cancelar la orden: ' . $e->getMessage());
         }
     }
+
+    /**
+     * Formulario para crear OC directa (sin cotización previa)
+     * 
+     * Caso de uso: Compras urgentes o de proveedores conocidos
+     * donde no se requiere el proceso de cotización.
+     */
+    public function createDirecto(): Response
+    {
+        // Proveedores activos
+        $proveedores = \App\Models\Proveedor::where('activo', true)
+            ->select('id', 'razon_social', 'cuit', 'email', 'whatsapp')
+            ->orderBy('razon_social')
+            ->get();
+
+        // Productos activos (no servicios)
+        $productos = \App\Models\Producto::with(['stocks'])
+            ->where('es_servicio', false)
+            ->whereHas('estado', fn($q) => $q->where('nombre', 'Activo'))
+            ->select('id', 'nombre', 'codigo')
+            ->orderBy('nombre')
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'id' => $p->id,
+                    'nombre' => $p->nombre,
+                    'codigo' => $p->codigo,
+                    'stock_actual' => $p->stocks->sum('cantidad'),
+                ];
+            });
+
+        return Inertia::render('Compras/Ordenes/CreateDirecto', [
+            'proveedores' => $proveedores,
+            'productos' => $productos,
+        ]);
+    }
+
+    /**
+     * Genera OC directa sin cotización
+     */
+    public function storeDirecto(Request $request): RedirectResponse
+    {
+        $validated = $request->validate([
+            'proveedor_id' => 'required|exists:proveedores,id',
+            'productos' => 'required|array|min:1',
+            'productos.*.producto_id' => 'required|exists:productos,id',
+            'productos.*.cantidad' => 'required|integer|min:1',
+            'productos.*.precio_unitario' => 'required|numeric|min:0',
+            'observaciones' => 'nullable|string|max:500',
+        ], [
+            'proveedor_id.required' => 'Debe seleccionar un proveedor.',
+            'productos.required' => 'Debe agregar al menos un producto.',
+            'productos.min' => 'Debe agregar al menos un producto.',
+        ]);
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            // Generar número de OC
+            $numeroOC = OrdenCompra::generarNumeroOC();
+
+            // Calcular total
+            $total = collect($validated['productos'])->sum(fn($p) => $p['cantidad'] * $p['precio_unitario']);
+
+            // Crear OC (sin cotización) - Estado inicial: Enviada
+            $orden = OrdenCompra::create([
+                'numero_oc' => $numeroOC,
+                'proveedor_id' => $validated['proveedor_id'],
+                'cotizacion_proveedor_id' => null, // Sin cotización
+                'user_id' => $request->user()->id,
+                'estado_id' => EstadoOrdenCompra::idPorNombre(EstadoOrdenCompra::ENVIADA),
+                'total_final' => $total,
+                'fecha_emision' => now(),
+                'observaciones' => $validated['observaciones'] ?? 'Orden directa (sin cotización previa)',
+            ]);
+
+            // Crear detalles
+            foreach ($validated['productos'] as $item) {
+                \App\Models\DetalleOrdenCompra::create([
+                    'orden_compra_id' => $orden->id,
+                    'producto_id' => $item['producto_id'],
+                    'cantidad_pedida' => $item['cantidad'],
+                    'cantidad_recibida' => 0,
+                    'precio_unitario' => $item['precio_unitario'],
+                    'subtotal' => $item['cantidad'] * $item['precio_unitario'],
+                ]);
+            }
+
+            // Regenerar PDF (usa método existente)
+            $this->registrarCompraService->regenerarPdf($orden);
+            
+            // Cargar relaciones para envío
+            $orden->load('proveedor');
+            
+            // Intentar enviar por Email si tiene email (con PDF adjunto)
+            if ($orden->proveedor->email) {
+                try {
+                    \App\Jobs\EnviarOrdenCompraEmail::dispatch($orden);
+                    Log::info("📧 Email encolado para OC {$orden->numero_oc}");
+                } catch (\Exception $e) {
+                    Log::warning("No se pudo encolar email para OC {$orden->numero_oc}: " . $e->getMessage());
+                }
+            }
+            
+            // Intentar enviar por WhatsApp si tiene número
+            if ($orden->proveedor->whatsapp) {
+                try {
+                    $this->registrarCompraService->reenviarWhatsApp($orden);
+                } catch (\Exception $e) {
+                    Log::warning("No se pudo enviar WhatsApp para OC {$orden->numero_oc}: " . $e->getMessage());
+                }
+            }
+
+            \Illuminate\Support\Facades\DB::commit();
+
+            return redirect()->route('ordenes.show', $orden->id)
+                ->with('success', "Orden de Compra {$orden->numero_oc} creada y enviada al proveedor.");
+
+        } catch (\Exception $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            Log::error('Error al crear OC directa: ' . $e->getMessage());
+            return back()->withInput()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
+        }
+    }
 }

@@ -36,8 +36,29 @@ class NotificarIncumplimientoCC implements ShouldQueue
     public function handle(): void
     {
         // 1. Control de Ventana Horaria (Excepción 7a)
-        $inicioStr = Configuracion::get('whatsapp_horario_inicio', '09:00');
-        $finStr = Configuracion::get('whatsapp_horario_fin', '20:00');
+        // Usar horario específico de la plantilla, con fallback a configuración general
+        $tipoEvento = match ($this->tipoAccion) {
+            'admin_alert' => 'admin_alert_cc',
+            'bloqueo' => 'bloqueo_cc',
+            'revision' => 'revision_cc',
+            default => null,
+        };
+
+        $plantilla = $tipoEvento ? \App\Models\PlantillaWhatsapp::obtenerPorTipo($tipoEvento) : null;
+        
+        if ($plantilla && $plantilla->horario_inicio && $plantilla->horario_fin) {
+            // Usar horario de la plantilla (son objetos Carbon, extraer solo HH:MM)
+            $inicioStr = $plantilla->horario_inicio instanceof Carbon 
+                ? $plantilla->horario_inicio->format('H:i') 
+                : (string) $plantilla->horario_inicio;
+            $finStr = $plantilla->horario_fin instanceof Carbon 
+                ? $plantilla->horario_fin->format('H:i') 
+                : (string) $plantilla->horario_fin;
+        } else {
+            // Fallback a configuración general
+            $inicioStr = Configuracion::get('whatsapp_horario_inicio', '09:00');
+            $finStr = Configuracion::get('whatsapp_horario_fin', '20:00');
+        }
 
         $ahora = Carbon::now();
         $inicio = Carbon::createFromTimeString($inicioStr);

@@ -277,7 +277,7 @@ class CuentaCorriente extends Model
             
             // IMPORTANTE: También bloquear al cliente asociado (Estado "Moroso")
             if ($guardado && $this->cliente) {
-                $estadoClienteMoroso = \App\Models\EstadoCliente::where('nombreEstado', 'Moroso')->first();
+                $estadoClienteMoroso = \App\Models\EstadoCliente::moroso();
                 if ($estadoClienteMoroso && $this->cliente->estadoClienteID !== $estadoClienteMoroso->estadoClienteID) {
                     $this->cliente->estadoClienteID = $estadoClienteMoroso->estadoClienteID;
                     $this->cliente->save();
@@ -313,7 +313,7 @@ class CuentaCorriente extends Model
             
             // IMPORTANTE: También desbloquear al cliente asociado
             if ($guardado && $this->cliente) {
-                $estadoClienteActivo = \App\Models\EstadoCliente::where('nombreEstado', 'Activo')->first();
+                $estadoClienteActivo = \App\Models\EstadoCliente::activo();
                 if ($estadoClienteActivo && $this->cliente->estadoClienteID !== $estadoClienteActivo->estadoClienteID) {
                     $this->cliente->estadoClienteID = $estadoClienteActivo->estadoClienteID;
                     $this->cliente->save();

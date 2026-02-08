@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
@@ -41,6 +42,12 @@ class Reparacion extends Model
         'fecha_marcada_demorada',
         'estado_decision_id',
         'fecha_decision_cliente',
+        // Campos de cobro
+        'estado_pago',
+        'monto_cobrado',
+        'medio_pago_id',
+        'fecha_cobro',
+        'cobrado_por',
     ];
 
     protected $casts = [
@@ -54,6 +61,9 @@ class Reparacion extends Model
         'sla_excedido' => 'boolean',
         'fecha_marcada_demorada' => 'datetime',
         'fecha_decision_cliente' => 'datetime',
+        // Campos de cobro
+        'monto_cobrado' => 'decimal:2',
+        'fecha_cobro' => 'datetime',
     ];
     /**
      * El cliente dueño del equipo.
@@ -126,6 +136,45 @@ class Reparacion extends Model
     }
 
     /**
+     * Medio de pago utilizado para el cobro
+     */
+    public function medioPago(): BelongsTo
+    {
+        return $this->belongsTo(MedioPago::class, 'medio_pago_id', 'medioPagoID');
+    }
+
+    /**
+     * Usuario que realizó el cobro
+     */
+    public function cobrador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cobrado_por');
+    }
+
+    /**
+     * Pagos imputados a esta reparación (cuando fue cobrada a cuenta corriente)
+     */
+    public function pagosImputados(): BelongsToMany
+    {
+        return $this->belongsToMany(Pago::class, 'pago_reparacion_imputacion', 'reparacion_id', 'pago_id')
+                    ->withPivot('monto_imputado')
+                    ->withTimestamps();
+    }
+
+    /**
+     * Saldo pendiente de pago (solo para reparaciones cobradas a cuenta corriente)
+     */
+    public function getSaldoPendienteAttribute(): float
+    {
+        if ($this->estado_pago !== 'cuenta_corriente') {
+            return 0;
+        }
+
+        $totalPagado = $this->pagosImputados->sum('pivot.monto_imputado');
+        return max(0, (float) $this->monto_cobrado - $totalPagado);
+    }
+
+    /**
      * Alertas de demora asociadas (CU-14)
      */
     public function alertasReparacion(): HasMany
@@ -166,7 +215,7 @@ class Reparacion extends Model
         
         // Prioridad 2: Si tiene fecha_promesa, calcular días desde ingreso
         if ($this->fecha_promesa !== null && $this->fecha_ingreso !== null) {
-            return max(1, $this->fecha_ingreso->diffInDays($this->fecha_promesa));
+            return (int) max(1, ceil($this->fecha_ingreso->diffInDays($this->fecha_promesa)));
         }
         
         // Prioridad 3: Usar configuración default
@@ -356,12 +405,19 @@ class Reparacion extends Model
     }
 
     /**
-     * Scope: Reparaciones en estados que deben monitorearse para SLA
-     * Solo "Recibido" (1) y "Diagnóstico" (2) según CU-14
+     * Scope: Reparaciones en estados que deben monitorearse para SLA (CU-14)
+     * 
+     * Estados monitoreables (donde el taller tiene responsabilidad activa):
+     * - Recibido (1): Esperando que comience la reparación
+     * - En Reparación (2): Trabajo en curso
+     * 
+     * NO se monitorean (pausan SLA):
+     * - Espera de Repuesto (3): Dependencia externa
+     * - Reparado (4): Listo, responsabilidad del cliente retirar
      */
     public function scopeEnEstadosMonitoreables($query)
     {
-        return $query->whereIn('estado_reparacion_id', [1, 2]);
+        return $query->whereIn('estado_reparacion_id', [1, 2]); // Recibido, En Reparación
     }
 
     /**

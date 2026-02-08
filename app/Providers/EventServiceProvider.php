@@ -20,23 +20,14 @@ class EventServiceProvider extends ServiceProvider
         ],
 
         // Flujo de Venta (CU-05)
+        // NOTA: El stock se gestiona directamente en RegistrarVentaService (Sección D)
         \App\Events\VentaRegistrada::class => [
-            \App\Listeners\ActualizarStockPorVenta::class,
-            
-            // ¡CORREGIDO! Comentamos esta línea para evitar el doble cobro.
-            // \App\Listeners\ActualizarCuentaCorrientePorVenta::class, 
-            
             \App\Listeners\RegistrarVentaEnAuditoria::class,
         ],
 
-        // Flujo de Fallo de Stock
-        \App\Events\StockUpdateFailed::class => [
-            \App\Listeners\SendStockErrorNotification::class,
-        ],
-
         // Flujo de Anulación de Venta (CU-06)
+        // NOTA: El stock se revierte directamente en AnularVentaService::revertirStock()
         \App\Events\VentaAnulada::class => [
-            \App\Listeners\RevertirStockPorAnulacion::class,
             \App\Listeners\RevertirCuentaCorrientePorAnulacion::class,
             \App\Listeners\RegistrarAnulacionEnAuditoria::class,
         ],
