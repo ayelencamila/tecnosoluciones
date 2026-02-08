@@ -21,6 +21,34 @@ const props = defineProps({
     stats: Object,
 });
 
+// --- LECTOR SKU / CÓDIGO DE BARRAS ---
+const skuInput = ref('');
+const skuStatus = ref(''); // '', 'found', 'not-found'
+let skuTimeout = null;
+
+const buscarPorSKU = () => {
+    const codigo = skuInput.value.trim();
+    if (!codigo) return;
+    
+    // Buscar coincidencia exacta en los productos cargados
+    const producto = props.productos.data?.find(p => p.codigo?.toLowerCase() === codigo.toLowerCase());
+    
+    if (producto) {
+        skuStatus.value = 'found';
+        // Navegar al detalle del producto
+        router.get(route('productos.show', producto.id));
+    } else {
+        // Si no hay match exacto local, enviar como búsqueda al servidor
+        skuStatus.value = 'not-found';
+        form.value.search = codigo;
+        skuInput.value = '';
+    }
+    
+    // Resetear indicador visual después de 2s
+    clearTimeout(skuTimeout);
+    skuTimeout = setTimeout(() => { skuStatus.value = ''; }, 2000);
+};
+
 const form = ref({
     search: props.filters.search || '',
     categoria_id: props.filters.categoria_id || '',
@@ -137,6 +165,32 @@ const getPaginationLabel = (label, index, totalLinks) => {
                 </div>
 
                 <div class="bg-white shadow-sm sm:rounded-lg p-4 mb-6">
+                    <!-- Lector de Código de Barras / SKU -->
+                    <div class="mb-4 p-3 border-2 border-dashed rounded-lg flex items-center gap-3 transition-colors duration-200"
+                         :class="{
+                             'border-gray-300 bg-gray-50': skuStatus === '',
+                             'border-green-400 bg-green-50': skuStatus === 'found',
+                             'border-yellow-400 bg-yellow-50': skuStatus === 'not-found',
+                         }">
+                        <div class="flex-shrink-0 text-gray-400">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h3v3h-3v-3z" />
+                            </svg>
+                        </div>
+                        <input
+                            v-model="skuInput"
+                            @keyup.enter="buscarPorSKU"
+                            type="text"
+                            placeholder="Escanear código de barras / SKU..."
+                            class="flex-1 border-0 bg-transparent focus:ring-0 text-sm font-mono placeholder-gray-400"
+                            autocomplete="off"
+                        />
+                        <span v-if="skuStatus === 'found'" class="text-green-600 text-xs font-bold animate-pulse">Producto encontrado</span>
+                        <span v-if="skuStatus === 'not-found'" class="text-yellow-600 text-xs font-bold">Buscando en servidor...</span>
+                        <span v-if="!skuStatus" class="text-xs text-gray-400 hidden md:inline">Escaneá o escribí el código y presioná Enter</span>
+                    </div>
+
                     <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
                         <div class="flex-1 w-full">
                             <TextInput v-model="form.search" placeholder="Buscar por Código, Nombre o Marca..." class="w-full" />

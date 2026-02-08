@@ -46,6 +46,44 @@ const refreshMediosPago = async () => {
     }
 };
 
+// --- LECTOR SKU / CÓDIGO DE BARRAS (Ventas) ---
+const skuVentaInput = ref('');
+const skuVentaStatus = ref(''); // '', 'added', 'not-found', 'no-client'
+let skuVentaTimeout = null;
+
+const escanearProductoSKU = () => {
+    const codigo = skuVentaInput.value.trim();
+    if (!codigo) return;
+    
+    if (!ventaStore.clienteSeleccionado) {
+        skuVentaStatus.value = 'no-client';
+        skuVentaInput.value = '';
+        clearTimeout(skuVentaTimeout);
+        skuVentaTimeout = setTimeout(() => { skuVentaStatus.value = ''; }, 3000);
+        return;
+    }
+    
+    // Buscar coincidencia exacta por código
+    const producto = props.productos.find(p => p.codigo?.toLowerCase() === codigo.toLowerCase());
+    
+    if (producto) {
+        // Auto-seleccionar y agregar al carrito
+        selectProductToAdd(producto);
+        addProductToCart();
+        skuVentaStatus.value = 'added';
+        skuVentaInput.value = '';
+    } else {
+        skuVentaStatus.value = 'not-found';
+        skuVentaInput.value = '';
+    }
+    
+    clearTimeout(skuVentaTimeout);
+    skuVentaTimeout = setTimeout(() => { skuVentaStatus.value = ''; }, 2500);
+    
+    // Mantener foco en el campo para escaneos consecutivos
+    document.getElementById('sku_venta_input')?.focus();
+};
+
 // --- ESTADO LOCAL ---
 const searchTermCliente = ref('');
 const filteredClientes = ref([]); 
@@ -375,6 +413,35 @@ onMounted(() => {
                     <div class="bg-white shadow-xl sm:rounded-lg p-6 mb-6 border-t-4 border-yellow-500">
                         <h3 class="text-xl font-semibold text-gray-800 mb-4">Carrito de Compras</h3>
                         
+                        <!-- Lector de Código de Barras / SKU para Ventas -->
+                        <div class="mb-4 p-3 border-2 border-dashed rounded-lg flex items-center gap-3 transition-colors duration-200"
+                             :class="{
+                                 'border-yellow-300 bg-yellow-50': skuVentaStatus === '',
+                                 'border-green-400 bg-green-50': skuVentaStatus === 'added',
+                                 'border-red-400 bg-red-50': skuVentaStatus === 'not-found',
+                                 'border-orange-400 bg-orange-50': skuVentaStatus === 'no-client',
+                             }">
+                            <div class="flex-shrink-0" :class="skuVentaStatus === 'added' ? 'text-green-500' : 'text-yellow-500'">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 013.75 9.375v-4.5zM3.75 14.625c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5a1.125 1.125 0 01-1.125-1.125v-4.5zM13.5 4.875c0-.621.504-1.125 1.125-1.125h4.5c.621 0 1.125.504 1.125 1.125v4.5c0 .621-.504 1.125-1.125 1.125h-4.5A1.125 1.125 0 0113.5 9.375v-4.5z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 6.75h.75v.75h-.75v-.75zM6.75 16.5h.75v.75h-.75v-.75zM16.5 6.75h.75v.75h-.75v-.75zM13.5 13.5h.75v.75h-.75v-.75zM13.5 19.5h.75v.75h-.75v-.75zM19.5 13.5h.75v.75h-.75v-.75zM19.5 19.5h.75v.75h-.75v-.75zM16.5 16.5h3v3h-3v-3z" />
+                                </svg>
+                            </div>
+                            <input
+                                id="sku_venta_input"
+                                v-model="skuVentaInput"
+                                @keyup.enter="escanearProductoSKU"
+                                type="text"
+                                placeholder="Escanear código de barras para agregar al carrito..."
+                                class="flex-1 border-0 bg-transparent focus:ring-0 text-sm font-mono placeholder-gray-400"
+                                autocomplete="off"
+                            />
+                            <span v-if="skuVentaStatus === 'added'" class="text-green-600 text-xs font-bold animate-pulse">Agregado al carrito</span>
+                            <span v-if="skuVentaStatus === 'not-found'" class="text-red-600 text-xs font-bold">Código no encontrado</span>
+                            <span v-if="skuVentaStatus === 'no-client'" class="text-orange-600 text-xs font-bold">Seleccioná un cliente primero</span>
+                            <span v-if="!skuVentaStatus" class="text-xs text-gray-400 hidden lg:inline">Escaneá el código y se agrega automáticamente</span>
+                        </div>
+
                         <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6 bg-yellow-50 p-4 rounded-lg border border-yellow-200">
                             
                             <div class="md:col-span-6 relative producto-search-container">
