@@ -4,6 +4,8 @@ import { Link, useForm, Head } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import InputError from '@/Components/InputError.vue'; 
 import DangerButton from '@/Components/DangerButton.vue';
+import Modal from '@/Components/Modal.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
 
 const props = defineProps({
   producto: Object,
@@ -15,8 +17,7 @@ const showDeleteModal = ref(false);
 const deleteForm = useForm({ motivo: '' });
 
 const deleteProducto = () => {
-  deleteForm.transform((data) => ({ ...data, _method: 'DELETE' }))
-  .post(route('productos.darDeBaja', props.producto.id), {
+  deleteForm.post(route('productos.darDeBaja', props.producto.id), {
       preserveScroll: true,
       onSuccess: () => showDeleteModal.value = false,
   });
@@ -252,5 +253,20 @@ function getMargen(precioVenta) {
             </div>
         </div>
         
+        <!-- Modal de confirmación de baja -->
+        <Modal :show="showDeleteModal" @close="showDeleteModal = false">
+            <div class="p-6">
+                <h2 class="text-lg font-medium text-gray-900">¿Dar de baja el producto "{{ producto.nombre }}"?</h2>
+                <p class="mt-1 text-sm text-gray-600">Esta acción cambiará su estado a "Inactivo". Por favor, ingrese el motivo.</p>
+                <div class="mt-6">
+                    <textarea v-model="deleteForm.motivo" rows="3" class="w-full mt-1 border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-md shadow-sm" placeholder="Ej: Producto descontinuado..."></textarea>
+                    <InputError :message="deleteForm.errors.motivo" class="mt-2" />
+                </div>
+                <div class="mt-6 flex justify-end">
+                    <SecondaryButton @click="showDeleteModal = false">Cancelar</SecondaryButton>
+                    <DangerButton class="ms-3" :class="{ 'opacity-25': deleteForm.processing }" :disabled="deleteForm.processing" @click="deleteProducto">Confirmar Baja</DangerButton>
+                </div>
+            </div>
+        </Modal>
         </AppLayout>
 </template>

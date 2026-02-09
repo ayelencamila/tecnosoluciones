@@ -44,6 +44,15 @@ const form = useForm({
 const repuestoSeleccionado = ref('');
 const cantidadRepuesto = ref(1);
 
+const obtenerPrecioProducto = (producto) => {
+    if (!producto.precios || producto.precios.length === 0) return 0;
+    if (clienteSeleccionado.value?.tipoClienteID) {
+        const precioCliente = producto.precios.find(p => p.tipoClienteID === clienteSeleccionado.value.tipoClienteID);
+        if (precioCliente) return parseFloat(precioCliente.precio);
+    }
+    return parseFloat(producto.precios[0]?.precio ?? 0);
+};
+
 const agregarRepuesto = () => {
     if (!repuestoSeleccionado.value || cantidadRepuesto.value < 1) return;
     const producto = props.productos.find(p => p.id === parseInt(repuestoSeleccionado.value));
@@ -58,7 +67,7 @@ const agregarRepuesto = () => {
                 producto_id: producto.id,
                 nombre: producto.nombre,
                 cantidad: cantidadRepuesto.value,
-                precio_unitario: producto.precio || 0,
+                precio_unitario: obtenerPrecioProducto(producto),
             });
         }
         repuestoSeleccionado.value = '';

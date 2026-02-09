@@ -78,6 +78,16 @@ onMounted(() => {
 const repuestoSeleccionado = ref('');
 const cantidadRepuesto = ref(1);
 
+const obtenerPrecioProducto = (producto) => {
+    if (!producto.precios || producto.precios.length === 0) return 0;
+    const tipoClienteID = props.reparacion.cliente?.tipoClienteID;
+    if (tipoClienteID) {
+        const precioCliente = producto.precios.find(p => p.tipoClienteID === tipoClienteID);
+        if (precioCliente) return parseFloat(precioCliente.precio);
+    }
+    return parseFloat(producto.precios[0]?.precio ?? 0);
+};
+
 const agregarRepuesto = () => {
     if (!repuestoSeleccionado.value || cantidadRepuesto.value < 1) return;
     const producto = props.productos.find(p => p.id === repuestoSeleccionado.value);
@@ -86,7 +96,8 @@ const agregarRepuesto = () => {
         form.repuestos.push({
             producto_id: producto.id,
             nombre: producto.nombre,
-            cantidad: cantidadRepuesto.value
+            cantidad: cantidadRepuesto.value,
+            precio_unitario: obtenerPrecioProducto(producto),
         });
         repuestoSeleccionado.value = '';
         cantidadRepuesto.value = 1;

@@ -14,6 +14,8 @@ use App\Models\MovimientoStock;
 use App\Models\EstadoReparacion;
 use App\Models\TipoMovimientoStock;
 use App\Models\Auditoria;
+use App\Models\Cliente;
+use App\Models\PrecioProducto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
@@ -116,13 +118,30 @@ class RegistrarReparacionService
         }
     }
 
+    private function obtenerPrecioParaCliente(Producto $producto, Cliente $cliente): float
+    {
+        $precioProducto = PrecioProducto::where('productoID', $producto->id)
+            ->where('tipoClienteID', $cliente->tipoClienteID)
+            ->where('fechaDesde', '<=', Carbon::now())
+            ->where(function ($query) {
+                $query->where('fechaHasta', '>=', Carbon::now())
+                      ->orWhereNull('fechaHasta');
+            })
+            ->orderBy('fechaDesde', 'desc')
+            ->first();
+
+        return (float) ($precioProducto?->precio ?? $producto->precios()->latest('fechaDesde')->first()?->precio ?? 0);
+    }
+
     private function procesarItems(Reparacion $reparacion, array $items, int $usuarioID): void
     {
+        $cliente = Cliente::findOrFail($reparacion->clienteID);
+
         foreach ($items as $itemData) {
             $producto = Producto::findOrFail($itemData['producto_id']);
             
-            // Precio histórico (snapshot)
-            $precioUnitario = $producto->precios()->latest('fechaDesde')->first()?->precio ?? 0; 
+            // Precio según tipo de cliente (mayorista/minorista)
+            $precioUnitario = $this->obtenerPrecioParaCliente($producto, $cliente); 
             
             $cantidad = $itemData['cantidad'];
             $subtotal = $precioUnitario * $cantidad;

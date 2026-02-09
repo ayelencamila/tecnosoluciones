@@ -108,11 +108,15 @@ class ReparacionController extends Controller
 
         return Inertia::render('Reparaciones/Create', [
             'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->orderBy('apellido')->get(),
-            'productos' => $queryProductos->orderBy('nombre')->get()->map(fn($p) => [
+            'productos' => $queryProductos->with(['precios' => fn($q) => $q->whereNull('fechaHasta')])
+                ->orderBy('nombre')->get()->map(fn($p) => [
                 'id' => $p->id,
                 'nombre' => $p->nombre,
                 'stock_total' => $p->stock_total,
-                'precio' => $p->precios()->latest('fechaDesde')->first()?->precio ?? 0,
+                'precios' => $p->precios->map(fn($pr) => [
+                    'tipoClienteID' => $pr->tipoClienteID,
+                    'precio' => $pr->precio,
+                ]),
             ]),
             'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
             // Filtrar solo usuarios con rol de técnico para asignación de reparaciones
@@ -265,10 +269,15 @@ class ReparacionController extends Controller
         return Inertia::render('Reparaciones/Edit', [
             'reparacion' => $reparacion,
             'estados' => EstadoReparacion::all(),
-            'productos' => $queryProductos->orderBy('nombre')->get()->map(fn($p) => [
+            'productos' => $queryProductos->with(['precios' => fn($q) => $q->whereNull('fechaHasta')])
+                ->orderBy('nombre')->get()->map(fn($p) => [
                 'id' => $p->id,
                 'nombre' => $p->nombre,
-                'stock_total' => $p->stock_total 
+                'stock_total' => $p->stock_total,
+                'precios' => $p->precios->map(fn($pr) => [
+                    'tipoClienteID' => $pr->tipoClienteID,
+                    'precio' => $pr->precio,
+                ]),
             ]),
             'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
         ]);

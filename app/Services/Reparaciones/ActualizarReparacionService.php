@@ -9,10 +9,13 @@ use App\Models\Stock;
 use App\Models\MovimientoStock;
 use App\Models\EstadoReparacion;
 use App\Models\TipoMovimientoStock;
-use App\Models\Auditoria; 
+use App\Models\Auditoria;
+use App\Models\Cliente;
+use App\Models\PrecioProducto;
 use App\Exceptions\Ventas\SinStockException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Carbon;
 
 class ActualizarReparacionService
 {
@@ -111,6 +114,11 @@ class ActualizarReparacionService
                 }
             }
 
+            // 5b. Lógica de Anulación (ID 6 = Anulado): revertir stock de repuestos
+            if ($nuevoEstado->estadoReparacionID == 6) {
+                $this->revertirStockRepuestos($reparacion, $userId);
+            }
+
             // 6. CU-12 Paso 10: Registrar operación en el historial de operaciones
             Auditoria::registrar(
                 accion: Auditoria::ACCION_ACTUALIZAR_REPARACION,
@@ -190,7 +198,8 @@ class ActualizarReparacionService
             ]);
         }
 
-        $precio = $producto->precios()->latest('fechaDesde')->first()?->precio ?? 0;
+        $cliente = Cliente::findOrFail($reparacion->clienteID);
+        $precio = $this->obtenerPrecioParaCliente($producto, $cliente);
 
         DetalleReparacion::create([
             'reparacion_id' => $reparacion->reparacionID,
@@ -199,5 +208,67 @@ class ActualizarReparacionService
             'precio_unitario' => $precio,
             'subtotal' => $precio * $cantidad,
         ]);
+    }
+
+    /**
+     * Revertir stock de repuestos al anular una reparación.
+     * Reincorpora las cantidades al inventario con movimiento de tipo "Devolución (Entrada)".
+     */
+    private function revertirStockRepuestos(Reparacion $reparacion, int $userId): void
+    {
+        $reparacion->load('repuestos.producto');
+
+        $tipoDevolucion = TipoMovimientoStock::where('nombre', 'Devolución (Entrada)')->first();
+        if (!$tipoDevolucion) {
+            Log::error("No se encontró tipo de movimiento 'Devolución (Entrada)' al anular reparación {$reparacion->codigo_reparacion}");
+            return;
+        }
+
+        foreach ($reparacion->repuestos as $detalle) {
+            $producto = $detalle->producto;
+            if (!$producto || $producto->es_servicio) continue;
+
+            $cantidad = (int) $detalle->cantidad;
+
+            $stockRegistro = Stock::where('productoID', $producto->id)
+                                  ->lockForUpdate()
+                                  ->first();
+
+            if ($stockRegistro) {
+                $stockAnterior = $stockRegistro->cantidad_disponible;
+                $stockRegistro->increment('cantidad_disponible', $cantidad);
+
+                MovimientoStock::create([
+                    'stock_id' => $stockRegistro->stock_id,
+                    'productoID' => $producto->id,
+                    'tipo_movimiento_id' => $tipoDevolucion->id,
+                    'cantidad' => $cantidad,
+                    'stockAnterior' => $stockAnterior,
+                    'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
+                    'motivo' => 'Anulación Reparación ' . $reparacion->codigo_reparacion,
+                    'referenciaID' => $reparacion->reparacionID,
+                    'referenciaTabla' => 'reparaciones',
+                    'user_id' => $userId,
+                    'fecha_movimiento' => now(),
+                ]);
+            } else {
+                Log::error("Stock no encontrado para Producto ID {$producto->id} al anular Reparación {$reparacion->codigo_reparacion}");
+            }
+        }
+    }
+
+    private function obtenerPrecioParaCliente(Producto $producto, Cliente $cliente): float
+    {
+        $precioProducto = PrecioProducto::where('productoID', $producto->id)
+            ->where('tipoClienteID', $cliente->tipoClienteID)
+            ->where('fechaDesde', '<=', Carbon::now())
+            ->where(function ($query) {
+                $query->where('fechaHasta', '>=', Carbon::now())
+                      ->orWhereNull('fechaHasta');
+            })
+            ->orderBy('fechaDesde', 'desc')
+            ->first();
+
+        return (float) ($precioProducto?->precio ?? $producto->precios()->latest('fechaDesde')->first()?->precio ?? 0);
     }
 }
