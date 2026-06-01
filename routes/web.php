@@ -471,6 +471,13 @@ Route::middleware(['auth'])->group(function () {
         Route::put('/', [ConfiguracionController::class, 'update'])->name('update');
     });
 
+    // --- MI EMPRESA (multi-tenant: edicion de la empresa del usuario) ---
+    Route::prefix('empresa')->name('empresa.')->middleware(['role:administrador'])->group(function () {
+        Route::get('/', [\App\Http\Controllers\EmpresaController::class, 'edit'])->name('edit');
+        Route::put('/', [\App\Http\Controllers\EmpresaController::class, 'update'])->name('update');
+        Route::delete('/logo', [\App\Http\Controllers\EmpresaController::class, 'deleteLogo'])->name('logo.destroy');
+    });
+
     // --- MÓDULO DE PLANTILLAS WHATSAPP (CU-30) ---
     Route::prefix('plantillas-whatsapp')->name('plantillas-whatsapp.')->group(function () {
         Route::get('/', [\App\Http\Controllers\PlantillaWhatsappController::class, 'index'])->name('index');
