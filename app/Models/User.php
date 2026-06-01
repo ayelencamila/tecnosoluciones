@@ -24,8 +24,9 @@ class User extends Authenticatable
         'email',
         'telefono',
         'password',
+        'empresa_id',
         'rol_id',
-        'activo',           
+        'activo',
         'bloqueado_hasta',
         'foto_perfil',
     ];
@@ -39,6 +40,14 @@ class User extends Authenticatable
         'password',
         'remember_token',
     ];
+
+    /**
+     * Relación: Un usuario pertenece a una empresa (tenant).
+     */
+    public function empresa(): BelongsTo
+    {
+        return $this->belongsTo(Empresa::class, 'empresa_id');
+    }
 
     /**
      * Relación: Un usuario pertenece a un rol.
