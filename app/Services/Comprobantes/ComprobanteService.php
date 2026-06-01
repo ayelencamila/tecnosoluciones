@@ -2,6 +2,7 @@
 
 namespace App\Services\Comprobantes;
 
+use App\Models\Empresa;
 use App\Models\Pago;
 use App\Models\Configuracion;
 
@@ -26,14 +27,8 @@ class ComprobanteService
      */
     public function prepararDatosReciboPago(Pago $pago): array
     {
-        // Información CONSTANTE (datos de la empresa)
-        $datosEmpresa = [
-            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
-            'direccion' => Configuracion::get('direccion_empresa', ''),
-            'telefono' => Configuracion::get('telefono_empresa', ''),
-            'email' => Configuracion::get('email_empresa', ''),
-            'cuit' => Configuracion::get('cuit_empresa', ''),
-        ];
+        // Datos de la empresa (multi-tenant: se leen desde la empresa propietaria del pago)
+        $datosEmpresa = $this->datosEmpresa($pago);
 
         // Información VARIABLE (datos del pago)
         $pago->load(['cliente', 'cajero', 'medioPago', 'ventasImputadas']);
@@ -107,14 +102,8 @@ class ComprobanteService
      */
     public function prepararDatosComprobanteVenta($venta): array
     {
-        // Información CONSTANTE (datos de la empresa)
-        $datosEmpresa = [
-            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
-            'direccion' => Configuracion::get('direccion_empresa', ''),
-            'telefono' => Configuracion::get('telefono_empresa', ''),
-            'email' => Configuracion::get('email_empresa', ''),
-            'cuit' => Configuracion::get('cuit_empresa', ''),
-        ];
+        // Datos de la empresa (multi-tenant: se leen desde la empresa propietaria de la venta)
+        $datosEmpresa = $this->datosEmpresa($venta);
 
         // Información VARIABLE (datos de la venta)
         $venta->load(['cliente', 'vendedor', 'medioPago', 'estado', 'detalles.producto', 'descuentos']);
@@ -208,14 +197,8 @@ class ComprobanteService
      */
     public function prepararDatosComprobanteAnulacion($venta): array
     {
-        // Información CONSTANTE (datos de la empresa)
-        $datosEmpresa = [
-            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
-            'direccion' => Configuracion::get('direccion_empresa', ''),
-            'telefono' => Configuracion::get('telefono_empresa', ''),
-            'email' => Configuracion::get('email_empresa', ''),
-            'cuit' => Configuracion::get('cuit_empresa', ''),
-        ];
+        // Datos de la empresa (multi-tenant: se leen desde la empresa propietaria de la venta)
+        $datosEmpresa = $this->datosEmpresa($venta);
 
         // Información VARIABLE (datos de la venta anulada)
         $venta->load(['cliente', 'vendedor', 'medioPago', 'estado', 'detalles.producto', 'descuentos']);
@@ -292,14 +275,8 @@ class ComprobanteService
      */
     public function prepararDatosComprobanteIngresoReparacion($reparacion): array
     {
-        // Información CONSTANTE (datos de la empresa)
-        $datosEmpresa = [
-            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
-            'direccion' => Configuracion::get('direccion_empresa', ''),
-            'telefono' => Configuracion::get('telefono_empresa', ''),
-            'email' => Configuracion::get('email_empresa', ''),
-            'cuit' => Configuracion::get('cuit_empresa', ''),
-        ];
+        // Datos de la empresa (multi-tenant: se leen desde la empresa propietaria de la reparacion)
+        $datosEmpresa = $this->datosEmpresa($reparacion);
 
         // Información VARIABLE (datos de la reparación)
         $reparacion->load(['cliente', 'tecnico', 'estado', 'modelo.marca', 'repuestos.producto']);
@@ -387,14 +364,8 @@ class ComprobanteService
      */
     public function prepararDatosComprobanteEntrega($reparacion): array
     {
-        // Información CONSTANTE (datos de la empresa)
-        $datosEmpresa = [
-            'nombre' => Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
-            'direccion' => Configuracion::get('direccion_empresa', ''),
-            'telefono' => Configuracion::get('telefono_empresa', ''),
-            'email' => Configuracion::get('email_empresa', ''),
-            'cuit' => Configuracion::get('cuit_empresa', ''),
-        ];
+        // Datos de la empresa (multi-tenant: se leen desde la empresa propietaria de la reparacion)
+        $datosEmpresa = $this->datosEmpresa($reparacion);
 
         // Información VARIABLE (datos de la reparación)
         $reparacion->load(['cliente', 'tecnico', 'estado', 'modelo.marca', 'repuestos.producto']);
@@ -477,6 +448,36 @@ class ComprobanteService
             
             // Metadata
             'fecha_emision' => now()->format('d/m/Y H:i:s'),
+        ];
+    }
+
+    /**
+     * Devuelve los datos de cabecera de la empresa (tenant) propietaria de
+     * la entidad recibida (Pago, Venta o Reparacion).
+     *
+     * Multi-tenant: cada PDF debe mostrar la informacion de la empresa que
+     * emite el comprobante. Antes esta informacion se leia del EAV
+     * `configuracion` (claves nombre_empresa, cuit_empresa, etc.); ahora se
+     * lee de la tabla tipada `empresas` que es la fuente de verdad. Se
+     * conserva un fallback al EAV para compatibilidad mientras dure la
+     * deprecacion progresiva de esas claves.
+     *
+     * @param  object|null  $entidad  Entidad con atributo `empresa_id`
+     */
+    private function datosEmpresa($entidad): array
+    {
+        $empresaId = $entidad?->empresa_id ?? null;
+        $empresa   = $empresaId ? Empresa::find($empresaId) : null;
+
+        return [
+            'nombre'    => $empresa?->nombre    ?? Configuracion::get('nombre_empresa', 'TecnoSoluciones'),
+            'direccion' => $empresa?->direccion ?? Configuracion::get('direccion_empresa', ''),
+            'telefono'  => $empresa?->telefono  ?? Configuracion::get('telefono_empresa', ''),
+            // Nota: la clave EAV original `email_empresa` nunca existio (bug
+            // historico). En empresas, el valor viene de `email_contacto` via
+            // la migracion 2026_06_01_130000_create_empresas_table.
+            'email'     => $empresa?->email     ?? Configuracion::get('email_contacto', ''),
+            'cuit'      => $empresa?->cuit      ?? Configuracion::get('cuit_empresa', ''),
         ];
     }
 }
