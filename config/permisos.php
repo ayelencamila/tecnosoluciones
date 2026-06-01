@@ -142,6 +142,8 @@ return [
             'permisos' => [
                 'configuracion.ver' => 'Ver configuración',
                 'configuracion.editar' => 'Editar configuración',
+                'empresa.ver' => 'Ver datos de la empresa',
+                'empresa.editar' => 'Editar datos de la empresa (nombre, logo, contacto)',
                 'maestros.gestionar' => 'Gestionar tablas maestras',
                 'usuarios.gestionar' => 'Gestionar usuarios',
                 'roles.gestionar' => 'Gestionar roles y permisos',
