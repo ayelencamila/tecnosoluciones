@@ -15,10 +15,24 @@ class StoreProveedorRequest extends FormRequest
     public function rules(): array
     {
         return [
-            // Identificación
-            'razon_social' => ['required', 'string', 'max:100', 'unique:proveedores,razon_social'],
-            'cuit' => ['nullable', 'digits:11', 'unique:proveedores,cuit'], // Opcional
-            'email' => ['nullable', 'email', 'max:100', 'unique:proveedores,email'], // Opcional
+            // Identificación (Multi-tenant: unicidad por empresa - Elmasri).
+            'razon_social' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('proveedores', 'razon_social')->where('empresa_id', auth()->user()->empresa_id),
+            ],
+            'cuit' => [
+                'nullable',
+                'digits:11',
+                Rule::unique('proveedores', 'cuit')->where('empresa_id', auth()->user()->empresa_id),
+            ],
+            'email' => [
+                'nullable',
+                'email',
+                'max:100',
+                Rule::unique('proveedores', 'email')->where('empresa_id', auth()->user()->empresa_id),
+            ],
             'telefono' => ['nullable', 'string', 'max:20'],
             'whatsapp' => ['nullable', 'string', 'max:20'],
             

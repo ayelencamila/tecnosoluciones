@@ -25,7 +25,11 @@ class RolRequest extends FormRequest
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('roles', 'nombre')->ignore($rolId, 'rol_id'),
+                // Multi-tenant: roles modelados como entidad debil de empresas
+                // (Elmasri Cap.7). Unicidad parcial: (empresa_id, nombre).
+                Rule::unique('roles', 'nombre')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($rolId, 'rol_id'),
             ],
             'descripcion' => ['nullable', 'string', 'max:255'],
             'permisos' => ['nullable', 'array'],

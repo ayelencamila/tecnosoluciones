@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Proveedor;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class ProveedorController extends Controller
@@ -17,9 +18,14 @@ class ProveedorController extends Controller
 
     public function store(Request $request)
     {
+        // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
         $request->validate([
             'razon_social' => 'required|string|max:100',
-            'cuit' => 'required|string|max:20|unique:proveedores,cuit',
+            'cuit' => [
+                'required', 'string', 'max:20',
+                Rule::unique('proveedores', 'cuit')
+                    ->where('empresa_id', auth()->user()->empresa_id),
+            ],
             'email' => 'nullable|email',
             'telefono' => 'nullable|string|max:20'
         ]);
@@ -30,9 +36,15 @@ class ProveedorController extends Controller
     public function update(Request $request, $id)
     {
         $proveedor = Proveedor::findOrFail($id);
+        // Multi-tenant: unicidad por empresa, ignorando este registro.
         $request->validate([
             'razon_social' => 'required|string|max:100',
-            'cuit' => 'required|string|max:20|unique:proveedores,cuit,'.$id,
+            'cuit' => [
+                'required', 'string', 'max:20',
+                Rule::unique('proveedores', 'cuit')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($id),
+            ],
             'email' => 'nullable|email',
             'telefono' => 'nullable|string|max:20'
         ]);

@@ -34,7 +34,8 @@ class StoreClienteRequest extends FormRequest
                 'required',
                 'string',
                 'max:20',
-                Rule::unique('clientes', 'DNI'), // Valida unicidad en la tabla clientes
+                // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
+                Rule::unique('clientes', 'DNI')->where('empresa_id', auth()->user()->empresa_id),
             ],
             'mail' => ['nullable', 'email', 'max:255', Rule::unique('clientes', 'mail')],
             'whatsapp' => 'nullable|string|max:20', // Lo dejamos nullable, es más flexible

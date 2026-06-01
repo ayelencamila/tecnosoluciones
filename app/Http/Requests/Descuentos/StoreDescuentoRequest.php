@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Descuentos;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreDescuentoRequest extends FormRequest
 {
@@ -17,12 +18,16 @@ class StoreDescuentoRequest extends FormRequest
         $descuento = $this->route('descuento');
         $ignoreId = $descuento ? $descuento->descuento_id : null;
 
-        $codigoRule = $ignoreId
-            ? ['required', 'string', 'max:50', \Illuminate\Validation\Rule::unique('descuentos', 'codigo')->ignore($ignoreId, 'descuento_id')]
-            : 'required|string|max:50|unique:descuentos,codigo';
+        // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
+        $uniqueRule = Rule::unique('descuentos', 'codigo')
+            ->where('empresa_id', auth()->user()->empresa_id);
+
+        if ($ignoreId) {
+            $uniqueRule = $uniqueRule->ignore($ignoreId, 'descuento_id');
+        }
 
         return [
-            'codigo' => $codigoRule,
+            'codigo' => ['required', 'string', 'max:50', $uniqueRule],
             'descripcion' => 'required|string|max:255',
             
             // Validar IDs de tablas maestras

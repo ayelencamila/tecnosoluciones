@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Marca;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class MarcaController extends Controller
@@ -17,15 +18,28 @@ class MarcaController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate(['nombre' => 'required|string|max:50|unique:marcas,nombre']);
+        // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
+        $request->validate([
+            'nombre' => [
+                'required', 'string', 'max:50',
+                Rule::unique('marcas', 'nombre')
+                    ->where('empresa_id', auth()->user()->empresa_id),
+            ],
+        ]);
         Marca::create($request->all());
         return back()->with('success', 'Marca creada.');
     }
 
     public function update(Request $request, Marca $marca)
     {
+        // Multi-tenant: unicidad por empresa, ignorando este registro.
         $request->validate([
-            'nombre' => 'required|string|max:50|unique:marcas,nombre,' . $marca->id,
+            'nombre' => [
+                'required', 'string', 'max:50',
+                Rule::unique('marcas', 'nombre')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($marca->id),
+            ],
             'activo' => 'boolean'
         ]);
         $marca->update($request->all());

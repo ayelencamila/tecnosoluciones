@@ -37,7 +37,10 @@ class UpdateClienteRequest extends FormRequest
                 'required',
                 'string',
                 'max:20',
-                Rule::unique('clientes', 'DNI')->ignore($clienteId, 'clienteID'), // Perfecto
+                // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
+                Rule::unique('clientes', 'DNI')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($clienteId, 'clienteID'),
             ],
             'mail' => ['nullable', 'email', 'max:255', Rule::unique('clientes', 'mail')->ignore($clienteId, 'clienteID')],
             'whatsapp' => 'nullable|string|max:20', // <-- MEJORA: Sincronizado con Store (nullable)

@@ -19,7 +19,15 @@ class UpdateProductoRequest extends FormRequest
 
         return [
             // --- Datos del Catálogo ---
-            'codigo' => ['required', 'string', 'max:50', Rule::unique('productos')->ignore($productoId)],
+            'codigo' => [
+                'required',
+                'string',
+                'max:50',
+                // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
+                Rule::unique('productos', 'codigo')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($productoId),
+            ],
             'nombre' => 'required|string|max:100',
             'descripcion' => 'nullable|string',
             'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'], // Max 2MB

@@ -17,9 +17,30 @@ class UpdateProveedorRequest extends FormRequest
         $proveedorId = $this->route('proveedor') ? $this->route('proveedor')->id : null;
 
         return [
-            'razon_social' => ['required', 'string', 'max:100', Rule::unique('proveedores')->ignore($proveedorId)],
-            'cuit' => ['nullable', 'digits:11', Rule::unique('proveedores')->ignore($proveedorId)], // Opcional
-            'email' => ['nullable', 'email', 'max:100', Rule::unique('proveedores', 'email')->ignore($proveedorId)], // Opcional
+            // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
+            'razon_social' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('proveedores', 'razon_social')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($proveedorId),
+            ],
+            'cuit' => [
+                'nullable',
+                'digits:11',
+                Rule::unique('proveedores', 'cuit')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($proveedorId),
+            ],
+            'email' => [
+                'nullable',
+                'email',
+                'max:100',
+                Rule::unique('proveedores', 'email')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($proveedorId),
+            ],
             'telefono' => ['nullable', 'string', 'max:20'],
             'whatsapp' => ['nullable', 'string', 'max:20'],
             'forma_pago_preferida' => ['nullable', 'string', 'max:50'],

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Deposito;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class DepositoController extends Controller
@@ -20,8 +21,13 @@ class DepositoController extends Controller
 
     public function store(Request $request)
     {
+        // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
         $request->validate([
-            'nombre' => 'required|string|max:100|unique:depositos,nombre',
+            'nombre' => [
+                'required', 'string', 'max:100',
+                Rule::unique('depositos', 'nombre')
+                    ->where('empresa_id', auth()->user()->empresa_id),
+            ],
             'direccion' => 'nullable|string|max:255',
         ]);
 
@@ -38,8 +44,14 @@ class DepositoController extends Controller
     {
         $deposito = Deposito::findOrFail($id);
 
+        // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
         $request->validate([
-            'nombre' => 'required|string|max:100|unique:depositos,nombre,' . $id . ',deposito_id',
+            'nombre' => [
+                'required', 'string', 'max:100',
+                Rule::unique('depositos', 'nombre')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($id, 'deposito_id'),
+            ],
             'direccion' => 'nullable|string|max:255',
             'activo' => 'boolean'
         ]);

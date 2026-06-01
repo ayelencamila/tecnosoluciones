@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Productos;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreProductoRequest extends FormRequest
 {
@@ -15,7 +16,13 @@ class StoreProductoRequest extends FormRequest
     {
         return [
             // Datos Maestros
-            'codigo' => ['required', 'string', 'max:50', 'unique:productos,codigo'],
+            'codigo' => [
+                'required',
+                'string',
+                'max:50',
+                // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
+                Rule::unique('productos', 'codigo')->where('empresa_id', auth()->user()->empresa_id),
+            ],
             'nombre' => ['required', 'string', 'max:100'],
             'descripcion' => ['nullable', 'string'],
             'foto' => ['nullable', 'image', 'mimes:jpeg,png,jpg,webp', 'max:2048'], // Max 2MB

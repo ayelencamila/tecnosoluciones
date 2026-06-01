@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CategoriaProducto;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 
 class CategoriaProductoController extends Controller
@@ -31,9 +32,13 @@ class CategoriaProductoController extends Controller
      */
     public function store(Request $request)
     {
-        // 1. Validación (Evitamos datos basura)
+        // 1. Validación (Multi-tenant: unicidad por empresa - Elmasri)
         $request->validate([
-            'nombre' => 'required|string|max:255|unique:categorias_producto,nombre',
+            'nombre' => [
+                'required', 'string', 'max:255',
+                Rule::unique('categorias_producto', 'nombre')
+                    ->where('empresa_id', auth()->user()->empresa_id),
+            ],
             'descripcion' => 'nullable|string|max:500',
         ], [
             'nombre.unique' => 'Esta categoría ya existe.'
@@ -56,9 +61,14 @@ class CategoriaProductoController extends Controller
      */
     public function update(Request $request, CategoriaProducto $categoria)
     {
-        // 1. Validación (Ignoramos el ID actual para que no de error de "ya existe" sobre sí misma)
+        // 1. Validación (Multi-tenant: unicidad por empresa, ignorando este registro)
         $request->validate([
-            'nombre' => 'required|string|max:255|unique:categorias_producto,nombre,' . $categoria->id,
+            'nombre' => [
+                'required', 'string', 'max:255',
+                Rule::unique('categorias_producto', 'nombre')
+                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->ignore($categoria->id),
+            ],
             'descripcion' => 'nullable|string|max:500',
             'activo' => 'boolean'
         ]);
