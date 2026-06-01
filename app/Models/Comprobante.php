@@ -21,18 +21,20 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  * @property string $tipo_entidad
  * @property int $entidad_id
  * @property int $usuario_id
- * @property string $tipo_comprobante
+ * @property int $tipo_comprobante_id
  * @property string $numero_correlativo
  * @property \Carbon\Carbon $fecha_emision
  * @property string|null $ruta_archivo
- * @property string $estado
+ * @property int $estado_comprobante_id
  * @property string|null $motivo_estado
  * @property int|null $original_id
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
- * 
+ *
  * @property-read Model $entidad
  * @property-read User $usuario
+ * @property-read TipoComprobante $tipoComprobante
+ * @property-read EstadoComprobante $estadoComprobante
  * @property-read Comprobante|null $original
  * @property-read \Illuminate\Database\Eloquent\Collection<Comprobante> $reemisiones
  */
