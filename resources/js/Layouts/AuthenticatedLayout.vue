@@ -12,6 +12,13 @@ const showingNavigationDropdown = ref(false);
 // Obtener datos del usuario
 const user = computed(() => usePage().props.auth.user);
 
+// Empresa (tenant) actual
+const empresa = computed(() => usePage().props.auth.empresa);
+
+// Permisos del rol para gating de UI
+const permisos = computed(() => usePage().props.auth.permisos ?? []);
+const canEditEmpresa = computed(() => permisos.value.includes('empresa.editar'));
+
 // URL de la foto o null
 const photoUrl = computed(() => {
     if (user.value?.foto_perfil) {
@@ -20,10 +27,26 @@ const photoUrl = computed(() => {
     return null;
 });
 
+// URL del logo de la empresa o null
+const empresaLogoUrl = computed(() => {
+    return empresa.value?.logo ? `/storage/${empresa.value.logo}` : null;
+});
+
 // Iniciales del usuario
 const initials = computed(() => {
     if (!user.value?.name) return '?';
     return user.value.name
+        .split(' ')
+        .map(word => word[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+});
+
+// Iniciales de la empresa (para placeholder cuando no hay logo)
+const empresaInitials = computed(() => {
+    if (!empresa.value?.nombre) return '';
+    return empresa.value.nombre
         .split(' ')
         .map(word => word[0])
         .join('')
@@ -42,10 +65,31 @@ const initials = computed(() => {
                 <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                     <div class="flex h-16 justify-between">
                         <div class="flex">
-                            <!-- Logo -->
+                            <!-- Branding tenant (empresa actual) -->
                             <div class="flex shrink-0 items-center">
-                                <Link :href="route('dashboard')">
+                                <Link
+                                    :href="route('dashboard')"
+                                    class="flex items-center gap-2"
+                                >
+                                    <template v-if="empresa">
+                                        <img
+                                            v-if="empresaLogoUrl"
+                                            :src="empresaLogoUrl"
+                                            :alt="empresa.nombre"
+                                            class="h-9 w-9 rounded object-cover border border-gray-200 bg-white"
+                                        />
+                                        <span
+                                            v-else
+                                            class="h-9 w-9 rounded bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold"
+                                        >
+                                            {{ empresaInitials }}
+                                        </span>
+                                        <span class="hidden sm:inline font-semibold text-gray-800">
+                                            {{ empresa.nombre }}
+                                        </span>
+                                    </template>
                                     <ApplicationLogo
+                                        v-else
                                         class="block h-9 w-auto fill-current text-gray-800"
                                     />
                                 </Link>
@@ -107,6 +151,12 @@ const initials = computed(() => {
                                     </template>
 
                                     <template #content>
+                                        <DropdownLink
+                                            v-if="canEditEmpresa"
+                                            :href="route('empresa.edit')"
+                                        >
+                                            Mi Empresa
+                                        </DropdownLink>
                                         <DropdownLink
                                             :href="route('profile.edit')"
                                         >
@@ -213,6 +263,12 @@ const initials = computed(() => {
                         </div>
 
                         <div class="mt-3 space-y-1">
+                            <ResponsiveNavLink
+                                v-if="canEditEmpresa"
+                                :href="route('empresa.edit')"
+                            >
+                                Mi Empresa
+                            </ResponsiveNavLink>
                             <ResponsiveNavLink :href="route('profile.edit')">
                                 Mi Perfil
                             </ResponsiveNavLink>

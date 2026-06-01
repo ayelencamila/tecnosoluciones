@@ -27,6 +27,23 @@ const canAny = (listaPermisos) => {
     return listaPermisos.some(p => can(p));
 };
 
+// Empresa (tenant) actual para branding multi-tenant
+const empresa = computed(() => page.props.auth.empresa);
+
+const empresaLogoUrl = computed(() => {
+    return empresa.value?.logo ? `/storage/${empresa.value.logo}` : null;
+});
+
+const empresaInitials = computed(() => {
+    if (!empresa.value?.nombre) return '';
+    return empresa.value.nombre
+        .split(' ')
+        .map(w => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+});
+
 // =====================================================
 // SECCIÓN 1: OPERACIONES DIARIAS
 // =====================================================
@@ -274,12 +291,32 @@ const isActive = (routeName) => {
             class="bg-white w-64 min-h-screen flex flex-col border-r border-gray-200 fixed md:relative z-30 transition-transform duration-300 ease-in-out"
             :class="showingSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
         >
-            <div class="h-16 flex items-center justify-center border-b border-gray-200">
-                <Link :href="route('dashboard')" class="flex items-center gap-2">
-                    <div class="bg-indigo-600 p-1.5 rounded-lg">
-                        <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            <div class="h-16 flex items-center justify-center border-b border-gray-200 px-3">
+                <Link :href="route('dashboard')" class="flex items-center gap-2 min-w-0">
+                    <img
+                        v-if="empresaLogoUrl"
+                        :src="empresaLogoUrl"
+                        :alt="empresa?.nombre"
+                        class="h-9 w-9 rounded object-cover bg-white border border-gray-200 shrink-0"
+                    />
+                    <div
+                        v-else
+                        class="bg-indigo-600 p-1.5 rounded-lg shrink-0 flex items-center justify-center h-9 w-9"
+                    >
+                        <span v-if="empresaInitials" class="text-white text-sm font-bold">
+                            {{ empresaInitials }}
+                        </span>
+                        <svg
+                            v-else
+                            class="w-5 h-5 text-white"
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                        >
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
                     </div>
-                    <span class="text-xl font-bold text-gray-800 tracking-tight">TecnoSoluciones</span>
+                    <span class="text-lg font-bold text-gray-800 tracking-tight truncate">
+                        {{ empresa?.nombre ?? 'TecnoSoluciones' }}
+                    </span>
                 </Link>
             </div>
 
@@ -563,10 +600,30 @@ const isActive = (routeName) => {
                 </div>
 
                 <!-- ============================================ -->
-                <!-- SECCIÓN 7: CONFIGURACIÓN (Al final, separado) -->
+                <!-- SECCIÓN 7: ADMINISTRACIÓN DE LA EMPRESA (multi-tenant) -->
                 <!-- ============================================ -->
-                <div v-if="can('configuracion.editar')" class="mt-auto pt-4 border-t border-gray-200">
-                    <Link 
+                <div v-if="can('empresa.editar')" class="mt-auto pt-4 border-t border-gray-200">
+                    <Link
+                        :href="route('empresa.edit')"
+                        class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
+                        :class="isActive('empresa.edit')
+                            ? 'bg-gray-100 text-gray-900'
+                            : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'"
+                    >
+                        <svg class="w-5 h-5 mr-3 transition-colors"
+                             :class="isActive('empresa.edit') ? 'text-gray-600' : 'text-gray-400 group-hover:text-gray-500'"
+                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        Mi Empresa
+                    </Link>
+                </div>
+
+                <!-- ============================================ -->
+                <!-- SECCIÓN 8: CONFIGURACIÓN (Al final, separado) -->
+                <!-- ============================================ -->
+                <div v-if="can('configuracion.editar')" :class="can('empresa.editar') ? 'pt-2' : 'mt-auto pt-4 border-t border-gray-200'">
+                    <Link
                         :href="route('configuracion.index')"
                         class="flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors group"
                         :class="isActive('configuracion.index') 
@@ -641,6 +698,7 @@ const isActive = (routeName) => {
                                 <div class="px-4 py-2 border-b border-gray-100">
                                     <span class="text-xs text-gray-400">Gestionar Cuenta</span>
                                 </div>
+                                <DropdownLink v-if="can('empresa.editar')" :href="route('empresa.edit')">Mi Empresa</DropdownLink>
                                 <DropdownLink :href="route('profile.edit')">Mi Perfil</DropdownLink>
                                 <div class="border-t border-gray-100"></div>
                                 <DropdownLink :href="route('logout')" method="post" as="button">Cerrar Sesión</DropdownLink>
