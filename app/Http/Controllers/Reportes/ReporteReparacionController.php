@@ -2,20 +2,19 @@
 
 namespace App\Http\Controllers\Reportes;
 
+use App\Exports\ReparacionExport;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\Auditoria;
+use App\Models\EstadoReparacion;
 use App\Models\Reparacion;
 use App\Models\User;
-use App\Models\Rol; 
-use App\Models\EstadoReparacion;
-use App\Models\Auditoria;
-use App\Exports\ReparacionExport;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteReparacionController extends Controller
 {
@@ -24,11 +23,10 @@ class ReporteReparacionController extends Controller
         // 1. Auditoría
         Auditoria::create([
             'accion' => 'CONSULTA',
-            'tablaAfectada' => 'reportes',
-            'valorNuevo' => 'Reporte de Reparaciones',
+            'tabla_afectada' => 'reportes',
+            'detalles' => 'Reporte de Reparaciones',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Análisis de eficiencia técnica'
+            'motivo' => 'Análisis de eficiencia técnica',
         ]);
 
         // 2. Filtros
@@ -40,8 +38,8 @@ class ReporteReparacionController extends Controller
         // 3. Query Base
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'marca', 'modelo'])
             ->whereBetween('fecha_ingreso', [
-                Carbon::parse($fechaDesde)->startOfDay(), 
-                Carbon::parse($fechaHasta)->endOfDay()
+                Carbon::parse($fechaDesde)->startOfDay(),
+                Carbon::parse($fechaHasta)->endOfDay(),
             ]);
 
         if ($tecnicoId) {
@@ -56,7 +54,7 @@ class ReporteReparacionController extends Controller
 
         // 5. KPIs
         $totalReparaciones = (clone $query)->count();
-        $finalizadas = (clone $query)->whereNotNull('fecha_entrega_real')->count(); 
+        $finalizadas = (clone $query)->whereNotNull('fecha_entrega_real')->count();
         $tasaExito = $totalReparaciones > 0 ? ($finalizadas / $totalReparaciones) * 100 : 0;
         $ingresosTecnicos = (clone $query)->sum('total_final');
 
@@ -73,8 +71,8 @@ class ReporteReparacionController extends Controller
                 [
                     'data' => $porEstado->pluck('total'),
                     'backgroundColor' => ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#6366F1', '#8B5CF6'],
-                ]
-            ]
+                ],
+            ],
         ];
 
         // 7. Gráfico 2: Reparaciones por Técnico (Optimizado con Join)
@@ -92,13 +90,13 @@ class ReporteReparacionController extends Controller
                     'label' => 'Asignaciones',
                     'data' => $porTecnico->pluck('total'),
                     'backgroundColor' => '#0EA5E9',
-                ]
-            ]
+                ],
+            ],
         ];
 
         // Obtener técnico seleccionado si existe (para mostrar en el buscador)
-        $tecnicoSeleccionado = $tecnicoId 
-            ? User::with('rol')->find($tecnicoId, ['id', 'name', 'rol_id']) 
+        $tecnicoSeleccionado = $tecnicoId
+            ? User::with('rol')->find($tecnicoId, ['id', 'name', 'rol_id'])
             : null;
 
         return Inertia::render('Reportes/Reparaciones/Index', [
@@ -107,11 +105,11 @@ class ReporteReparacionController extends Controller
                 'total' => $totalReparaciones,
                 'finalizadas' => $finalizadas,
                 'tasa_exito' => round($tasaExito, 1),
-                'ingresos' => $ingresosTecnicos
+                'ingresos' => $ingresosTecnicos,
             ],
             'graficos' => [
                 'estados' => $graficoEstados,
-                'tecnicos' => $graficoTecnicos
+                'tecnicos' => $graficoTecnicos,
             ],
             'filters' => [
                 'fecha_desde' => $fechaDesde,
@@ -122,7 +120,7 @@ class ReporteReparacionController extends Controller
             'tecnicoSeleccionado' => $tecnicoSeleccionado,
             'estados' => EstadoReparacion::orderBy('estadoReparacionID')
                 ->get()
-                ->map(fn($e) => ['id' => $e->estadoReparacionID, 'nombre' => $e->nombreEstado]),
+                ->map(fn ($e) => ['id' => $e->estadoReparacionID, 'nombre' => $e->nombreEstado]),
         ]);
     }
 
@@ -133,16 +131,16 @@ class ReporteReparacionController extends Controller
 
         Auditoria::create([
             'accion' => 'EXPORTACION',
-            'tablaAfectada' => 'reportes',
+            'tabla_afectada' => 'reportes',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => "Exportación {$formato} Reparaciones"
+            'motivo' => "Exportación {$formato} Reparaciones",
         ]);
 
         switch ($formato) {
             case 'pdf':
                 $data = $this->getDataForPdf($request);
                 $pdf = Pdf::loadView('pdf.reportes.reparaciones', $data)->setPaper('a4', 'landscape');
+
                 return $pdf->download("reporte_reparaciones_{$timestamp}.pdf");
 
             case 'csv':
@@ -170,11 +168,15 @@ class ReporteReparacionController extends Controller
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'marca', 'modelo'])
             ->whereBetween('fecha_ingreso', [
                 Carbon::parse($fechaDesde)->startOfDay(),
-                Carbon::parse($fechaHasta)->endOfDay()
+                Carbon::parse($fechaHasta)->endOfDay(),
             ]);
 
-        if ($tecnicoId) $query->where('tecnico_id', $tecnicoId);
-        if ($estadoId) $query->where('estado_reparacion_id', $estadoId);
+        if ($tecnicoId) {
+            $query->where('tecnico_id', $tecnicoId);
+        }
+        if ($estadoId) {
+            $query->where('estado_reparacion_id', $estadoId);
+        }
 
         $reparaciones = $query->latest('fecha_ingreso')->get();
         $totalReparaciones = $reparaciones->count();
@@ -183,7 +185,7 @@ class ReporteReparacionController extends Controller
         $ingresos = $reparaciones->sum('total_final');
 
         return [
-            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y') . ' - ' . Carbon::parse($fechaHasta)->format('d/m/Y'),
+            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y').' - '.Carbon::parse($fechaHasta)->format('d/m/Y'),
             'reparaciones' => $reparaciones,
             'kpis' => [
                 'total' => $totalReparaciones,

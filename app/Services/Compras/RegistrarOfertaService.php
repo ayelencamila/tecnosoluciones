@@ -2,21 +2,18 @@
 
 namespace App\Services\Compras;
 
-use App\Models\OfertaCompra;
 use App\Models\Auditoria;
-use App\Models\EstadoOferta; 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
+use App\Models\OfertaCompra;
 use Illuminate\Http\UploadedFile;
-use Exception;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class RegistrarOfertaService
 {
     public function ejecutar(array $datos, int $usuarioId): OfertaCompra
     {
         return DB::transaction(function () use ($datos, $usuarioId) {
-            
+
             // 1. Manejo del Archivo Adjunto (Si existe)
             $rutaArchivo = null;
             if (isset($datos['archivo_adjunto']) && $datos['archivo_adjunto'] instanceof UploadedFile) {
@@ -26,7 +23,7 @@ class RegistrarOfertaService
 
             // 2. Generar Código Único (Ej: OF-202310-X8J)
             // Usamos un hash corto para evitar colisiones
-            $codigo = 'OF-' . now()->format('Ym') . '-' . strtoupper(Str::random(4));
+            $codigo = 'OF-'.now()->format('Ym').'-'.strtoupper(Str::random(4));
 
             // 3. Crear Cabecera
             // Calculamos el total sumando los detalles (Regla de integridad)
@@ -69,14 +66,13 @@ class RegistrarOfertaService
                 'accion' => 'Registrar Oferta',
                 'tabla_afectada' => 'ofertas_compra',
                 'registro_id' => $oferta->id,
-                'user_id' => $usuarioId,
+                'usuarioID' => $usuarioId,
                 'motivo' => $datos['observaciones'],
-                'detalles_json' => json_encode([
+                'datos_nuevos' => [
                     'proveedor' => $datos['proveedor_id'],
                     'items_count' => count($datos['items']),
-                    'total' => $totalEstimado
-                ]),
-                'fecha' => now(),
+                    'total' => $totalEstimado,
+                ],
             ]);
 
             return $oferta;

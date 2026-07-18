@@ -434,26 +434,10 @@ Route::middleware(['auth'])->group(function () {
         ->name('stock.update');
     
     // --- MÓDULO DE AUDITORÍA ---
-    Route::get('/auditorias', function (\Illuminate\Http\Request $request) {
-        $query = \App\Models\Auditoria::with('usuario');
-        
-        // Filtros dinámicos
-        if ($request->filled('accion')) {
-            $query->where('accion', $request->accion);
-        }
-        if ($request->filled('tabla')) {
-            $query->where('tablaAfectada', $request->tabla);
-        }
-        if ($request->filled('usuario')) {
-            $query->whereHas('usuario', function($q) use ($request) {
-                $q->where('name', 'like', '%' . $request->usuario . '%');
-            });
-        }
-        
-        return Inertia::render('Auditorias/Index', [
-            'auditorias' => $query->latest()->paginate(15)->withQueryString()
-        ]);
-    })->name('auditorias.index');
+    // Consulta restringida a administradores; scoping multi-tenant en el controller.
+    Route::get('/auditorias', [\App\Http\Controllers\AuditoriaController::class, 'index'])
+        ->middleware('role:administrador')
+        ->name('auditorias.index');
     
     // --- MÓDULO DE COMPROBANTES INTERNOS (CU-32) ---
     Route::prefix('comprobantes')->name('comprobantes.')->group(function () {

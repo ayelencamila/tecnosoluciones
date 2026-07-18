@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Descuento;
-use App\Models\TipoDescuento;        // <--- Nuevo
-use App\Models\AplicabilidadDescuento; // <--- Nuevo
-use App\Models\Auditoria; 
 use App\Http\Requests\Descuentos\StoreDescuentoRequest;
+use App\Models\AplicabilidadDescuento;        // <--- Nuevo
+use App\Models\Auditoria; // <--- Nuevo
+use App\Models\Descuento;
+use App\Models\TipoDescuento;
 use Illuminate\Http\Request;
-use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class DescuentoController extends Controller
 {
@@ -19,9 +19,9 @@ class DescuentoController extends Controller
         $descuentos = Descuento::with(['tipo', 'aplicabilidad'])
             ->when($request->search, function ($query, $search) {
                 $query->where('codigo', 'like', "%{$search}%")
-                      ->orWhere('descripcion', 'like', "%{$search}%");
+                    ->orWhere('descripcion', 'like', "%{$search}%");
             })
-            ->orderBy('activo', 'desc') 
+            ->orderBy('activo', 'desc')
             ->orderBy('valido_hasta', 'desc')
             ->paginate(10)
             ->withQueryString();
@@ -47,13 +47,12 @@ class DescuentoController extends Controller
             $descuento = Descuento::create($request->validated());
 
             Auditoria::create([
-                'user_id' => auth()->id() ?? 1,
+                'usuarioID' => auth()->id(),
                 'accion' => 'CREAR_DESCUENTO',
                 'tabla_afectada' => 'descuentos',
                 'registro_id' => $descuento->descuento_id,
-                'datos_nuevos' => json_encode($descuento->toArray()),
+                'datos_nuevos' => $descuento->toArray(),
                 'detalles' => "Creación: {$descuento->codigo}",
-                'fecha' => now(),
             ]);
         });
 
@@ -74,18 +73,17 @@ class DescuentoController extends Controller
     {
         DB::transaction(function () use ($request, $descuento) {
             $datosAnteriores = $descuento->toArray();
-            
+
             $descuento->update($request->validated());
 
             Auditoria::create([
-                'user_id' => auth()->id() ?? 1,
+                'usuarioID' => auth()->id(),
                 'accion' => 'MODIFICAR_DESCUENTO',
                 'tabla_afectada' => 'descuentos',
                 'registro_id' => $descuento->descuento_id,
-                'datos_anteriores' => json_encode($datosAnteriores),
-                'datos_nuevos' => json_encode($descuento->fresh()->toArray()),
+                'datos_anteriores' => $datosAnteriores,
+                'datos_nuevos' => $descuento->fresh()->toArray(),
                 'detalles' => "Modificación: {$descuento->codigo}",
-                'fecha' => now(),
             ]);
         });
 
@@ -96,7 +94,7 @@ class DescuentoController extends Controller
     {
         // Baja Lógica (Soft Delete manual o flag activo)
         $descuento->update(['activo' => false]);
-        
+
         return back()->with('success', 'Descuento desactivado.');
     }
 }

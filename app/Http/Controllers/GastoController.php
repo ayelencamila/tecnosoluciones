@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Gasto;
-use App\Models\CategoriaGasto;
 use App\Models\Auditoria;
+use App\Models\CategoriaGasto;
+use App\Models\Gasto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -73,11 +73,11 @@ class GastoController extends Controller
 
         Auditoria::create([
             'accion' => 'CREACION',
-            'tablaAfectada' => 'gastos',
-            'valorNuevo' => json_encode($gasto->load('categoria')->toArray()),
+            'tabla_afectada' => 'gastos',
+            'registro_id' => $gasto->getKey(),
+            'datos_nuevos' => $gasto->load('categoria')->toArray(),
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Registro de gasto/pérdida'
+            'motivo' => 'Registro de gasto/pérdida',
         ]);
 
         return redirect()->route('gastos.index')
@@ -118,12 +118,12 @@ class GastoController extends Controller
 
         Auditoria::create([
             'accion' => 'MODIFICACION',
-            'tablaAfectada' => 'gastos',
-            'valorAnterior' => json_encode($valorAnterior),
-            'valorNuevo' => json_encode($gasto->fresh()->load('categoria')->toArray()),
+            'tabla_afectada' => 'gastos',
+            'registro_id' => $gasto->getKey(),
+            'datos_anteriores' => $valorAnterior,
+            'datos_nuevos' => $gasto->fresh()->load('categoria')->toArray(),
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Modificación de gasto/pérdida'
+            'motivo' => 'Modificación de gasto/pérdida',
         ]);
 
         return redirect()->route('gastos.index')
@@ -140,12 +140,12 @@ class GastoController extends Controller
 
         Auditoria::create([
             'accion' => 'ANULACION',
-            'tablaAfectada' => 'gastos',
-            'valorAnterior' => json_encode(['anulado' => false]),
-            'valorNuevo' => json_encode(['anulado' => true]),
+            'tabla_afectada' => 'gastos',
+            'registro_id' => $gasto->getKey(),
+            'datos_anteriores' => ['anulado' => false],
+            'datos_nuevos' => ['anulado' => true],
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => $request->motivo ?? 'Anulación de gasto'
+            'motivo' => $request->motivo ?? 'Anulación de gasto',
         ]);
 
         return back()->with('success', 'Gasto anulado correctamente.');
@@ -155,11 +155,11 @@ class GastoController extends Controller
     {
         Auditoria::create([
             'accion' => 'ELIMINACION',
-            'tablaAfectada' => 'gastos',
-            'valorAnterior' => json_encode($gasto->toArray()),
+            'tabla_afectada' => 'gastos',
+            'registro_id' => $gasto->getKey(),
+            'datos_anteriores' => $gasto->toArray(),
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Eliminación de gasto'
+            'motivo' => 'Eliminación de gasto',
         ]);
 
         $gasto->delete();

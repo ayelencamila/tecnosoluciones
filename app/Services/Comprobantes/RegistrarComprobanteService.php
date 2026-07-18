@@ -2,18 +2,18 @@
 
 namespace App\Services\Comprobantes;
 
-use App\Models\Comprobante;
 use App\Models\Auditoria;
-use Illuminate\Support\Facades\DB;
+use App\Models\Comprobante;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 /**
  * CU-32: Servicio para registrar comprobantes internos
- * 
+ *
  * Cada vez que se genera/imprime un comprobante desde ventas, pagos o reparaciones,
  * este servicio lo registra en la tabla centralizada de comprobantes.
- * 
+ *
  * Lineamientos:
  * - Larman (BCE): El servicio actúa como Control, coordinando Entidad y Boundary
  * - Kendall: Trazabilidad completa de documentos emitidos
@@ -25,19 +25,23 @@ class RegistrarComprobanteService
      * Códigos de tipo de comprobante (deben coincidir con tabla tipos_comprobante)
      */
     const TIPO_TICKET = 'TICKET';
+
     const TIPO_RECIBO_PAGO = 'RECIBO_PAGO';
+
     const TIPO_INGRESO_REPARACION = 'INGRESO_REPARACION';
+
     const TIPO_ENTREGA_REPARACION = 'ENTREGA_REPARACION';
+
     const TIPO_NOTA_CREDITO_INTERNA = 'NOTA_CREDITO_INTERNA';
+
     const TIPO_ORDEN_COMPRA = 'ORDEN_COMPRA';
 
     /**
      * Registra un comprobante de venta (Ticket)
-     * 
-     * @param int $ventaId ID de la venta
-     * @param string $numeroComprobante Número de comprobante de la venta
-     * @param int|null $usuarioId Usuario que emite (null = auth)
-     * @return Comprobante
+     *
+     * @param  int  $ventaId  ID de la venta
+     * @param  string  $numeroComprobante  Número de comprobante de la venta
+     * @param  int|null  $usuarioId  Usuario que emite (null = auth)
      */
     public function registrarComprobanteVenta(int $ventaId, string $numeroComprobante, ?int $usuarioId = null): Comprobante
     {
@@ -53,11 +57,10 @@ class RegistrarComprobanteService
 
     /**
      * Registra un recibo de pago
-     * 
-     * @param int $pagoId ID del pago
-     * @param string $numeroRecibo Número de recibo del pago
-     * @param int|null $usuarioId Usuario que emite
-     * @return Comprobante
+     *
+     * @param  int  $pagoId  ID del pago
+     * @param  string  $numeroRecibo  Número de recibo del pago
+     * @param  int|null  $usuarioId  Usuario que emite
      */
     public function registrarReciboPago(int $pagoId, string $numeroRecibo, ?int $usuarioId = null): Comprobante
     {
@@ -73,11 +76,10 @@ class RegistrarComprobanteService
 
     /**
      * Registra un comprobante de ingreso de reparación
-     * 
-     * @param int $reparacionId ID de la reparación
-     * @param string $codigoReparacion Código de reparación
-     * @param int|null $usuarioId Usuario que emite
-     * @return Comprobante
+     *
+     * @param  int  $reparacionId  ID de la reparación
+     * @param  string  $codigoReparacion  Código de reparación
+     * @param  int|null  $usuarioId  Usuario que emite
      */
     public function registrarIngresoReparacion(int $reparacionId, string $codigoReparacion, ?int $usuarioId = null): Comprobante
     {
@@ -85,7 +87,7 @@ class RegistrarComprobanteService
             tipoEntidad: 'App\Models\Reparacion',
             entidadId: $reparacionId,
             tipoComprobanteCodigo: self::TIPO_INGRESO_REPARACION,
-            numeroCorrelativo: 'ING-' . $codigoReparacion,
+            numeroCorrelativo: 'ING-'.$codigoReparacion,
             usuarioId: $usuarioId,
             accionAuditoria: 'EMISION_COMPROBANTE_INGRESO_REPARACION'
         );
@@ -93,11 +95,10 @@ class RegistrarComprobanteService
 
     /**
      * Registra un comprobante de entrega de reparación
-     * 
-     * @param int $reparacionId ID de la reparación
-     * @param string $codigoReparacion Código de reparación
-     * @param int|null $usuarioId Usuario que emite
-     * @return Comprobante
+     *
+     * @param  int  $reparacionId  ID de la reparación
+     * @param  string  $codigoReparacion  Código de reparación
+     * @param  int|null  $usuarioId  Usuario que emite
      */
     public function registrarEntregaReparacion(int $reparacionId, string $codigoReparacion, ?int $usuarioId = null): Comprobante
     {
@@ -105,7 +106,7 @@ class RegistrarComprobanteService
             tipoEntidad: 'App\Models\Reparacion',
             entidadId: $reparacionId,
             tipoComprobanteCodigo: self::TIPO_ENTREGA_REPARACION,
-            numeroCorrelativo: 'ENT-' . $codigoReparacion,
+            numeroCorrelativo: 'ENT-'.$codigoReparacion,
             usuarioId: $usuarioId,
             accionAuditoria: 'EMISION_COMPROBANTE_ENTREGA_REPARACION'
         );
@@ -113,11 +114,10 @@ class RegistrarComprobanteService
 
     /**
      * Registra una nota de crédito interna (anulación de venta)
-     * 
-     * @param int $ventaId ID de la venta anulada
-     * @param string $numeroComprobante Número del comprobante de anulación
-     * @param int|null $usuarioId Usuario que emite
-     * @return Comprobante
+     *
+     * @param  int  $ventaId  ID de la venta anulada
+     * @param  string  $numeroComprobante  Número del comprobante de anulación
+     * @param  int|null  $usuarioId  Usuario que emite
      */
     public function registrarNotaCreditoInterna(int $ventaId, string $numeroComprobante, ?int $usuarioId = null): Comprobante
     {
@@ -125,7 +125,7 @@ class RegistrarComprobanteService
             tipoEntidad: 'App\Models\Venta',
             entidadId: $ventaId,
             tipoComprobanteCodigo: self::TIPO_NOTA_CREDITO_INTERNA,
-            numeroCorrelativo: 'NC-' . $numeroComprobante,
+            numeroCorrelativo: 'NC-'.$numeroComprobante,
             usuarioId: $usuarioId,
             accionAuditoria: 'EMISION_NOTA_CREDITO_INTERNA'
         );
@@ -133,12 +133,11 @@ class RegistrarComprobanteService
 
     /**
      * Registra una orden de compra emitida (CU-22)
-     * 
-     * @param int $ordenId ID de la orden de compra
-     * @param string $numeroOC Número de la OC (ej: OC-20260130-001)
-     * @param string|null $rutaPdf Ruta del PDF generado
-     * @param int|null $usuarioId Usuario que emite
-     * @return Comprobante
+     *
+     * @param  int  $ordenId  ID de la orden de compra
+     * @param  string  $numeroOC  Número de la OC (ej: OC-20260130-001)
+     * @param  string|null  $rutaPdf  Ruta del PDF generado
+     * @param  int|null  $usuarioId  Usuario que emite
      */
     public function registrarOrdenCompra(int $ordenId, string $numeroOC, ?string $rutaPdf = null, ?int $usuarioId = null): Comprobante
     {
@@ -155,15 +154,14 @@ class RegistrarComprobanteService
 
     /**
      * Método interno para registrar cualquier tipo de comprobante
-     * 
-     * @param string $tipoEntidad Clase del modelo relacionado
-     * @param int $entidadId ID del registro relacionado
-     * @param string $tipoComprobanteCodigo Código del tipo de comprobante
-     * @param string $numeroCorrelativo Número único del comprobante
-     * @param int|null $usuarioId Usuario que emite
-     * @param string $accionAuditoria Acción para auditoría
-     * @param string|null $rutaArchivo Ruta del archivo PDF (opcional)
-     * @return Comprobante
+     *
+     * @param  string  $tipoEntidad  Clase del modelo relacionado
+     * @param  int  $entidadId  ID del registro relacionado
+     * @param  string  $tipoComprobanteCodigo  Código del tipo de comprobante
+     * @param  string  $numeroCorrelativo  Número único del comprobante
+     * @param  int|null  $usuarioId  Usuario que emite
+     * @param  string  $accionAuditoria  Acción para auditoría
+     * @param  string|null  $rutaArchivo  Ruta del archivo PDF (opcional)
      */
     protected function registrar(
         string $tipoEntidad,
@@ -175,13 +173,13 @@ class RegistrarComprobanteService
         ?string $rutaArchivo = null
     ): Comprobante {
         return DB::transaction(function () use ($tipoEntidad, $entidadId, $tipoComprobanteCodigo, $numeroCorrelativo, $usuarioId, $accionAuditoria, $rutaArchivo) {
-            
+
             // Obtener el tipo_comprobante_id
             $tipoComprobante = DB::table('tipos_comprobante')
                 ->where('codigo', $tipoComprobanteCodigo)
                 ->first();
 
-            if (!$tipoComprobante) {
+            if (! $tipoComprobante) {
                 throw new \Exception("Tipo de comprobante no encontrado: {$tipoComprobanteCodigo}");
             }
 
@@ -190,8 +188,8 @@ class RegistrarComprobanteService
                 ->where('nombre', 'EMITIDO')
                 ->value('estado_id');
 
-            if (!$estadoEmitido) {
-                throw new \Exception("Estado de comprobante EMITIDO no encontrado");
+            if (! $estadoEmitido) {
+                throw new \Exception('Estado de comprobante EMITIDO no encontrado');
             }
 
             // Verificar si ya existe un comprobante para esta entidad y tipo
@@ -204,6 +202,7 @@ class RegistrarComprobanteService
             if ($existente) {
                 // Ya existe, devolver el existente
                 Log::info("Comprobante ya existente: {$existente->numero_correlativo}");
+
                 return $existente;
             }
 
@@ -223,15 +222,14 @@ class RegistrarComprobanteService
             try {
                 Auditoria::create([
                     'accion' => $accionAuditoria,
-                    'tablaAfectada' => 'comprobantes',
-                    'registroID' => $comprobante->comprobante_id,
-                    'valorNuevo' => json_encode([
+                    'tabla_afectada' => 'comprobantes',
+                    'registro_id' => $comprobante->comprobante_id,
+                    'datos_nuevos' => [
                         'numero' => $comprobante->numero_correlativo,
                         'tipo' => $tipoComprobanteCodigo,
-                        'entidad' => class_basename($tipoEntidad) . '#' . $entidadId,
-                    ]),
+                        'entidad' => class_basename($tipoEntidad).'#'.$entidadId,
+                    ],
                     'usuarioID' => $usuarioId ?? Auth::id(),
-                    'ip' => request()->ip(),
                     'motivo' => 'Emisión de comprobante interno',
                 ]);
             } catch (\Exception $e) {
@@ -247,22 +245,20 @@ class RegistrarComprobanteService
 
     /**
      * Registra la visualización de un comprobante en auditoría
-     * 
-     * @param Comprobante $comprobante
-     * @param string $accion 'VER_PDF' o 'DESCARGAR_PDF'
+     *
+     * @param  string  $accion  'VER_PDF' o 'DESCARGAR_PDF'
      */
     public function registrarVisualizacion(Comprobante $comprobante, string $accion = 'VER_PDF'): void
     {
         try {
             Auditoria::create([
                 'accion' => $accion,
-                'tablaAfectada' => 'comprobantes',
-                'registroID' => $comprobante->comprobante_id,
-                'valorAnterior' => json_encode([
+                'tabla_afectada' => 'comprobantes',
+                'registro_id' => $comprobante->comprobante_id,
+                'datos_nuevos' => [
                     'numero' => $comprobante->numero_correlativo,
-                ]),
+                ],
                 'usuarioID' => Auth::id(),
-                'ip' => request()->ip(),
                 'motivo' => 'Consulta de comprobante interno',
             ]);
         } catch (\Exception $e) {

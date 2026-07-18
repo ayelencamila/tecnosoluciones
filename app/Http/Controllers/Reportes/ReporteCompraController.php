@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers\Reportes;
 
+use App\Exports\CompraExport;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
+use App\Models\Auditoria;
+use App\Models\EstadoOrdenCompra;
 use App\Models\OrdenCompra;
 use App\Models\Proveedor;
-use App\Models\EstadoOrdenCompra;
-use App\Models\Auditoria;
-use App\Exports\CompraExport;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteCompraController extends Controller
 {
@@ -23,11 +23,10 @@ class ReporteCompraController extends Controller
         // 1. Auditoría
         Auditoria::create([
             'accion' => 'CONSULTA',
-            'tablaAfectada' => 'reportes',
-            'valorNuevo' => 'Reporte de Compras',
+            'tabla_afectada' => 'reportes',
+            'detalles' => 'Reporte de Compras',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Análisis de compras y proveedores'
+            'motivo' => 'Análisis de compras y proveedores',
         ]);
 
         // 2. Filtros
@@ -39,8 +38,8 @@ class ReporteCompraController extends Controller
         // 3. Query Base
         $query = OrdenCompra::with(['proveedor', 'estado', 'usuario'])
             ->whereBetween('fecha_emision', [
-                Carbon::parse($fechaDesde)->startOfDay(), 
-                Carbon::parse($fechaHasta)->endOfDay()
+                Carbon::parse($fechaDesde)->startOfDay(),
+                Carbon::parse($fechaHasta)->endOfDay(),
             ]);
 
         if ($proveedorId) {
@@ -74,8 +73,8 @@ class ReporteCompraController extends Controller
                     'label' => 'Total Comprado ($)',
                     'data' => $gastoPorProveedor->pluck('total'),
                     'backgroundColor' => ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'],
-                ]
-            ]
+                ],
+            ],
         ];
 
         // 7. Gráfico 2: Estado de Órdenes
@@ -91,13 +90,13 @@ class ReporteCompraController extends Controller
                 [
                     'data' => $porEstado->pluck('total'),
                     'backgroundColor' => ['#6366F1', '#14B8A6', '#F43F5E', '#EAB308'],
-                ]
-            ]
+                ],
+            ],
         ];
 
         // Obtener proveedor seleccionado si existe (para mostrar en el buscador)
-        $proveedorSeleccionado = $proveedorId 
-            ? Proveedor::find($proveedorId, ['id', 'razon_social', 'cuit']) 
+        $proveedorSeleccionado = $proveedorId
+            ? Proveedor::find($proveedorId, ['id', 'razon_social', 'cuit'])
             : null;
 
         return Inertia::render('Reportes/Compras/Index', [
@@ -109,7 +108,7 @@ class ReporteCompraController extends Controller
             ],
             'graficos' => [
                 'proveedores' => $graficoProveedores,
-                'estados' => $graficoEstados
+                'estados' => $graficoEstados,
             ],
             'filters' => [
                 'fecha_desde' => $fechaDesde,
@@ -129,16 +128,16 @@ class ReporteCompraController extends Controller
 
         Auditoria::create([
             'accion' => 'EXPORTACION',
-            'tablaAfectada' => 'reportes',
+            'tabla_afectada' => 'reportes',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => "Exportación {$formato} Compras"
+            'motivo' => "Exportación {$formato} Compras",
         ]);
 
         switch ($formato) {
             case 'pdf':
                 $data = $this->getDataForPdf($request);
                 $pdf = Pdf::loadView('pdf.reportes.compras', $data)->setPaper('a4', 'landscape');
+
                 return $pdf->download("reporte_compras_{$timestamp}.pdf");
 
             case 'csv':
@@ -166,11 +165,15 @@ class ReporteCompraController extends Controller
         $query = OrdenCompra::with(['proveedor', 'estado', 'usuario'])
             ->whereBetween('fecha_emision', [
                 Carbon::parse($fechaDesde)->startOfDay(),
-                Carbon::parse($fechaHasta)->endOfDay()
+                Carbon::parse($fechaHasta)->endOfDay(),
             ]);
 
-        if ($proveedorId) $query->where('proveedor_id', $proveedorId);
-        if ($estadoId) $query->where('estado_id', $estadoId);
+        if ($proveedorId) {
+            $query->where('proveedor_id', $proveedorId);
+        }
+        if ($estadoId) {
+            $query->where('estado_id', $estadoId);
+        }
 
         $ordenes = $query->latest('fecha_emision')->get();
         $totalGastado = $ordenes->sum('total_final');
@@ -178,7 +181,7 @@ class ReporteCompraController extends Controller
         $ticketPromedio = $cantidadOrdenes > 0 ? $totalGastado / $cantidadOrdenes : 0;
 
         return [
-            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y') . ' - ' . Carbon::parse($fechaHasta)->format('d/m/Y'),
+            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y').' - '.Carbon::parse($fechaHasta)->format('d/m/Y'),
             'ordenes' => $ordenes,
             'kpis' => [
                 'total_gastado' => $totalGastado,

@@ -66,6 +66,7 @@ class Auditoria extends Model
      * @var array<int, string>
      */
     protected $fillable = [
+        'empresa_id',
         'usuarioID',
         'accion',
         'tabla_afectada',
@@ -74,6 +75,8 @@ class Auditoria extends Model
         'datos_nuevos',
         'motivo',
         'detalles',
+        'ip',
+        'user_agent',
     ];
 
     /**
@@ -132,7 +135,7 @@ class Auditoria extends Model
     public const ACCION_CREAR_REPARACION = 'CREAR_REPARACION';
 
     public const ACCION_MODIFICAR_REPARACION = 'MODIFICAR_REPARACION';
-    
+
     public const ACCION_ACTUALIZAR_REPARACION = 'ACTUALIZAR_REPARACION';
 
     public const ACCION_CAMBIAR_ESTADO_REPARACION = 'CAMBIAR_ESTADO_REPARACION';
@@ -153,23 +156,35 @@ class Auditoria extends Model
 
     // Módulo Proveedores (CU-16, CU-17, CU-19)
     public const ACCION_CREAR_PROVEEDOR = 'CREAR_PROVEEDOR';
+
     public const ACCION_MODIFICAR_PROVEEDOR = 'MODIFICAR_PROVEEDOR';
+
     public const ACCION_BAJA_PROVEEDOR = 'BAJA_PROVEEDOR';
+
     public const ACCION_ALTA_PROVEEDOR = 'ALTA_PROVEEDOR';
 
     // Módulo Compras (CU-20 a CU-23)
     public const ACCION_CREAR_SOLICITUD_COTIZACION = 'CREAR_SOLICITUD_COTIZACION';
+
     public const ACCION_RECIBIR_OFERTA = 'RECIBIR_OFERTA';
+
     public const ACCION_ELEGIR_OFERTA = 'ELEGIR_OFERTA';
+
     public const ACCION_GENERAR_ORDEN_COMPRA = 'GENERAR_ORDEN_COMPRA';
+
     public const ACCION_ENVIAR_ORDEN_COMPRA = 'ENVIAR_ORDEN_COMPRA';
+
     public const ACCION_RECEPCION_PARCIAL = 'RECEPCION_PARCIAL';
+
     public const ACCION_RECEPCION_TOTAL = 'RECEPCION_TOTAL';
+
     public const ACCION_CANCELAR_ORDEN_COMPRA = 'CANCELAR_ORDEN_COMPRA';
 
     // Módulo Comprobantes (CU-32)
     public const ACCION_EMITIR_COMPROBANTE = 'EMITIR_COMPROBANTE';
+
     public const ACCION_ANULAR_COMPROBANTE = 'ANULAR_COMPROBANTE';
+
     public const ACCION_REEMITIR_COMPROBANTE = 'REEMITIR_COMPROBANTE';
 
     public const ACCION_ANULAR_PAGO = 'ANULAR_PAGO';
@@ -185,19 +200,66 @@ class Auditoria extends Model
 
     // Módulo Usuarios (CU-12)
     public const ACCION_CREAR_USUARIO = 'CREAR_USUARIO';
+
     public const ACCION_MODIFICAR_USUARIO = 'MODIFICAR_USUARIO';
+
     public const ACCION_ACTIVAR_USUARIO = 'ACTIVAR_USUARIO';
+
     public const ACCION_DESACTIVAR_USUARIO = 'DESACTIVAR_USUARIO';
+
     public const ACCION_BLOQUEAR_USUARIO = 'BLOQUEAR_USUARIO';
+
     public const ACCION_DESBLOQUEAR_USUARIO = 'DESBLOQUEAR_USUARIO';
+
     public const ACCION_RESTABLECER_PASSWORD = 'RESTABLECER_PASSWORD';
 
     // Módulo Roles (CU-12)
     public const ACCION_CREAR_ROL = 'CREAR_ROL';
+
     public const ACCION_MODIFICAR_ROL = 'MODIFICAR_ROL';
+
     public const ACCION_ELIMINAR_ROL = 'ELIMINAR_ROL';
+
     public const ACCION_ACTIVAR_ROL = 'ACTIVAR_ROL';
+
     public const ACCION_DESACTIVAR_ROL = 'DESACTIVAR_ROL';
+
+    /**
+     * Completa automáticamente el contexto del registro de auditoría al crearlo:
+     * empresa (tenant), dirección IP y User-Agent, si no fueron seteados.
+     *
+     * Esto NO es un Global Scope (el proyecto scopea manualmente en la lectura):
+     * es un default de ESCRITURA que garantiza que todo registro quede atribuido
+     * a un tenant y con contexto de cliente, cubriendo tanto `registrar()` como
+     * los `create()` directos en un único lugar (alta cohesión).
+     *
+     * empresa_id → usuario autenticado → usuario objetivo (acciones de sistema)
+     * → empresa por defecto (1). IP/User-Agent solo se capturan en contexto web
+     * (en consola/cola no existe una petición real).
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $auditoria) {
+            if (empty($auditoria->empresa_id)) {
+                $auditoria->empresa_id = auth()->user()?->empresa_id
+                    ?? ($auditoria->usuarioID ? User::find($auditoria->usuarioID)?->empresa_id : null)
+                    ?? 1;
+            }
+
+            if (! app()->runningInConsole()) {
+                $auditoria->ip ??= request()->ip();
+                $auditoria->user_agent ??= substr((string) request()->userAgent(), 0, 512) ?: null;
+            }
+        });
+    }
+
+    /**
+     * Empresa (tenant) a la que pertenece el registro de auditoría
+     */
+    public function empresa(): BelongsTo
+    {
+        return $this->belongsTo(Empresa::class, 'empresa_id', 'id');
+    }
 
     /**
      * Obtiene el usuario que realizó la operación auditada

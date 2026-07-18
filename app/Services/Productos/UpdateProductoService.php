@@ -2,15 +2,14 @@
 
 namespace App\Services\Productos;
 
-use App\Models\Producto;
-use App\Models\PrecioProducto;
 use App\Models\Auditoria;
-use Carbon\Carbon;
+use App\Models\PrecioProducto;
+use App\Models\Producto;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 
-class UpdateProductoService 
+class UpdateProductoService
 {
     // CORRECCIÓN: Agregué los nombres de las variables ($producto, $validatedData, $userID) que faltaban
     public function handle(Producto $producto, array $validatedData, int $userID): Producto
@@ -36,10 +35,10 @@ class UpdateProductoService
             ];
 
             // Manejar foto
-            if (!empty($validatedData['eliminar_foto']) && $producto->foto) {
+            if (! empty($validatedData['eliminar_foto']) && $producto->foto) {
                 Storage::disk('public')->delete($producto->foto);
                 $updateData['foto'] = null;
-            } elseif (!empty($validatedData['foto_path'])) {
+            } elseif (! empty($validatedData['foto_path'])) {
                 // Eliminar foto anterior si existe
                 if ($producto->foto) {
                     Storage::disk('public')->delete($producto->foto);
@@ -51,7 +50,7 @@ class UpdateProductoService
 
             // 2. ACTUALIZAR STOCK MÍNIMO
             if (isset($validatedData['stockMinimo'])) {
-                $stockRegistro = $producto->stocks()->first(); 
+                $stockRegistro = $producto->stocks()->first();
                 if ($stockRegistro) {
                     $stockRegistro->update([
                         'stock_minimo' => $validatedData['stockMinimo'],
@@ -61,12 +60,12 @@ class UpdateProductoService
 
             // 3. ACTUALIZAR PRECIOS
             foreach ($validatedData['precios'] as $precioData) {
-                 $precioVigente = PrecioProducto::where('productoID', $producto->id)
+                $precioVigente = PrecioProducto::where('productoID', $producto->id)
                     ->where('tipoClienteID', $precioData['tipoClienteID'])
                     ->whereNull('fechaHasta')
                     ->first();
 
-                 if ($precioVigente && (float)$precioVigente->precio != (float)$precioData['precio']) {
+                if ($precioVigente && (float) $precioVigente->precio != (float) $precioData['precio']) {
                     // Si el precio vigente fue creado HOY, actualizar directamente
                     // para no violar el constraint unique(productoID, tipoClienteID, fechaDesde)
                     if ($precioVigente->fechaDesde->toDateString() === $fechaActual) {
@@ -81,14 +80,14 @@ class UpdateProductoService
                             'fechaDesde' => $fechaActual,
                         ]);
                     }
-                 } elseif (!$precioVigente) {
+                } elseif (! $precioVigente) {
                     PrecioProducto::create([
                         'productoID' => $producto->id,
                         'tipoClienteID' => $precioData['tipoClienteID'],
                         'precio' => $precioData['precio'],
                         'fechaDesde' => $fechaActual,
                     ]);
-                 }
+                }
             }
 
             // 4. AUDITORÍA
@@ -97,14 +96,15 @@ class UpdateProductoService
                 'tabla_afectada' => 'productos',
                 'registro_id' => $producto->id,
                 'accion' => 'MODIFICAR_PRODUCTO',
-                'datos_anteriores' => json_encode($datosAnteriores),
-                'datos_nuevos' => json_encode($datosNuevos),
+                'datos_anteriores' => $datosAnteriores,
+                'datos_nuevos' => $datosNuevos,
                 'motivo' => $motivo,
                 'detalles' => 'Producto modificado: '.$producto->nombre,
-                'usuarioID' => $userID
+                'usuarioID' => $userID,
             ]);
 
             DB::commit();
+
             return $producto->fresh();
 
         } catch (\Exception $e) {

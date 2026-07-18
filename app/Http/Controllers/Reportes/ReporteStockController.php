@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\Reportes;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use App\Models\Stock;
-use App\Models\Auditoria;
 use App\Exports\StockExport;
+use App\Http\Controllers\Controller;
+use App\Models\Auditoria;
+use App\Models\Stock;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteStockController extends Controller
 {
@@ -20,13 +20,10 @@ class ReporteStockController extends Controller
         // 1. Registrar Auditoría de Visualización (Requisito RNF)
         Auditoria::create([
             'accion' => 'CONSULTA',
-            'tablaAfectada' => 'reportes',
-            'registroId' => null,
-            'valorAnterior' => null,
-            'valorNuevo' => 'Reporte de Stock',
+            'tabla_afectada' => 'reportes',
+            'detalles' => 'Reporte de Stock',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Visualización de tablero de stock'
+            'motivo' => 'Visualización de tablero de stock',
         ]);
 
         // 2. Filtros
@@ -54,7 +51,7 @@ class ReporteStockController extends Controller
             ->orderBy('cantidad_disponible', 'asc')
             ->take(5)
             ->get();
-        
+
         $graficoRiesgo = [
             'labels' => $topRiesgo->pluck('producto.nombre'),
             'datasets' => [
@@ -62,8 +59,8 @@ class ReporteStockController extends Controller
                     'label' => 'Stock Disponible',
                     'data' => $topRiesgo->pluck('cantidad_disponible'),
                     'backgroundColor' => '#EF4444', // Rojo Laravel
-                ]
-            ]
+                ],
+            ],
         ];
 
         // Gráfico 2: Stock por Categoría (Top 8)
@@ -82,8 +79,8 @@ class ReporteStockController extends Controller
                     'label' => 'Unidades',
                     'data' => $stockPorCategoria->pluck('total'),
                     'backgroundColor' => ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#06B6D4', '#EC4899', '#14B8A6'],
-                ]
-            ]
+                ],
+            ],
         ];
 
         return Inertia::render('Reportes/Stock/Index', [
@@ -94,7 +91,7 @@ class ReporteStockController extends Controller
             ],
             'graficos' => [
                 'riesgo' => $graficoRiesgo,
-                'categorias' => $graficoCategorias
+                'categorias' => $graficoCategorias,
             ],
             'filters' => [
                 'bajo_stock' => $soloCritico,
@@ -109,16 +106,16 @@ class ReporteStockController extends Controller
 
         Auditoria::create([
             'accion' => 'EXPORTACION',
-            'tablaAfectada' => 'reportes',
+            'tabla_afectada' => 'reportes',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => "Exportación {$formato} Stock"
+            'motivo' => "Exportación {$formato} Stock",
         ]);
 
         switch ($formato) {
             case 'pdf':
                 $data = $this->getDataForPdf($request);
                 $pdf = Pdf::loadView('pdf.reportes.stock', $data)->setPaper('a4', 'landscape');
+
                 return $pdf->download("reporte_stock_{$timestamp}.pdf");
 
             case 'csv':
@@ -142,7 +139,9 @@ class ReporteStockController extends Controller
 
         $query = Stock::with(['producto.marca', 'producto.categoria']);
 
-        if ($soloCritico) $query->whereColumn('cantidad_disponible', '<=', 'stock_minimo');
+        if ($soloCritico) {
+            $query->whereColumn('cantidad_disponible', '<=', 'stock_minimo');
+        }
 
         $stocks = $query->get();
         $totalItems = $stocks->sum('cantidad_disponible');

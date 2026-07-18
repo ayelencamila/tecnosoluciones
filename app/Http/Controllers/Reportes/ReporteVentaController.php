@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers\Reportes;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use App\Models\Venta;
-use App\Models\Cliente;
-use App\Models\Auditoria;
 use App\Exports\VentaExport;
+use App\Http\Controllers\Controller;
+use App\Models\Auditoria;
+use App\Models\Cliente;
+use App\Models\Venta;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteVentaController extends Controller
 {
@@ -22,11 +22,10 @@ class ReporteVentaController extends Controller
         // 1. Auditoría
         Auditoria::create([
             'accion' => 'CONSULTA',
-            'tablaAfectada' => 'reportes',
-            'valorNuevo' => 'Reporte de Ventas',
+            'tabla_afectada' => 'reportes',
+            'detalles' => 'Reporte de Ventas',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Análisis de ventas'
+            'motivo' => 'Análisis de ventas',
         ]);
 
         // 2. Filtros
@@ -36,11 +35,11 @@ class ReporteVentaController extends Controller
 
         // 3. Query Base CORREGIDA
         // Agregamos 'estado' al with() y filtramos por estado_venta_id
-        $query = Venta::with(['cliente', 'vendedor', 'estado']) 
+        $query = Venta::with(['cliente', 'vendedor', 'estado'])
             ->where('estado_venta_id', '!=', 3) // 3 = Anulada (Según tu Seeder)
             ->whereBetween('fecha_venta', [ // Usamos fecha_venta, no created_at (mejor precisión)
-                Carbon::parse($fechaDesde)->startOfDay(), 
-                Carbon::parse($fechaHasta)->endOfDay()
+                Carbon::parse($fechaDesde)->startOfDay(),
+                Carbon::parse($fechaHasta)->endOfDay(),
             ]);
 
         if ($clienteId) {
@@ -58,7 +57,7 @@ class ReporteVentaController extends Controller
         // 6. Gráfico 1: Ventas por Día
         $ventasPorDia = (clone $query)
             ->select(
-                DB::raw('DATE(fecha_venta) as fecha'), 
+                DB::raw('DATE(fecha_venta) as fecha'),
                 DB::raw('SUM(total) as total')
             )
             ->groupBy('fecha')
@@ -66,7 +65,7 @@ class ReporteVentaController extends Controller
             ->get();
 
         $graficoTiempo = [
-            'labels' => $ventasPorDia->pluck('fecha')->map(fn($d) => Carbon::parse($d)->format('d/m')),
+            'labels' => $ventasPorDia->pluck('fecha')->map(fn ($d) => Carbon::parse($d)->format('d/m')),
             'datasets' => [
                 [
                     'label' => 'Ventas ($)',
@@ -74,9 +73,9 @@ class ReporteVentaController extends Controller
                     'borderColor' => '#4F46E5',
                     'backgroundColor' => 'rgba(79, 70, 229, 0.2)',
                     'fill' => true,
-                    'tension' => 0.4
-                ]
-            ]
+                    'tension' => 0.4,
+                ],
+            ],
         ];
 
         // 7. Gráfico 2: Ventas por Vendedor
@@ -87,18 +86,18 @@ class ReporteVentaController extends Controller
             ->get();
 
         $graficoVendedores = [
-            'labels' => $ventasPorVendedor->map(fn($v) => $v->vendedor->name ?? 'Sistema'),
+            'labels' => $ventasPorVendedor->map(fn ($v) => $v->vendedor->name ?? 'Sistema'),
             'datasets' => [
                 [
                     'data' => $ventasPorVendedor->pluck('cantidad'),
                     'backgroundColor' => ['#10B981', '#3B82F6', '#F59E0B', '#EC4899'],
-                ]
-            ]
+                ],
+            ],
         ];
 
         // Obtener cliente seleccionado si existe (para mostrar en el buscador)
-        $clienteSeleccionado = $clienteId 
-            ? Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->find($clienteId) 
+        $clienteSeleccionado = $clienteId
+            ? Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->find($clienteId)
             : null;
 
         return Inertia::render('Reportes/Ventas/Index', [
@@ -106,11 +105,11 @@ class ReporteVentaController extends Controller
             'kpis' => [
                 'total_ingresos' => $totalIngresos,
                 'cantidad_ventas' => $cantidadVentas,
-                'ticket_promedio' => round($ticketPromedio, 2)
+                'ticket_promedio' => round($ticketPromedio, 2),
             ],
             'graficos' => [
                 'tiempo' => $graficoTiempo,
-                'vendedores' => $graficoVendedores
+                'vendedores' => $graficoVendedores,
             ],
             'filters' => [
                 'fecha_desde' => $fechaDesde,
@@ -128,16 +127,16 @@ class ReporteVentaController extends Controller
 
         Auditoria::create([
             'accion' => 'EXPORTACION',
-            'tablaAfectada' => 'reportes',
+            'tabla_afectada' => 'reportes',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => "Exportación {$formato} Ventas"
+            'motivo' => "Exportación {$formato} Ventas",
         ]);
 
         switch ($formato) {
             case 'pdf':
                 $data = $this->getDataForPdf($request);
                 $pdf = Pdf::loadView('pdf.reportes.ventas', $data)->setPaper('a4', 'landscape');
+
                 return $pdf->download("reporte_ventas_{$timestamp}.pdf");
 
             case 'csv':
@@ -165,7 +164,7 @@ class ReporteVentaController extends Controller
             ->where('estado_venta_id', '!=', 3)
             ->whereBetween('fecha_venta', [
                 Carbon::parse($fechaDesde)->startOfDay(),
-                Carbon::parse($fechaHasta)->endOfDay()
+                Carbon::parse($fechaHasta)->endOfDay(),
             ]);
 
         if ($clienteId) {
@@ -178,7 +177,7 @@ class ReporteVentaController extends Controller
         $ticketPromedio = $cantidadVentas > 0 ? $totalIngresos / $cantidadVentas : 0;
 
         return [
-            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y') . ' - ' . Carbon::parse($fechaHasta)->format('d/m/Y'),
+            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y').' - '.Carbon::parse($fechaHasta)->format('d/m/Y'),
             'ventas' => $ventas,
             'kpis' => [
                 'total_ingresos' => $totalIngresos,

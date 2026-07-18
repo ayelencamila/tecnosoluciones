@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\CategoriaGasto;
 use App\Models\Auditoria;
+use App\Models\CategoriaGasto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -50,11 +50,11 @@ class CategoriaGastoController extends Controller
 
         Auditoria::create([
             'accion' => 'CREACION',
-            'tablaAfectada' => 'categorias_gasto',
-            'valorNuevo' => json_encode($categoria->toArray()),
+            'tabla_afectada' => 'categorias_gasto',
+            'registro_id' => $categoria->getKey(),
+            'datos_nuevos' => $categoria->toArray(),
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Creación de categoría de gasto'
+            'motivo' => 'Creación de categoría de gasto',
         ]);
 
         return redirect()->route('admin.categorias-gasto.index')
@@ -71,7 +71,7 @@ class CategoriaGastoController extends Controller
     public function update(Request $request, CategoriaGasto $categorias_gasto)
     {
         $validated = $request->validate([
-            'nombre' => 'required|string|max:100|unique:categorias_gasto,nombre,' . $categorias_gasto->categoria_gasto_id . ',categoria_gasto_id',
+            'nombre' => 'required|string|max:100|unique:categorias_gasto,nombre,'.$categorias_gasto->categoria_gasto_id.',categoria_gasto_id',
             'descripcion' => 'nullable|string|max:255',
             'tipo' => 'required|in:gasto,perdida',
             'activo' => 'boolean',
@@ -82,12 +82,12 @@ class CategoriaGastoController extends Controller
 
         Auditoria::create([
             'accion' => 'MODIFICACION',
-            'tablaAfectada' => 'categorias_gasto',
-            'valorAnterior' => json_encode($valorAnterior),
-            'valorNuevo' => json_encode($categorias_gasto->fresh()->toArray()),
+            'tabla_afectada' => 'categorias_gasto',
+            'registro_id' => $categorias_gasto->getKey(),
+            'datos_anteriores' => $valorAnterior,
+            'datos_nuevos' => $categorias_gasto->fresh()->toArray(),
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Modificación de categoría de gasto'
+            'motivo' => 'Modificación de categoría de gasto',
         ]);
 
         return redirect()->route('admin.categorias-gasto.index')
@@ -103,11 +103,11 @@ class CategoriaGastoController extends Controller
 
         Auditoria::create([
             'accion' => 'ELIMINACION',
-            'tablaAfectada' => 'categorias_gasto',
-            'valorAnterior' => json_encode($categorias_gasto->toArray()),
+            'tabla_afectada' => 'categorias_gasto',
+            'registro_id' => $categorias_gasto->getKey(),
+            'datos_anteriores' => $categorias_gasto->toArray(),
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Eliminación de categoría de gasto'
+            'motivo' => 'Eliminación de categoría de gasto',
         ]);
 
         $categorias_gasto->delete();
@@ -118,15 +118,15 @@ class CategoriaGastoController extends Controller
 
     public function toggleActivo(Request $request, CategoriaGasto $categorias_gasto)
     {
-        $categorias_gasto->update(['activo' => !$categorias_gasto->activo]);
+        $categorias_gasto->update(['activo' => ! $categorias_gasto->activo]);
 
         Auditoria::create([
             'accion' => 'MODIFICACION',
-            'tablaAfectada' => 'categorias_gasto',
-            'valorNuevo' => $categorias_gasto->activo ? 'Activada' : 'Desactivada',
+            'tabla_afectada' => 'categorias_gasto',
+            'registro_id' => $categorias_gasto->getKey(),
+            'detalles' => $categorias_gasto->activo ? 'Categoría activada' : 'Categoría desactivada',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Cambio de estado de categoría de gasto'
+            'motivo' => 'Cambio de estado de categoría de gasto',
         ]);
 
         return back()->with('success', 'Estado de la categoría actualizado.');

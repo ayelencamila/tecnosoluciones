@@ -2,26 +2,25 @@
 
 namespace App\Http\Controllers\Reportes;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use App\Models\Venta;
-use App\Models\Pago;
-use App\Models\Reparacion;
-use App\Models\OrdenCompra;
-use App\Models\Gasto;
-use App\Models\CategoriaGasto;
-use App\Models\Auditoria;
-use App\Models\EstadoVenta;
-use App\Models\EstadoOrdenCompra;
-use App\Models\RecepcionMercaderia;
-use App\Models\DetalleRecepcion;
 use App\Exports\ReporteMensualExport;
+use App\Http\Controllers\Controller;
+use App\Models\Auditoria;
+use App\Models\DetalleRecepcion;
+use App\Models\EstadoOrdenCompra;
+use App\Models\EstadoVenta;
+use App\Models\Gasto;
+use App\Models\OrdenCompra;
+use App\Models\Pago;
+use App\Models\RecepcionMercaderia;
+use App\Models\Reparacion;
+use App\Models\Venta;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteMensualController extends Controller
 {
@@ -30,18 +29,17 @@ class ReporteMensualController extends Controller
         // 1. Auditoría
         Auditoria::create([
             'accion' => 'CONSULTA',
-            'tablaAfectada' => 'reportes',
-            'valorNuevo' => 'Reporte Mensual Consolidado',
+            'tabla_afectada' => 'reportes',
+            'detalles' => 'Reporte Mensual Consolidado',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Análisis financiero mensual'
+            'motivo' => 'Análisis financiero mensual',
         ]);
 
         // 2. Filtros de período
         $mes = $request->input('mes', Carbon::now()->month);
         $anio = $request->input('anio', Carbon::now()->year);
         $tipoGrafico = $request->input('tipo_grafico', 'ventas');
-        
+
         $fechaInicio = Carbon::createFromDate($anio, $mes, 1)->startOfMonth();
         $fechaFin = Carbon::createFromDate($anio, $mes, 1)->endOfMonth();
 
@@ -92,8 +90,8 @@ class ReporteMensualController extends Controller
             ->groupBy('medios_pago.medioPagoID', 'medios_pago.nombre')
             ->orderBy('total', 'desc')
             ->get()
-            ->map(fn($item) => [
-                'concepto' => 'Cobranza CC — ' . $item->concepto,
+            ->map(fn ($item) => [
+                'concepto' => 'Cobranza CC — '.$item->concepto,
                 'cantidad' => (int) $item->cantidad,
                 'total' => (float) $item->total,
             ])
@@ -122,7 +120,7 @@ class ReporteMensualController extends Controller
             ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
             ->with('detalles')
             ->get();
-        $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
+        $totalComprasDirectas = $recepcionesDirectas->sum(fn ($r) => $r->detalles->sum(fn ($d) => $d->cantidad_recibida * $d->precio_unitario));
         $cantidadComprasDirectas = $recepcionesDirectas->count();
 
         // 3. Gastos operativos (por categoría)
@@ -143,7 +141,7 @@ class ReporteMensualController extends Controller
             ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
             ->orderBy('total', 'desc')
             ->get()
-            ->map(fn($item) => [
+            ->map(fn ($item) => [
                 'concepto' => $item->concepto,
                 'cantidad' => (int) $item->cantidad,
                 'total' => (float) $item->total,
@@ -168,7 +166,7 @@ class ReporteMensualController extends Controller
             ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
             ->orderBy('total', 'desc')
             ->get()
-            ->map(fn($item) => [
+            ->map(fn ($item) => [
                 'concepto' => $item->concepto,
                 'cantidad' => (int) $item->cantidad,
                 'total' => (float) $item->total,
@@ -181,7 +179,7 @@ class ReporteMensualController extends Controller
         $balance = $totalEntradas - $totalSalidas;
 
         // ==================== GRÁFICOS SEGÚN FILTRO ====================
-        
+
         // Generar array de días del mes
         $diasDelMes = [];
         $current = $fechaInicio->copy();
@@ -192,7 +190,7 @@ class ReporteMensualController extends Controller
 
         // Gráfico de evolución según tipo
         $graficoEvolucion = $this->getGraficoEvolucion($tipoGrafico, $fechaInicio, $fechaFin, $diasDelMes, $mes, $anio);
-        
+
         // Gráfico de distribución según tipo
         $graficoDistribucion = $this->getGraficoDistribucion($tipoGrafico, $fechaInicio, $fechaFin, $mes, $anio);
 
@@ -207,8 +205,8 @@ class ReporteMensualController extends Controller
 
         return Inertia::render('Reportes/Mensual/Index', [
             'filters' => [
-                'mes' => (int)$mes,
-                'anio' => (int)$anio,
+                'mes' => (int) $mes,
+                'anio' => (int) $anio,
                 'tipo_grafico' => $tipoGrafico,
             ],
             'periodo' => [
@@ -251,7 +249,7 @@ class ReporteMensualController extends Controller
 
     private function getGraficoEvolucion($tipo, $fechaInicio, $fechaFin, $diasDelMes, $mes, $anio)
     {
-        $labels = collect($diasDelMes)->map(fn($d) => Carbon::parse($d)->format('d'));
+        $labels = collect($diasDelMes)->map(fn ($d) => Carbon::parse($d)->format('d'));
         $data = [];
         $color = '#3B82F6';
         $label = '';
@@ -299,8 +297,9 @@ class ReporteMensualController extends Controller
                 // Merge ambos
                 $datosPorDia = collect($diasDelMes)->mapWithKeys(function ($dia) use ($datosPorDiaOC, $datosPorDiaDirectas) {
                     $total = ($datosPorDiaOC[$dia] ?? 0) + ($datosPorDiaDirectas[$dia] ?? 0);
+
                     return [$dia => $total];
-                })->filter(fn($v) => $v > 0);
+                })->filter(fn ($v) => $v > 0);
                 $color = '#EF4444';
                 $label = 'Compras';
                 break;
@@ -327,7 +326,7 @@ class ReporteMensualController extends Controller
                 break;
         }
 
-        $data = collect($diasDelMes)->map(fn($d) => $datosPorDia[$d] ?? 0);
+        $data = collect($diasDelMes)->map(fn ($d) => $datosPorDia[$d] ?? 0);
 
         return [
             'labels' => $labels,
@@ -336,13 +335,13 @@ class ReporteMensualController extends Controller
                     'label' => $label,
                     'data' => $data,
                     'borderColor' => $color,
-                    'backgroundColor' => $color . '20',
+                    'backgroundColor' => $color.'20',
                     'fill' => true,
                     'tension' => 0,
                     'pointRadius' => 3,
                     'pointHoverRadius' => 5,
-                ]
-            ]
+                ],
+            ],
         ];
     }
 
@@ -435,8 +434,8 @@ class ReporteMensualController extends Controller
                 [
                     'data' => $data,
                     'backgroundColor' => array_slice($colors, 0, count($labels)),
-                ]
-            ]
+                ],
+            ],
         ];
     }
 
@@ -450,17 +449,17 @@ class ReporteMensualController extends Controller
         // Auditoría
         Auditoria::create([
             'accion' => 'EXPORTACION',
-            'tablaAfectada' => 'reportes',
-            'valorNuevo' => "Reporte Mensual {$mes}/{$anio} ({$formato})",
+            'tabla_afectada' => 'reportes',
+            'detalles' => "Reporte Mensual {$mes}/{$anio} ({$formato})",
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => "Exportación {$formato} reporte mensual"
+            'motivo' => "Exportación {$formato} reporte mensual",
         ]);
 
         switch ($formato) {
             case 'pdf':
                 $data = $this->getDataForPdf($mes, $anio);
                 $pdf = Pdf::loadView('pdf.reportes.mensual', $data)->setPaper('a4', 'portrait');
+
                 return $pdf->download("reporte_mensual_{$anio}_{$mes}_{$timestamp}.pdf");
 
             case 'csv':
@@ -505,7 +504,7 @@ class ReporteMensualController extends Controller
             ->select('medios_pago.nombre as concepto', DB::raw('COUNT(*) as cantidad'), DB::raw('SUM(pagos.monto) as total'))
             ->groupBy('medios_pago.medioPagoID', 'medios_pago.nombre')
             ->orderBy('total', 'desc')->get()
-            ->map(fn($i) => ['concepto' => 'Cobranza CC — ' . $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
+            ->map(fn ($i) => ['concepto' => 'Cobranza CC — '.$i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
             ->toArray();
 
         $totalEntradas = $totalVentas + $totalReparaciones + $totalCobranzas;
@@ -523,7 +522,7 @@ class ReporteMensualController extends Controller
         $recepcionesDirectas = RecepcionMercaderia::whereNull('orden_compra_id')
             ->whereBetween('fecha_recepcion', [$fechaInicio, $fechaFin])
             ->with('detalles')->get();
-        $totalComprasDirectas = $recepcionesDirectas->sum(fn($r) => $r->detalles->sum(fn($d) => $d->cantidad_recibida * $d->precio_unitario));
+        $totalComprasDirectas = $recepcionesDirectas->sum(fn ($r) => $r->detalles->sum(fn ($d) => $d->cantidad_recibida * $d->precio_unitario));
         $cantidadComprasDirectas = $recepcionesDirectas->count();
 
         $totalGastosOp = Gasto::activos()->gastos()->delMes($mes, $anio)->sum('monto');
@@ -532,7 +531,7 @@ class ReporteMensualController extends Controller
             ->select(DB::raw("CONCAT('Gasto — ', categorias_gasto.nombre) as concepto"), DB::raw('COUNT(*) as cantidad'), DB::raw('SUM(gastos.monto) as total'))
             ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
             ->orderBy('total', 'desc')->get()
-            ->map(fn($i) => ['concepto' => $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
+            ->map(fn ($i) => ['concepto' => $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
             ->toArray();
 
         $totalPerdidas = Gasto::activos()->perdidas()->delMes($mes, $anio)->sum('monto');
@@ -541,7 +540,7 @@ class ReporteMensualController extends Controller
             ->select(DB::raw("CONCAT('Pérdida — ', categorias_gasto.nombre) as concepto"), DB::raw('COUNT(*) as cantidad'), DB::raw('SUM(gastos.monto) as total'))
             ->groupBy('categorias_gasto.categoria_gasto_id', 'categorias_gasto.nombre')
             ->orderBy('total', 'desc')->get()
-            ->map(fn($i) => ['concepto' => $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
+            ->map(fn ($i) => ['concepto' => $i->concepto, 'cantidad' => (int) $i->cantidad, 'total' => (float) $i->total])
             ->toArray();
 
         $totalSalidas = $totalComprasOC + $totalComprasDirectas + $totalGastosOp + $totalPerdidas;

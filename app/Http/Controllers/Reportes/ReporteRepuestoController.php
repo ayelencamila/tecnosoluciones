@@ -2,19 +2,18 @@
 
 namespace App\Http\Controllers\Reportes;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Inertia\Inertia;
-use App\Models\DetalleReparacion;
-use App\Models\Reparacion;
-use App\Models\User;
-use App\Models\Auditoria;
 use App\Exports\RepuestoExport;
+use App\Http\Controllers\Controller;
+use App\Models\Auditoria;
+use App\Models\DetalleReparacion;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ReporteRepuestoController extends Controller
 {
@@ -23,11 +22,10 @@ class ReporteRepuestoController extends Controller
         // 1. Auditoría
         Auditoria::create([
             'accion' => 'CONSULTA',
-            'tablaAfectada' => 'reportes',
-            'valorNuevo' => 'Reporte de Uso de Repuestos',
+            'tabla_afectada' => 'reportes',
+            'detalles' => 'Reporte de Uso de Repuestos',
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => 'Análisis de uso de repuestos en reparaciones'
+            'motivo' => 'Análisis de uso de repuestos en reparaciones',
         ]);
 
         // 2. Filtros
@@ -65,7 +63,7 @@ class ReporteRepuestoController extends Controller
             ->join('productos', 'detalle_reparaciones.producto_id', '=', 'productos.id')
             ->join('reparaciones', 'detalle_reparaciones.reparacion_id', '=', 'reparaciones.reparacionID')
             ->whereBetween('reparaciones.fecha_ingreso', [$desde, $hasta])
-            ->when($tecnicoId, fn($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
+            ->when($tecnicoId, fn ($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
             ->select(
                 'productos.nombre',
                 'productos.codigo',
@@ -90,8 +88,8 @@ class ReporteRepuestoController extends Controller
                     ],
                     'borderColor' => '#BE185D',
                     'borderWidth' => 1,
-                ]
-            ]
+                ],
+            ],
         ];
 
         // 7. Consumo por técnico (gráfico doughnut)
@@ -99,7 +97,7 @@ class ReporteRepuestoController extends Controller
             ->join('reparaciones', 'detalle_reparaciones.reparacion_id', '=', 'reparaciones.reparacionID')
             ->join('users', 'reparaciones.tecnico_id', '=', 'users.id')
             ->whereBetween('reparaciones.fecha_ingreso', [$desde, $hasta])
-            ->when($tecnicoId, fn($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
+            ->when($tecnicoId, fn ($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
             ->select(
                 'users.name as nombre',
                 DB::raw('COUNT(DISTINCT reparaciones.reparacionID) as reparaciones'),
@@ -117,15 +115,15 @@ class ReporteRepuestoController extends Controller
                     'label' => 'Costo Total ($)',
                     'data' => $usoPorTecnico->pluck('costo_total'),
                     'backgroundColor' => ['#4F46E5', '#7C3AED', '#EC4899', '#F59E0B', '#10B981', '#06B6D4'],
-                ]
-            ]
+                ],
+            ],
         ];
 
         // 8. Evolución de consumo por día (gráfico de línea)
         $consumoPorDia = DetalleReparacion::query()
             ->join('reparaciones', 'detalle_reparaciones.reparacion_id', '=', 'reparaciones.reparacionID')
             ->whereBetween('reparaciones.fecha_ingreso', [$desde, $hasta])
-            ->when($tecnicoId, fn($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
+            ->when($tecnicoId, fn ($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
             ->select(
                 DB::raw('DATE(reparaciones.fecha_ingreso) as fecha'),
                 DB::raw('SUM(detalle_reparaciones.cantidad) as total_unidades'),
@@ -136,7 +134,7 @@ class ReporteRepuestoController extends Controller
             ->get();
 
         $graficoEvolucion = [
-            'labels' => $consumoPorDia->pluck('fecha')->map(fn($d) => Carbon::parse($d)->format('d/m')),
+            'labels' => $consumoPorDia->pluck('fecha')->map(fn ($d) => Carbon::parse($d)->format('d/m')),
             'datasets' => [
                 [
                     'label' => 'Unidades',
@@ -155,8 +153,8 @@ class ReporteRepuestoController extends Controller
                     'fill' => true,
                     'tension' => 0.3,
                     'yAxisID' => 'y1',
-                ]
-            ]
+                ],
+            ],
         ];
 
         // Técnico seleccionado
@@ -193,17 +191,17 @@ class ReporteRepuestoController extends Controller
 
         Auditoria::create([
             'accion' => 'EXPORTACION',
-            'tablaAfectada' => 'reportes',
-            'valorNuevo' => "Reporte Repuestos ({$formato})",
+            'tabla_afectada' => 'reportes',
+            'detalles' => "Reporte Repuestos ({$formato})",
             'usuarioID' => Auth::id(),
-            'ip' => $request->ip(),
-            'motivo' => "Exportación {$formato} uso de repuestos"
+            'motivo' => "Exportación {$formato} uso de repuestos",
         ]);
 
         switch ($formato) {
             case 'pdf':
                 $data = $this->getDataForPdf($request);
                 $pdf = Pdf::loadView('pdf.reportes.repuestos', $data)->setPaper('a4', 'landscape');
+
                 return $pdf->download("reporte_repuestos_{$timestamp}.pdf");
 
             case 'csv':
@@ -233,7 +231,9 @@ class ReporteRepuestoController extends Controller
         $queryBase = DetalleReparacion::query()
             ->whereHas('reparacion', function ($q) use ($desde, $hasta, $tecnicoId) {
                 $q->whereBetween('fecha_ingreso', [$desde, $hasta]);
-                if ($tecnicoId) $q->where('tecnico_id', $tecnicoId);
+                if ($tecnicoId) {
+                    $q->where('tecnico_id', $tecnicoId);
+                }
             });
 
         $totalUnidades = (clone $queryBase)->sum('cantidad');
@@ -245,7 +245,7 @@ class ReporteRepuestoController extends Controller
             ->join('productos', 'detalle_reparaciones.producto_id', '=', 'productos.id')
             ->join('reparaciones', 'detalle_reparaciones.reparacion_id', '=', 'reparaciones.reparacionID')
             ->whereBetween('reparaciones.fecha_ingreso', [$desde, $hasta])
-            ->when($tecnicoId, fn($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
+            ->when($tecnicoId, fn ($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
             ->select(
                 'productos.nombre', 'productos.codigo',
                 DB::raw('SUM(detalle_reparaciones.cantidad) as total_cantidad'),
@@ -261,7 +261,7 @@ class ReporteRepuestoController extends Controller
             ->join('reparaciones', 'detalle_reparaciones.reparacion_id', '=', 'reparaciones.reparacionID')
             ->join('users', 'reparaciones.tecnico_id', '=', 'users.id')
             ->whereBetween('reparaciones.fecha_ingreso', [$desde, $hasta])
-            ->when($tecnicoId, fn($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
+            ->when($tecnicoId, fn ($q) => $q->where('reparaciones.tecnico_id', $tecnicoId))
             ->select(
                 'users.name as nombre',
                 DB::raw('COUNT(DISTINCT reparaciones.reparacionID) as reparaciones'),
@@ -273,7 +273,7 @@ class ReporteRepuestoController extends Controller
             ->get();
 
         return [
-            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y') . ' - ' . Carbon::parse($fechaHasta)->format('d/m/Y'),
+            'periodo' => Carbon::parse($fechaDesde)->format('d/m/Y').' - '.Carbon::parse($fechaHasta)->format('d/m/Y'),
             'kpis' => [
                 'total_unidades' => (int) $totalUnidades,
                 'costo_total' => round($costoTotal, 2),
