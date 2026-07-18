@@ -435,9 +435,13 @@ Route::middleware(['auth'])->group(function () {
     
     // --- MÓDULO DE AUDITORÍA ---
     // Consulta restringida a administradores; scoping multi-tenant en el controller.
-    Route::get('/auditorias', [\App\Http\Controllers\AuditoriaController::class, 'index'])
-        ->middleware('role:administrador')
-        ->name('auditorias.index');
+    Route::middleware('role:administrador')->group(function () {
+        Route::get('/auditorias', [\App\Http\Controllers\AuditoriaController::class, 'index'])
+            ->name('auditorias.index');
+        Route::get('/auditorias/exportar/{formato}', [\App\Http\Controllers\AuditoriaController::class, 'exportar'])
+            ->where('formato', 'csv|pdf')
+            ->name('auditorias.exportar');
+    });
     
     // --- MÓDULO DE COMPROBANTES INTERNOS (CU-32) ---
     Route::prefix('comprobantes')->name('comprobantes.')->group(function () {

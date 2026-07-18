@@ -81,3 +81,17 @@ Schedule::command('cotizaciones:cerrar-vencidas')
     ->onFailure(function () {
         \Log::error('❌ Error al verificar vencimientos.');
     });
+
+// --- SCHEDULER: Política de Retención del Log de Auditoría ---
+// Purga registros con antigüedad mayor a la retención configurada (default 24 meses).
+// Mensual, el día 1 a las 03:00 AR (horario de baja actividad).
+Schedule::command('auditoria:purgar')
+    ->monthlyOn(1, '03:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('✅ Política de retención de auditoría ejecutada.');
+    })
+    ->onFailure(function () {
+        \Log::error('❌ Error al ejecutar la purga de auditoría.');
+    });

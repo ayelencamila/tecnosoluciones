@@ -66,8 +66,20 @@
 
                 <!-- Tabla de Auditoría -->
                 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
-                    <div class="px-6 py-3 border-b border-gray-100 text-sm text-gray-500">
-                        {{ auditorias.total }} registro{{ auditorias.total === 1 ? '' : 's' }}
+                    <div class="px-6 py-3 border-b border-gray-100 flex items-center justify-between gap-3">
+                        <span class="text-sm text-gray-500">
+                            {{ auditorias.total }} registro{{ auditorias.total === 1 ? '' : 's' }}
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <a :href="urlExport('csv')"
+                                class="inline-flex items-center px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">
+                                Exportar CSV
+                            </a>
+                            <a :href="urlExport('pdf')"
+                                class="inline-flex items-center px-3 py-1.5 text-sm rounded-md border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700">
+                                Exportar PDF
+                            </a>
+                        </div>
                     </div>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200">
@@ -271,6 +283,12 @@ const limpiarFiltros = () => {
 };
 
 const irA = (url) => router.get(url, {}, { preserveState: true, preserveScroll: true });
+
+// URL de exportación con los filtros activos (Kendall: pull + salida para evidencia).
+const urlExport = (formato) => {
+    const params = Object.fromEntries(Object.entries(filtros.value).filter(([, v]) => v !== '' && v !== null));
+    return route('auditorias.exportar', { formato, ...params });
+};
 
 const verDetalle = (registro) => {
     sel.value = registro;

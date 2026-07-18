@@ -189,6 +189,13 @@ class Auditoria extends Model
 
     public const ACCION_ANULAR_PAGO = 'ANULAR_PAGO';
 
+    // Módulo Auditoría (auditar al auditor + ciclo de vida del log)
+    public const ACCION_CONSULTAR_AUDITORIA = 'CONSULTAR_AUDITORIA';
+
+    public const ACCION_EXPORTAR_AUDITORIA = 'EXPORTAR_AUDITORIA';
+
+    public const ACCION_PURGAR_AUDITORIA = 'PURGAR_AUDITORIA';
+
     // Acciones del sistema
     public const ACCION_LOGIN = 'LOGIN';
 
@@ -250,6 +257,18 @@ class Auditoria extends Model
                 $auditoria->ip ??= request()->ip();
                 $auditoria->user_agent ??= substr((string) request()->userAgent(), 0, 512) ?: null;
             }
+        });
+
+        // Inmutabilidad (Sommerville): la bitácora es "solo inserción" (append-only).
+        // Ningún flujo de la aplicación puede editar ni eliminar un registro
+        // individual. La depuración por antigüedad se hace vía `auditoria:purgar`,
+        // que opera a nivel de query builder (fuera de estos eventos de Eloquent).
+        static::updating(function () {
+            throw new \RuntimeException('Los registros de auditoría son inmutables: no pueden modificarse.');
+        });
+
+        static::deleting(function () {
+            throw new \RuntimeException('Los registros de auditoría son append-only: no pueden eliminarse individualmente.');
         });
     }
 
