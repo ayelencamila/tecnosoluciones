@@ -2,44 +2,47 @@
 
 namespace Tests\Feature\Reparaciones;
 
-use Tests\TestCase;
-use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Queue;
-use Illuminate\Support\Facades\Event;
-use App\Models\User;
-use App\Models\Rol;
-use App\Models\Cliente;
-use App\Models\TipoCliente;
-use App\Models\EstadoCliente;
-use App\Models\Marca;
-use App\Models\Modelo;
-use App\Models\Producto;
 use App\Models\CategoriaProducto;
-use App\Models\EstadoProducto;
-use App\Models\UnidadMedida;
-use App\Models\Deposito;
-use App\Models\Stock;
-use App\Models\TipoMovimientoStock;
-use App\Models\MedioPago;
-use App\Models\PrecioProducto;
-use App\Models\Reparacion;
-use App\Models\DetalleReparacion;
-use App\Models\EstadoReparacion;
+use App\Models\Cliente;
 use App\Models\CuentaCorriente;
-use App\Models\EstadoCuentaCorriente;
+use App\Models\Deposito;
+use App\Models\EstadoProducto;
+use App\Models\Marca;
+use App\Models\MedioPago;
+use App\Models\Modelo;
+use App\Models\PrecioProducto;
+use App\Models\Producto;
+use App\Models\Reparacion;
+use App\Models\Rol;
+use App\Models\Stock;
+use App\Models\TipoCliente;
+use App\Models\TipoMovimientoStock;
+use App\Models\UnidadMedida;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
+use Tests\TestCase;
 
 class ReparacionTest extends TestCase
 {
     use RefreshDatabase;
 
     protected User $admin;
+
     protected Cliente $clienteMinorista;
+
     protected Cliente $clienteMayorista;
+
     protected Marca $marca;
+
     protected Modelo $modelo;
+
     protected Producto $repuesto;
+
     protected MedioPago $medioPagoEfectivo;
+
     protected MedioPago $medioPagoCC;
 
     protected function setUp(): void
@@ -55,7 +58,9 @@ class ReparacionTest extends TestCase
             'permisos' => [],
             'activo' => true,
         ]);
-        $this->admin = User::factory()->create(['rol_id' => $rol->rol_id]);
+        // empresa_id=1 para reflejar el multi-tenant: el usuario pertenece a la
+        // empresa por defecto, igual que las reparaciones que crea el test.
+        $this->admin = User::factory()->create(['rol_id' => $rol->rol_id, 'empresa_id' => 1]);
 
         // Estados de reparación (6 estados fijos, PK auto-increment)
         DB::table('estados_reparacion')->insert([
@@ -450,6 +455,65 @@ class ReparacionTest extends TestCase
         );
 
         $response->assertSessionHasErrors('cobro');
+    }
+
+    // ─── MULTI-TENANT Y AUTORIZACIÓN ────────────────────────────
+
+    /** @test */
+    public function una_reparacion_de_otra_empresa_no_es_accesible()
+    {
+        $reparacion = Reparacion::create([
+            'clienteID' => $this->clienteMinorista->clienteID,
+            'tecnico_id' => $this->admin->id,
+            'estado_reparacion_id' => 1,
+            'codigo_reparacion' => 'REP-OTRA-EMP',
+            'modelo_id' => $this->modelo->id,
+            'falla_declarada' => 'Falla',
+            'fecha_ingreso' => now(),
+        ]);
+
+        // La movemos a otra empresa (bypass del scope, a nivel de query builder).
+        $otraEmpresa = \App\Models\Empresa::create(['nombre' => 'Otra', 'slug' => 'otra-'.uniqid()]);
+        DB::table('reparaciones')->where('reparacionID', $reparacion->reparacionID)
+            ->update(['empresa_id' => $otraEmpresa->id]);
+
+        // El admin (empresa 1) no debe poder verla.
+        $this->actingAs($this->admin)
+            ->get(route('reparaciones.show', $reparacion->reparacionID))
+            ->assertNotFound();
+    }
+
+    /** @test */
+    public function un_tecnico_no_puede_cobrar_ni_anular()
+    {
+        $rolTecnico = Rol::firstOrCreate(
+            ['nombre' => 'tecnico', 'empresa_id' => 1],
+            ['descripcion' => 'Técnico', 'permisos' => [], 'activo' => true],
+        );
+        $tecnico = User::factory()->create(['rol_id' => $rolTecnico->rol_id, 'empresa_id' => 1]);
+
+        $reparacion = Reparacion::create([
+            'clienteID' => $this->clienteMinorista->clienteID,
+            'tecnico_id' => $tecnico->id,
+            'estado_reparacion_id' => 4,
+            'codigo_reparacion' => 'REP-TEC-001',
+            'modelo_id' => $this->modelo->id,
+            'falla_declarada' => 'Falla',
+            'fecha_ingreso' => now(),
+            'total_final' => 10000,
+        ]);
+
+        // Cobrar → prohibido para técnico.
+        $this->actingAs($tecnico)->post(
+            route('reparaciones.cobrar', $reparacion->reparacionID),
+            ['medio_pago_id' => $this->medioPagoEfectivo->medioPagoID]
+        )->assertForbidden();
+
+        // Anular → prohibido para técnico.
+        $this->actingAs($tecnico)->delete(
+            route('reparaciones.destroy', $reparacion->reparacionID),
+            ['motivo' => 'prueba de permisos denegada']
+        )->assertForbidden();
     }
 
     // ─── HELPER ─────────────────────────────────────────────────

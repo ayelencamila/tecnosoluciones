@@ -3,7 +3,6 @@
 namespace App\Services\Reparaciones;
 
 use App\Models\Auditoria;
-use App\Models\CuentaCorriente;
 use App\Models\MedioPago;
 use App\Models\Reparacion;
 use Illuminate\Support\Carbon;
@@ -41,7 +40,7 @@ class CobrarReparacionService
         $medioPago = MedioPago::findOrFail($datos['medio_pago_id']);
         $esCuentaCorriente = str_contains(strtolower($medioPago->nombre), 'corriente');
 
-        return DB::transaction(function () use ($reparacion, $datos, $userId, $totalACobrar, $medioPago, $esCuentaCorriente) {
+        return DB::transaction(function () use ($reparacion, $userId, $totalACobrar, $medioPago, $esCuentaCorriente) {
 
             // --- Si es Cuenta Corriente: validar y debitar ---
             if ($esCuentaCorriente) {
@@ -109,15 +108,17 @@ class CobrarReparacionService
      */
     private function procesarCuentaCorriente(Reparacion $reparacion, float $monto, int $userId): void
     {
-        $cliente = $reparacion->cliente()->with('cuentaCorriente.estadoCuentaCorriente')->first();
+        $cliente = $reparacion->cliente()->first();
 
-        if (!$cliente) {
+        if (! $cliente) {
             throw new \DomainException('No se encontró el cliente asociado a esta reparación.');
         }
 
-        $cc = $cliente->cuentaCorriente;
+        // Bloqueo pesimista real: re-consultamos la CC con lockForUpdate dentro de
+        // la transacción para evitar condición de carrera al validar/debitar el saldo.
+        $cc = $cliente->cuentaCorriente()->with('estadoCuentaCorriente')->lockForUpdate()->first();
 
-        if (!$cc) {
+        if (! $cc) {
             throw new \DomainException("El cliente {$cliente->nombre_completo} no tiene cuenta corriente habilitada. Elija otro medio de pago.");
         }
 
@@ -142,7 +143,6 @@ class CobrarReparacionService
         $diasGracia = $cc->diasGracia ?? 0;
         $fechaVencimiento = Carbon::now()->addDays($diasGracia);
 
-        $cc->lockForUpdate();
         $cc->registrarDebito(
             $monto,
             "Cobro Reparación - {$reparacion->codigo_reparacion}",

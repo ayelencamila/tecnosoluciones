@@ -2,10 +2,10 @@
 
 namespace App\Services\Reparaciones;
 
-use App\Models\Reparacion;
 use App\Models\AlertaReparacion;
-use App\Models\TipoAlertaReparacion;
 use App\Models\Configuracion;
+use App\Models\Reparacion;
+use App\Models\TipoAlertaReparacion;
 use App\Notifications\ReparacionDemoradaNotification;
 use Illuminate\Support\Facades\Log;
 
@@ -17,13 +17,13 @@ class MonitoreoSLAReparacionService
 {
     /**
      * Verifica todas las reparaciones activas y genera alertas si exceden SLA
-     * 
+     *
      * CU-14 Paso 1: Identificación de reparaciones con SLA excedido
-     * 
+     *
      * Solo monitorea estados donde el taller tiene responsabilidad activa:
      * - Recibido (ID 1): Con presupuesto, esperando inicio de reparación
      * - En Reparación (ID 2): Trabajo técnico en curso
-     * 
+     *
      * @return array Estadísticas del monitoreo
      */
     public function verificarYGenerarAlertas(): array
@@ -45,10 +45,10 @@ class MonitoreoSLAReparacionService
 
         foreach ($reparaciones as $reparacion) {
             $resultado = $this->verificarReparacion($reparacion);
-            
+
             if ($resultado['excede']) {
                 $stats['exceden_sla']++;
-                
+
                 if ($resultado['alerta_generada']) {
                     $stats['alertas_generadas']++;
                 }
@@ -66,8 +66,7 @@ class MonitoreoSLAReparacionService
 
     /**
      * Verifica una reparación específica y genera alerta si corresponde
-     * 
-     * @param Reparacion $reparacion
+     *
      * @return array Resultado de la verificación
      */
     public function verificarReparacion(Reparacion $reparacion): array
@@ -84,7 +83,7 @@ class MonitoreoSLAReparacionService
         ];
 
         // Si no excede SLA, no hacer nada
-        if (!$estadoSLA['excede']) {
+        if (! $estadoSLA['excede']) {
             return $resultado;
         }
 
@@ -121,7 +120,7 @@ class MonitoreoSLAReparacionService
         // CU-14 Paso 6: Notificar al técnico SOLO por campanita (NO WhatsApp)
         $this->notificarTecnicoCampanita($reparacion, $estadoSLA['dias_excedidos'], $alerta->alertaReparacionID);
 
-        Log::info("Alerta de SLA excedido generada y notificación campanita enviada al técnico", [
+        Log::info('Alerta de SLA excedido generada y notificación campanita enviada al técnico', [
             'reparacion_id' => $reparacion->reparacionID,
             'codigo' => $reparacion->codigo_reparacion,
             'tecnico_id' => $reparacion->tecnico_id,
@@ -138,10 +137,10 @@ class MonitoreoSLAReparacionService
     protected function notificarTecnicoCampanita(Reparacion $reparacion, int $diasExcedidos, int $alertaId): void
     {
         $tecnico = $reparacion->tecnico;
-        
+
         if ($tecnico) {
             $tecnico->notify(new ReparacionDemoradaNotification($reparacion, $diasExcedidos, 'tecnico', $alertaId));
-            Log::info("Notificación campanita enviada a técnico", [
+            Log::info('Notificación campanita enviada a técnico', [
                 'tecnico_id' => $tecnico->id,
                 'reparacion_id' => $reparacion->reparacionID,
                 'alerta_id' => $alertaId,
@@ -151,8 +150,6 @@ class MonitoreoSLAReparacionService
 
     /**
      * Obtiene reparaciones que exceden SLA agrupadas por técnico
-     * 
-     * @return array
      */
     public function getReparacionesExcedidasPorTecnico(): array
     {
@@ -167,8 +164,8 @@ class MonitoreoSLAReparacionService
 
         foreach ($reparaciones as $reparacion) {
             $tecnicoID = $reparacion->tecnico_id;
-            
-            if (!isset($agrupadas[$tecnicoID])) {
+
+            if (! isset($agrupadas[$tecnicoID])) {
                 $agrupadas[$tecnicoID] = [
                     'tecnico' => $reparacion->tecnico,
                     'total_excedidas' => 0,
@@ -188,8 +185,7 @@ class MonitoreoSLAReparacionService
 
     /**
      * Calcula porcentaje de bonificación según días de exceso
-     * 
-     * @param int $diasExcedidos
+     *
      * @return int Porcentaje de bonificación
      */
     public function calcularPorcentajeBonificacion(int $diasExcedidos): int
@@ -211,13 +207,13 @@ class MonitoreoSLAReparacionService
 
     /**
      * Aplica tope máximo a bonificación
-     * 
-     * @param int $porcentajeSugerido
+     *
      * @return int Porcentaje ajustado al tope
      */
     public function aplicarTopeBonificacion(int $porcentajeSugerido): int
     {
         $topeMaximo = (int) Configuracion::get('bonificacion_tope_maximo', 50);
+
         return min($porcentajeSugerido, $topeMaximo);
     }
 }

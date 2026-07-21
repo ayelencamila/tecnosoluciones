@@ -42,10 +42,16 @@ const yaFueCobrada = computed(() => {
     return ['pagado', 'cuenta_corriente'].includes(props.reparacion.estado_pago);
 });
 
+// Rol del usuario (para gatear acciones sensibles y no mostrar botones que darían 403).
+const rol = computed(() => page.props.auth?.user?.role);
+const puedeCobrarRol = computed(() => ['administrador', 'vendedor'].includes(rol.value));
+const puedeAnular = computed(() => rol.value === 'administrador');
+
 const puedeCobrar = computed(() => {
     const estado = props.reparacion.estado?.nombreEstado;
-    return !props.reparacion.anulada 
-        && !yaFueCobrada.value 
+    return puedeCobrarRol.value
+        && !props.reparacion.anulada
+        && !yaFueCobrada.value
         && totalACobrar.value > 0
         && ['Reparado', 'Entregado'].includes(estado);
 });
@@ -232,8 +238,8 @@ const imprimirComprobanteEntrega = () => {
                             
                             <!-- Grupo: Acciones principales -->
                             <div class="flex gap-2">
-                                <DangerButton 
-                                    v-if="!['Cancelado', 'Anulado', 'Entregado'].includes(reparacion.estado?.nombreEstado)" 
+                                <DangerButton
+                                    v-if="puedeAnular && !['Cancelado', 'Anulado', 'Entregado'].includes(reparacion.estado?.nombreEstado)"
                                     @click="showDeleteModal = true"
                                     class="!px-3"
                                     title="Anular reparación"

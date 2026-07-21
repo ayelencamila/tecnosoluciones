@@ -485,8 +485,12 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{reparacion}/imprimir-entrega', [ReparacionController::class, 'imprimirComprobanteEntrega'])->name('imprimir-entrega');
         Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])->name('edit');
         Route::put('/{reparacion}', [ReparacionController::class, 'update'])->name('update');
-        Route::post('/{reparacion}/cobrar', [ReparacionController::class, 'cobrar'])->name('cobrar');
-        Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])->name('destroy');
+        // Cobrar: solo quienes manejan plata (no el técnico).
+        Route::post('/{reparacion}/cobrar', [ReparacionController::class, 'cobrar'])
+            ->middleware('role:administrador,vendedor')->name('cobrar');
+        // Anular: revierte stock → restringido al administrador.
+        Route::delete('/{reparacion}', [ReparacionController::class, 'destroy'])
+            ->middleware('role:administrador')->name('destroy');
     });
 
     // --- ALERTAS DE SLA (CU-14) - Para Técnicos ---

@@ -40,16 +40,22 @@ const resetFilters = () => {
     form.value = { search: '', estado_id: '' };
 };
 
-// Lógica de colores para los Estados (UX Visual)
+// Lógica de colores para los Estados (UX Visual).
+// Se normaliza (sin acentos) para que 'En Reparación' matchee, y se cubren los
+// 6 estados reales del flujo simplificado. El color tiene significado:
+// azul=en cola, amarillo=en proceso, naranja=pausado, verde=avisar cliente,
+// gris=finalizado, rojo=anulado.
 const getEstadoBadgeClass = (nombreEstado) => {
-    const estado = nombreEstado?.toLowerCase() || '';
+    const estado = (nombreEstado || '')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita acentos
+        .toLowerCase();
+
     if (estado.includes('recibido')) return 'bg-blue-100 text-blue-800 border-blue-200';
-    if (estado.includes('diagn')) return 'bg-purple-100 text-purple-800 border-purple-200';
+    if (estado.includes('espera')) return 'bg-orange-100 text-orange-800 border-orange-200'; // Pausado (repuesto)
+    if (estado.includes('reparado')) return 'bg-green-100 text-green-800 border-green-200 font-bold'; // Listo → avisar cliente
     if (estado.includes('reparacion')) return 'bg-yellow-100 text-yellow-800 border-yellow-200'; // En proceso
-    if (estado.includes('listo')) return 'bg-green-100 text-green-800 border-green-200 font-bold'; // Acción requerida (Avisar cliente)
     if (estado.includes('entregado')) return 'bg-gray-100 text-gray-600 border-gray-200'; // Finalizado
-    if (estado.includes('demorado')) return 'bg-red-100 text-red-800 border-red-200'; // Alerta
-    if (estado.includes('cancel') || estado.includes('anul')) return 'bg-red-50 text-red-600 border-red-100';
+    if (estado.includes('anul')) return 'bg-red-100 text-red-800 border-red-200';
     return 'bg-gray-50 text-gray-600 border-gray-200';
 };
 

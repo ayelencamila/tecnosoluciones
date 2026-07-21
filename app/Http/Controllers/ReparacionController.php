@@ -2,35 +2,29 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Exceptions\Ventas\SinStockException;
+use App\Http\Requests\Reparaciones\AnularReparacionRequest;
+use App\Http\Requests\Reparaciones\StoreReparacionRequest;
+use App\Models\Cliente;
+use App\Models\EstadoReparacion;
+// Modelos
+use App\Models\Marca;
+use App\Models\MedioPago;
+use App\Models\Producto;
+use App\Models\Reparacion;
+use App\Services\Comprobantes\ComprobanteService;
+use App\Services\Reparaciones\ActualizarReparacionService;
+// Requests
+use App\Services\Reparaciones\AnularReparacionService;
+use App\Services\Reparaciones\CobrarReparacionService;
+// Servicios
+use App\Services\Reparaciones\RegistrarReparacionService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
-use Inertia\Response;
-use Illuminate\Http\RedirectResponse;
-
-// Modelos
-use App\Models\Reparacion;
-use App\Models\Cliente;
-use App\Models\Producto;
-use App\Models\EstadoReparacion;
-use App\Models\Marca;
-use App\Models\MedioPago; 
-
-// Requests
-use App\Http\Requests\Reparaciones\StoreReparacionRequest;
-use App\Http\Requests\Reparaciones\AnularReparacionRequest;
-
-// Servicios
-use App\Services\Reparaciones\RegistrarReparacionService;
-use App\Services\Reparaciones\ActualizarReparacionService;
-use App\Services\Reparaciones\AnularReparacionService;
-use App\Services\Reparaciones\CobrarReparacionService;
-use App\Services\Comprobantes\ComprobanteService;
-use App\Services\Comprobantes\RegistrarComprobanteService;
-
 // Excepciones
-use App\Exceptions\Ventas\SinStockException;
+use Inertia\Response;
 
 class ReparacionController extends Controller
 {
@@ -40,9 +34,11 @@ class ReparacionController extends Controller
     public function index(Request $request): Response
     {
         $filters = $request->only(['search', 'estado_id']);
-        
+
         // 1. Cargamos 'modelo.marca' para acceder al nombre de la marca (3FN)
+        //    Scoping manual por empresa (multi-tenant): solo reparaciones propias.
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'modelo.marca'])
+            ->where('empresa_id', $request->user()->empresa_id)
             ->latest();
 
         // Filtro de Búsqueda General (delegado al modelo - Alta Cohesión)
@@ -65,12 +61,12 @@ class ReparacionController extends Controller
                     'telefono' => $r->cliente->whatsapp ?? $r->cliente->telefono ?? '-',
                 ],
                 // Mapeo correcto: Marca a través del Modelo
-                'equipo' => ($r->modelo->marca->nombre ?? 'N/A') . ' ' . ($r->modelo->nombre ?? ''),
-                
+                'equipo' => ($r->modelo->marca->nombre ?? 'N/A').' '.($r->modelo->nombre ?? ''),
+
                 'falla' => \Illuminate\Support\Str::limit($r->falla_declarada, 30),
                 'estado' => [
                     'nombre' => $r->estado->nombreEstado,
-                    'id' => $r->estado->estadoReparacionID
+                    'id' => $r->estado->estadoReparacionID,
                 ],
                 'tecnico' => $r->tecnico ? $r->tecnico->name : 'Sin asignar',
             ]);
@@ -100,7 +96,7 @@ class ReparacionController extends Controller
             $categoriasExcluidas = \App\Models\CategoriaProducto::where('nombre', 'like', '%Equipo%')
                 ->orWhere('nombre', 'like', '%Servicio%')
                 ->pluck('id');
-                
+
             if ($categoriasExcluidas->isNotEmpty()) {
                 $queryProductos->whereNotIn('categoriaProductoID', $categoriasExcluidas);
             }
@@ -108,21 +104,21 @@ class ReparacionController extends Controller
 
         return Inertia::render('Reparaciones/Create', [
             'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->orderBy('apellido')->get(),
-            'productos' => $queryProductos->with(['precios' => fn($q) => $q->whereNull('fechaHasta')])
-                ->orderBy('nombre')->get()->map(fn($p) => [
-                'id' => $p->id,
-                'nombre' => $p->nombre,
-                'stock_total' => $p->stock_total,
-                'precios' => $p->precios->map(fn($pr) => [
-                    'tipoClienteID' => $pr->tipoClienteID,
-                    'precio' => $pr->precio,
+            'productos' => $queryProductos->with(['precios' => fn ($q) => $q->whereNull('fechaHasta')])
+                ->orderBy('nombre')->get()->map(fn ($p) => [
+                    'id' => $p->id,
+                    'nombre' => $p->nombre,
+                    'stock_total' => $p->stock_total,
+                    'precios' => $p->precios->map(fn ($pr) => [
+                        'tipoClienteID' => $pr->tipoClienteID,
+                        'precio' => $pr->precio,
+                    ]),
                 ]),
-            ]),
             'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
             // Filtrar solo usuarios con rol de técnico para asignación de reparaciones
-            'tecnicos' => \App\Models\User::whereHas('rol', function($query) {
-                    $query->whereIn('nombre', ['tecnico', 'administrador']);
-                })
+            'tecnicos' => \App\Models\User::whereHas('rol', function ($query) {
+                $query->whereIn('nombre', ['tecnico', 'administrador']);
+            })
                 ->orderBy('name')
                 ->get(['id', 'name']),
         ]);
@@ -136,7 +132,7 @@ class ReparacionController extends Controller
         try {
             // El servicio se encarga de todo (Transacciones, Stock, Imágenes)
             $reparacion = $service->handle(
-                $request->validated(), 
+                $request->validated(),
                 $request->user()->id
             );
 
@@ -151,8 +147,8 @@ class ReparacionController extends Controller
 
         } catch (\Exception $e) {
             // Error técnico inesperado
-            Log::error("Error al registrar reparación: " . $e->getMessage());
-            
+            Log::error('Error al registrar reparación: '.$e->getMessage());
+
             return back()
                 ->withErrors(['error' => 'Ocurrió un error al procesar la solicitud. Por favor intente nuevamente.'])
                 ->withInput();
@@ -165,16 +161,16 @@ class ReparacionController extends Controller
     public function show($id): Response
     {
         // Cargamos relaciones profundas para la ficha técnica
-        $reparacion = Reparacion::with([
-            'cliente.cuentaCorriente', 
-            'tecnico', 
-            'estado', 
-            'imagenes', 
+        $reparacion = $this->reparacionScoped($id, [
+            'cliente.cuentaCorriente',
+            'tecnico',
+            'estado',
+            'imagenes',
             'repuestos.producto',
             'modelo.marca',
             'medioPago',
             'cobrador',
-        ])->findOrFail($id);
+        ]);
 
         return Inertia::render('Reparaciones/Show', [
             'reparacion' => $reparacion,
@@ -185,19 +181,19 @@ class ReparacionController extends Controller
     /**
      * Imprimir Comprobante de Ingreso de Reparación
      * CU-11 Paso 11: "Confirma el registro exitoso de la reparación y presenta el comprobante generado"
-     * 
-     * @param int $id ID de la reparación
-     * @param ComprobanteService $service Servicio para preparar datos
+     *
+     * @param  int  $id  ID de la reparación
+     * @param  ComprobanteService  $service  Servicio para preparar datos
      * @return \Illuminate\View\View Vista del comprobante lista para imprimir
      */
     public function imprimirComprobanteIngreso($id, ComprobanteService $service)
     {
-        $reparacion = Reparacion::with([
-            'cliente', 
-            'tecnico', 
-            'estado', 
-            'modelo.marca'
-        ])->findOrFail($id);
+        $reparacion = $this->reparacionScoped($id, [
+            'cliente',
+            'tecnico',
+            'estado',
+            'modelo.marca',
+        ]);
 
         // El comprobante ya se registra automáticamente en RegistrarReparacionService
         // Aquí solo preparamos los datos para la vista de impresión
@@ -212,22 +208,22 @@ class ReparacionController extends Controller
     /**
      * Imprimir Comprobante de Entrega de Reparación
      * CU-12 Paso 9: "Si el nuevo estado es 'Entregado', emite un comprobante interno de entrega"
-     * 
-     * @param int $id ID de la reparación
-     * @param ComprobanteService $service Servicio para preparar datos
+     *
+     * @param  int  $id  ID de la reparación
+     * @param  ComprobanteService  $service  Servicio para preparar datos
      * @return \Illuminate\View\View Vista del comprobante lista para imprimir
      */
     public function imprimirComprobanteEntrega($id, ComprobanteService $service)
     {
-        $reparacion = Reparacion::with([
-            'cliente', 
-            'tecnico', 
-            'estado', 
+        $reparacion = $this->reparacionScoped($id, [
+            'cliente',
+            'tecnico',
+            'estado',
             'modelo.marca',
             'repuestos.producto',
             'medioPago',
             'cobrador',
-        ])->findOrFail($id);
+        ]);
 
         // El comprobante ya se registra automáticamente en ActualizarReparacionService cuando pasa a "Entregado"
         // Aquí solo preparamos los datos para la vista de impresión
@@ -245,7 +241,7 @@ class ReparacionController extends Controller
     public function edit($id): Response
     {
         // 1. Cargamos modelo.marca para pre-llenar los selects
-        $reparacion = Reparacion::with(['cliente', 'repuestos.producto', 'modelo.marca'])->findOrFail($id);
+        $reparacion = $this->reparacionScoped($id, ['cliente', 'repuestos.producto', 'modelo.marca']);
 
         // Lógica de filtrado de productos (Repuestos/Insumos)
         $categoriasRepuestos = \App\Models\CategoriaProducto::where('nombre', 'like', '%Repuesto%')
@@ -260,7 +256,7 @@ class ReparacionController extends Controller
             $categoriasExcluidas = \App\Models\CategoriaProducto::where('nombre', 'like', '%Equipo%')
                 ->orWhere('nombre', 'like', '%Servicio%')
                 ->pluck('id');
-                
+
             if ($categoriasExcluidas->isNotEmpty()) {
                 $queryProductos->whereNotIn('categoriaProductoID', $categoriasExcluidas);
             }
@@ -269,16 +265,16 @@ class ReparacionController extends Controller
         return Inertia::render('Reparaciones/Edit', [
             'reparacion' => $reparacion,
             'estados' => EstadoReparacion::all(),
-            'productos' => $queryProductos->with(['precios' => fn($q) => $q->whereNull('fechaHasta')])
-                ->orderBy('nombre')->get()->map(fn($p) => [
-                'id' => $p->id,
-                'nombre' => $p->nombre,
-                'stock_total' => $p->stock_total,
-                'precios' => $p->precios->map(fn($pr) => [
-                    'tipoClienteID' => $pr->tipoClienteID,
-                    'precio' => $pr->precio,
+            'productos' => $queryProductos->with(['precios' => fn ($q) => $q->whereNull('fechaHasta')])
+                ->orderBy('nombre')->get()->map(fn ($p) => [
+                    'id' => $p->id,
+                    'nombre' => $p->nombre,
+                    'stock_total' => $p->stock_total,
+                    'precios' => $p->precios->map(fn ($pr) => [
+                        'tipoClienteID' => $pr->tipoClienteID,
+                        'precio' => $pr->precio,
+                    ]),
                 ]),
-            ]),
             'marcas' => Marca::where('activo', true)->orderBy('nombre')->get(),
         ]);
     }
@@ -296,7 +292,7 @@ class ReparacionController extends Controller
             'tecnico_id' => 'nullable|exists:users,id',
             'costo_mano_obra' => 'nullable|numeric|min:0',
             'total_final' => 'nullable|numeric|min:0',
-            
+
             // Campos de equipo (Opcionales en edición, pero si vienen se validan)
             'modelo_id' => 'nullable|exists:modelos,id',
             'numero_serie_imei' => 'nullable|string|max:100',
@@ -312,7 +308,7 @@ class ReparacionController extends Controller
         ]);
 
         try {
-            $reparacion = Reparacion::findOrFail($id);
+            $reparacion = $this->reparacionScoped($id);
             $service->handle($reparacion, $validated, $request->user()->id);
 
             return redirect()->route('reparaciones.show', $id)
@@ -326,7 +322,8 @@ class ReparacionController extends Controller
             return back()->withErrors(['error' => $e->getMessage()])->withInput();
         } catch (\Exception $e) {
             // CU-12 Excepción 8a: Error al guardar actualización
-            Log::error("CU-12 Excepción 8a - Error al actualizar reparación {$id}: " . $e->getMessage());
+            Log::error("CU-12 Excepción 8a - Error al actualizar reparación {$id}: ".$e->getMessage());
+
             return back()->withErrors(['error' => 'Error al guardar la actualización de la reparación. Intente nuevamente.'])->withInput();
         }
     }
@@ -343,7 +340,7 @@ class ReparacionController extends Controller
         ]);
 
         try {
-            $reparacion = Reparacion::with(['cliente.cuentaCorriente.estadoCuentaCorriente', 'repuestos'])->findOrFail($id);
+            $reparacion = $this->reparacionScoped($id, ['cliente.cuentaCorriente.estadoCuentaCorriente', 'repuestos']);
             $service->handle($reparacion, $validated, $request->user()->id);
 
             // Recargar para ver el estado actualizado
@@ -358,7 +355,8 @@ class ReparacionController extends Controller
         } catch (\DomainException $e) {
             return back()->withErrors(['cobro' => $e->getMessage()])->withInput();
         } catch (\Exception $e) {
-            Log::error("Error al cobrar reparación {$id}: " . $e->getMessage());
+            Log::error("Error al cobrar reparación {$id}: ".$e->getMessage());
+
             return back()->withErrors(['cobro' => 'Error inesperado al procesar el cobro.'])->withInput();
         }
     }
@@ -369,14 +367,26 @@ class ReparacionController extends Controller
     public function destroy(AnularReparacionRequest $request, $id, AnularReparacionService $service): RedirectResponse
     {
         try {
-            $reparacion = Reparacion::with('repuestos.producto')->findOrFail($id);
+            $reparacion = $this->reparacionScoped($id, ['repuestos.producto']);
             $service->handle($reparacion, $request->motivo, $request->user()->id);
 
             return redirect()->route('reparaciones.index')
                 ->with('success', 'Reparación anulada y stock revertido.');
         } catch (\Exception $e) {
-            Log::error("Error al anular reparación {$id}: " . $e->getMessage());
+            Log::error("Error al anular reparación {$id}: ".$e->getMessage());
+
             return back()->withErrors(['error' => $e->getMessage()])->withInput();
         }
+    }
+
+    /**
+     * Busca una reparación garantizando que pertenezca a la empresa del usuario
+     * autenticado (scoping manual multi-tenant). Lanza 404 si es de otra empresa.
+     */
+    private function reparacionScoped(int $id, array $with = []): Reparacion
+    {
+        return Reparacion::with($with)
+            ->where('empresa_id', auth()->user()->empresa_id)
+            ->findOrFail($id);
     }
 }

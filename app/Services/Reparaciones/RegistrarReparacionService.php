@@ -2,46 +2,47 @@
 
 namespace App\Services\Reparaciones;
 
-use App\Events\ReparacionRegistrada;
 use App\Exceptions\Ventas\SinStockException;
-use App\Models\Reparacion;
-use App\Models\DetalleReparacion;
-use App\Models\ImagenReparacion;
-use App\Models\EtapaImagenReparacion;
-use App\Models\Producto;
-use App\Models\Stock;
-use App\Models\MovimientoStock;
-use App\Models\EstadoReparacion;
-use App\Models\TipoMovimientoStock;
 use App\Models\Auditoria;
 use App\Models\Cliente;
+use App\Models\DetalleReparacion;
+use App\Models\EstadoReparacion;
+use App\Models\EtapaImagenReparacion;
+use App\Models\ImagenReparacion;
+use App\Models\MovimientoStock;
 use App\Models\PrecioProducto;
+use App\Models\Producto;
+use App\Models\Reparacion;
+use App\Models\Stock;
+use App\Models\TipoMovimientoStock;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Carbon;
-use Illuminate\Http\UploadedFile;
 
 class RegistrarReparacionService
 {
     public function handle(array $datosValidados, int $usuarioID): Reparacion
     {
         // 1. VALIDACIÓN PREVIA (Optimista - Fail Fast)
-        if (!empty($datosValidados['items'])) {
+        if (! empty($datosValidados['items'])) {
             $this->validarStockPrevio($datosValidados['items']);
         }
 
         return DB::transaction(function () use ($datosValidados, $usuarioID) {
-            
+
             // 2. PREPARAR DATOS MAESTROS
             $estadoInicial = EstadoReparacion::where('nombreEstado', 'Recibido')->firstOrFail();
-            $codigoReparacion = 'REP-' . Carbon::now()->format('Ymd') . '-' . time();
+            $codigoReparacion = 'REP-'.Carbon::now()->format('Ymd').'-'.time();
 
             // 3. CREAR LA REPARACIÓN (Cabecera)
             $reparacion = Reparacion::create([
+                // Tenant: se atribuye a la empresa del usuario que registra (scoping manual).
+                'empresa_id' => auth()->user()?->empresa_id ?? 1,
                 'clienteID' => $datosValidados['clienteID'],
                 'tecnico_id' => $datosValidados['tecnico_id'], // CU-11 Paso 5: Técnico asignado
                 'estado_reparacion_id' => $estadoInicial->estadoReparacionID,
-                'codigo_reparacion' => $codigoReparacion,               
+                'codigo_reparacion' => $codigoReparacion,
                 'modelo_id' => $datosValidados['modelo_id'],
                 'numero_serie_imei' => $datosValidados['numero_serie_imei'] ?? null,
                 'clave_bloqueo' => $datosValidados['clave_bloqueo'] ?? null,
@@ -51,7 +52,7 @@ class RegistrarReparacionService
                 'fecha_ingreso' => Carbon::now(),
                 'fecha_promesa' => $datosValidados['fecha_promesa'] ?? null,
                 // Presupuesto inmediato (flujo simplificado)
-                'costo_mano_obra' => $datosValidados['costo_mano_obra'] ?? 0, 
+                'costo_mano_obra' => $datosValidados['costo_mano_obra'] ?? 0,
                 'total_final' => $datosValidados['total_final'] ?? 0,
             ]);
 
@@ -73,7 +74,7 @@ class RegistrarReparacionService
             }
 
             // 5. PROCESAR ITEMS (Repuestos iniciales) CON BLOQUEO
-            if (!empty($datosValidados['items'])) {
+            if (! empty($datosValidados['items'])) {
                 $this->procesarItems($reparacion, $datosValidados['items'], $usuarioID);
             }
 
@@ -87,7 +88,7 @@ class RegistrarReparacionService
                     'entidad_id' => $reparacion->reparacionID,
                     'usuario_id' => $usuarioID,
                     'tipo_comprobante_id' => $tipoComprobante,
-                    'numero_correlativo' => 'ING-' . $codigoReparacion,
+                    'numero_correlativo' => 'ING-'.$codigoReparacion,
                     'fecha_emision' => now(),
                     'estado_comprobante_id' => $estadoEmitido,
                 ]);
@@ -104,7 +105,7 @@ class RegistrarReparacionService
         foreach ($imagenes as $imagen) {
             if ($imagen instanceof UploadedFile) {
                 $ruta = $imagen->storePublicly(
-                    "reparaciones/" . date('Y') . "/{$reparacion->reparacionID}", 
+                    'reparaciones/'.date('Y')."/{$reparacion->reparacionID}",
                     'public'
                 );
 
@@ -125,7 +126,7 @@ class RegistrarReparacionService
             ->where('fechaDesde', '<=', Carbon::now())
             ->where(function ($query) {
                 $query->where('fechaHasta', '>=', Carbon::now())
-                      ->orWhereNull('fechaHasta');
+                    ->orWhereNull('fechaHasta');
             })
             ->orderBy('fechaDesde', 'desc')
             ->first();
@@ -139,24 +140,24 @@ class RegistrarReparacionService
 
         foreach ($items as $itemData) {
             $producto = Producto::findOrFail($itemData['producto_id']);
-            
+
             // Precio según tipo de cliente (mayorista/minorista)
-            $precioUnitario = $this->obtenerPrecioParaCliente($producto, $cliente); 
-            
+            $precioUnitario = $this->obtenerPrecioParaCliente($producto, $cliente);
+
             $cantidad = $itemData['cantidad'];
             $subtotal = $precioUnitario * $cantidad;
 
             // Registrar detalle
             DetalleReparacion::create([
                 'reparacion_id' => $reparacion->reparacionID,
-                'producto_id'   => $producto->id,
-                'cantidad'      => $cantidad,
+                'producto_id' => $producto->id,
+                'cantidad' => $cantidad,
                 'precio_unitario' => $precioUnitario,
-                'subtotal'      => $subtotal
+                'subtotal' => $subtotal,
             ]);
 
-            // Descuento de Stock Seguro
-            if ($producto->unidadMedida !== 'Servicio') {
+            // Descuento de Stock Seguro (los servicios no descuentan stock)
+            if (! $producto->es_servicio) {
                 $this->descontarStock($producto, $cantidad, $reparacion, $usuarioID);
             }
         }
@@ -167,17 +168,17 @@ class RegistrarReparacionService
         // 1. Obtener Tipo de Movimiento Dinámicamente (SIN HARDCODEO)
         $tipoMovimiento = TipoMovimientoStock::where('nombre', 'Salida (Venta)')->first();
 
-        if (!$tipoMovimiento) {
+        if (! $tipoMovimiento) {
             throw new \Exception("Error de Configuración Crítico: No se encontró el tipo de movimiento 'Salida (Venta)' en la base de datos.");
         }
 
         // 2. CORRECCIÓN ACID: Bloqueo pesimista
         $stockRegistro = Stock::where('productoID', $producto->id)
-                              ->lockForUpdate() // PARA EVITAR CONDICIÓN DE CARRERA
-                              ->first();
+            ->lockForUpdate() // PARA EVITAR CONDICIÓN DE CARRERA
+            ->first();
 
-        if (!$stockRegistro) {
-             throw new SinStockException($producto->nombre, $cantidad, 0, "No hay registro de stock para este producto.");
+        if (! $stockRegistro) {
+            throw new SinStockException($producto->nombre, $cantidad, 0, 'No hay registro de stock para este producto.');
         }
 
         // 3. Validación estricta dentro del bloqueo
@@ -186,7 +187,7 @@ class RegistrarReparacionService
         }
 
         $stockAnterior = $stockRegistro->cantidad_disponible;
-        
+
         $stockRegistro->decrement('cantidad_disponible', $cantidad);
 
         // 4. Crear Movimiento usando datos dinámicos
@@ -197,7 +198,7 @@ class RegistrarReparacionService
             'cantidad' => $cantidad,
             'stockAnterior' => $stockAnterior,
             'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
-            'motivo' => 'Uso en Reparación: ' . $reparacion->codigo_reparacion,
+            'motivo' => 'Uso en Reparación: '.$reparacion->codigo_reparacion,
             'referenciaID' => $reparacion->reparacionID,
             'referenciaTabla' => 'reparaciones',
             'user_id' => $usuarioID,
@@ -209,9 +210,9 @@ class RegistrarReparacionService
     {
         foreach ($items as $item) {
             $producto = Producto::findOrFail($item['producto_id']);
-            
-            if ($producto->unidadMedida !== 'Servicio') {
-                 if (! $producto->tieneStock($item['cantidad'])) {
+
+            if (! $producto->es_servicio) {
+                if (! $producto->tieneStock($item['cantidad'])) {
                     throw new SinStockException($producto->nombre, $item['cantidad'], $producto->stock_total);
                 }
             }

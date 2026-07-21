@@ -14,9 +14,11 @@ class Reparacion extends Model
     use HasFactory;
 
     protected $table = 'reparaciones';
+
     protected $primaryKey = 'reparacionID'; // Tu PK personalizada
 
     protected $fillable = [
+        'empresa_id',
         'clienteID',
         'tecnico_id',
         'estado_reparacion_id',
@@ -65,6 +67,7 @@ class Reparacion extends Model
         'monto_cobrado' => 'decimal:2',
         'fecha_cobro' => 'datetime',
     ];
+
     /**
      * El cliente dueño del equipo.
      * Se especifica 'clienteID' porque es la FK en esta tabla y la PK en clientes.
@@ -113,7 +116,7 @@ class Reparacion extends Model
     public function historialEstados(): HasMany
     {
         return $this->hasMany(HistorialEstadoReparacion::class, 'reparacion_id', 'reparacionID')
-                    ->orderBy('fecha_cambio');
+            ->orderBy('fecha_cambio');
     }
 
     /**
@@ -123,8 +126,9 @@ class Reparacion extends Model
     public function movimientosStock(): HasMany
     {
         return $this->hasMany(MovimientoStock::class, 'referenciaID', 'reparacionID')
-                    ->where('referenciaTabla', 'reparaciones');
+            ->where('referenciaTabla', 'reparaciones');
     }
+
     public function marca()
     {
         return $this->belongsTo(Marca::class);
@@ -157,8 +161,8 @@ class Reparacion extends Model
     public function pagosImputados(): BelongsToMany
     {
         return $this->belongsToMany(Pago::class, 'pago_reparacion_imputacion', 'reparacion_id', 'pago_id')
-                    ->withPivot('monto_imputado')
-                    ->withTimestamps();
+            ->withPivot('monto_imputado')
+            ->withTimestamps();
     }
 
     /**
@@ -171,6 +175,7 @@ class Reparacion extends Model
         }
 
         $totalPagado = $this->pagosImputados->sum('pivot.monto_imputado');
+
         return max(0, (float) $this->monto_cobrado - $totalPagado);
     }
 
@@ -196,14 +201,14 @@ class Reparacion extends Model
     public function bonificacionPendiente()
     {
         return $this->hasOne(BonificacionReparacion::class, 'reparacionID', 'reparacionID')
-                    ->where('estado', 'pendiente')
-                    ->latest();
+            ->where('estado', 'pendiente')
+            ->latest();
     }
 
     /**
      * Obtiene el SLA vigente para esta reparación
      * Prioridad: sla_dias > fecha_promesa > configuración default
-     * 
+     *
      * @return int Días de SLA
      */
     public function getSLAVigente(): int
@@ -212,12 +217,12 @@ class Reparacion extends Model
         if ($this->sla_dias !== null && $this->sla_dias > 0) {
             return (int) $this->sla_dias;
         }
-        
+
         // Prioridad 2: Si tiene fecha_promesa, calcular días desde ingreso
         if ($this->fecha_promesa !== null && $this->fecha_ingreso !== null) {
             return (int) max(1, ceil($this->fecha_ingreso->diffInDays($this->fecha_promesa)));
         }
-        
+
         // Prioridad 3: Usar configuración default
         return (int) Configuracion::get('sla_reparaciones_default', 7);
     }
@@ -225,30 +230,31 @@ class Reparacion extends Model
     /**
      * Calcula los días efectivos transcurridos desde el ingreso
      * Excluye períodos en estados que pausan el SLA
-     * 
+     *
      * IMPLEMENTACIÓN CORRECTA: Usa historial de estados para calcular
      * con precisión los períodos activos vs pausados
-     * 
+     *
      * @return int Días efectivos
      */
     public function calcularDiasEfectivos(): int
     {
-        if (!$this->fecha_ingreso) {
+        if (! $this->fecha_ingreso) {
             return 0;
         }
 
         // Obtener estados que pausan SLA desde configuración
         $estadosPausaSLA = $this->obtenerEstadosPausaSLA();
-        
+
         // Si no hay estados que pausan SLA, calcular días corridos
         if (empty($estadosPausaSLA)) {
             $fechaFin = $this->fecha_entrega_real ?? now();
+
             return $this->fecha_ingreso->diffInDays($fechaFin);
         }
 
         // Obtener historial ordenado cronológicamente
         $historial = $this->historialEstados()->with('estadoNuevo')->get();
-        
+
         // Si no hay historial, usar método simplificado
         if ($historial->isEmpty()) {
             return $this->calcularDiasEfectivosSinHistorial($estadosPausaSLA);
@@ -258,25 +264,25 @@ class Reparacion extends Model
         $diasEfectivos = 0;
         $ultimaFechaActiva = $this->fecha_ingreso;
         $enPausa = false;
-        
+
         foreach ($historial as $cambio) {
             $nombreEstadoNuevo = $cambio->estadoNuevo?->nombreEstado;
-            
+
             // Si estaba activo y no entró en pausa, sumar días
-            if (!$enPausa) {
+            if (! $enPausa) {
                 $diasEfectivos += $ultimaFechaActiva->diffInDays($cambio->fecha_cambio);
             }
-            
+
             // Actualizar estado de pausa
             $enPausa = in_array($nombreEstadoNuevo, $estadosPausaSLA);
             $ultimaFechaActiva = $cambio->fecha_cambio;
         }
-        
+
         // Sumar días desde último cambio hasta ahora/entrega (si no está pausado)
-        if (!$enPausa) {
+        if (! $enPausa) {
             $diasEfectivos += $ultimaFechaActiva->diffInDays($fechaFin);
         }
-        
+
         return (int) $diasEfectivos;
     }
 
@@ -288,13 +294,13 @@ class Reparacion extends Model
     {
         $estadoActual = $this->estado?->nombreEstado;
         $fechaFin = $this->fecha_entrega_real ?? now();
-        
+
         // Si el estado actual pausa SLA, asumir que siempre estuvo pausado
         // (aproximación conservadora para datos históricos)
         if ($estadoActual && in_array($estadoActual, $estadosPausaSLA)) {
             return 0;
         }
-        
+
         return $this->fecha_ingreso->diffInDays($fechaFin);
     }
 
@@ -304,12 +310,13 @@ class Reparacion extends Model
     private function obtenerEstadosPausaSLA(): array
     {
         $estadosPausaSLA = Configuracion::get('estados_pausa_sla', '');
+
         return array_filter(array_map('trim', explode(',', $estadosPausaSLA)));
     }
 
     /**
      * Determina si la reparación excede o incumple el SLA
-     * 
+     *
      * @return array ['excede' => bool, 'incumple' => bool, 'dias_efectivos' => int, 'sla_vigente' => int, 'dias_excedidos' => int]
      */
     public function excedeOIncumpleSLA(): array
@@ -320,14 +327,14 @@ class Reparacion extends Model
         // Si tiene fecha_promesa, verificar directamente si ya pasó
         $excede = false;
         $diasExcedidos = 0;
-        
+
         if ($this->fecha_promesa !== null) {
             $fechaPromesa = \Carbon\Carbon::parse($this->fecha_promesa);
             $ahora = now();
-            
+
             // Excede si ya pasó la fecha/hora prometida
             $excede = $ahora->gt($fechaPromesa);
-            
+
             // Calcular horas/días excedidos desde fecha_promesa
             if ($excede) {
                 $horasExcedidas = $fechaPromesa->diffInHours($ahora);
@@ -351,8 +358,6 @@ class Reparacion extends Model
 
     /**
      * Verifica si la reparación está en un estado que pausa el SLA
-     * 
-     * @return bool
      */
     public function estaPausada(): bool
     {
@@ -364,6 +369,7 @@ class Reparacion extends Model
         }
 
         $estadoActual = $this->estado?->nombreEstado;
+
         return in_array($estadoActual, $estadosArray);
     }
 
@@ -372,7 +378,7 @@ class Reparacion extends Model
      */
     public function marcarComoDemorada(): void
     {
-        if (!$this->sla_excedido) {
+        if (! $this->sla_excedido) {
             $this->update([
                 'sla_excedido' => true,
                 'fecha_marcada_demorada' => now(),
@@ -406,33 +412,36 @@ class Reparacion extends Model
 
     /**
      * Scope: Reparaciones en estados que deben monitorearse para SLA (CU-14)
-     * 
+     *
      * Estados monitoreables (donde el taller tiene responsabilidad activa):
      * - Recibido (1): Esperando que comience la reparación
      * - En Reparación (2): Trabajo en curso
-     * 
+     *
      * NO se monitorean (pausan SLA):
      * - Espera de Repuesto (3): Dependencia externa
      * - Reparado (4): Listo, responsabilidad del cliente retirar
      */
     public function scopeEnEstadosMonitoreables($query)
     {
-        return $query->whereIn('estado_reparacion_id', [1, 2]); // Recibido, En Reparación
+        // Fuente única: estados que no pausan SLA (config) y no son finales.
+        $ids = EstadoReparacion::idsMonitoreablesSLA();
+
+        return $query->whereIn('estado_reparacion_id', $ids ?: [1, 2]);
     }
 
     /**
      * Scope: Búsqueda general de reparaciones
      * Encapsula la lógica de búsqueda compleja (Principio GRASP: Alta Cohesión)
-     * 
+     *
      * Busca en:
      * - Código de reparación
      * - Número de serie/IMEI
      * - Marca del equipo
      * - Modelo del equipo
      * - Apellido, nombre o DNI del cliente
-     * 
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param string|null $search Término de búsqueda
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  string|null  $search  Término de búsqueda
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeSearch($query, ?string $search)
@@ -441,17 +450,17 @@ class Reparacion extends Model
             return $query;
         }
 
-        return $query->where(function($q) use ($search) {
+        return $query->where(function ($q) use ($search) {
             $q->where('codigo_reparacion', 'like', "%{$search}%")
-              ->orWhere('numero_serie_imei', 'like', "%{$search}%")
+                ->orWhere('numero_serie_imei', 'like', "%{$search}%")
               // Búsqueda inteligente a través de relaciones
-              ->orWhereHas('modelo.marca', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
-              ->orWhereHas('modelo', fn($q) => $q->where('nombre', 'like', "%{$search}%"))
-              ->orWhereHas('cliente', function($c) use ($search) {
-                  $c->where('apellido', 'like', "%{$search}%")
-                    ->orWhere('nombre', 'like', "%{$search}%")
-                    ->orWhere('dni', 'like', "%{$search}%");
-              });
+                ->orWhereHas('modelo.marca', fn ($q) => $q->where('nombre', 'like', "%{$search}%"))
+                ->orWhereHas('modelo', fn ($q) => $q->where('nombre', 'like', "%{$search}%"))
+                ->orWhereHas('cliente', function ($c) use ($search) {
+                    $c->where('apellido', 'like', "%{$search}%")
+                        ->orWhere('nombre', 'like', "%{$search}%")
+                        ->orWhere('dni', 'like', "%{$search}%");
+                });
         });
     }
 

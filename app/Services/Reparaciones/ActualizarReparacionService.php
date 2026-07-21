@@ -2,29 +2,29 @@
 
 namespace App\Services\Reparaciones;
 
-use App\Models\Reparacion;
-use App\Models\DetalleReparacion;
-use App\Models\Producto;
-use App\Models\Stock;
-use App\Models\MovimientoStock;
-use App\Models\EstadoReparacion;
-use App\Models\TipoMovimientoStock;
+use App\Exceptions\Ventas\SinStockException;
 use App\Models\Auditoria;
 use App\Models\Cliente;
+use App\Models\DetalleReparacion;
+use App\Models\EstadoReparacion;
+use App\Models\MovimientoStock;
 use App\Models\PrecioProducto;
-use App\Exceptions\Ventas\SinStockException;
+use App\Models\Producto;
+use App\Models\Reparacion;
+use App\Models\Stock;
+use App\Models\TipoMovimientoStock;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Carbon;
 
 class ActualizarReparacionService
 {
     /**
      * Mapa de Transiciones Válidas por ID de Estado
-     * 
+     *
      * FLUJO SIMPLIFICADO (sin Diagnóstico ni Presupuestado):
      * El cliente da presupuesto al momento del ingreso.
-     * 
+     *
      * Estados según BD (nueva numeración):
      * 1 = Recibido (con presupuesto)
      * 2 = En Reparación
@@ -32,7 +32,7 @@ class ActualizarReparacionService
      * 4 = Reparado (listo para entregar) [PAUSA SLA]
      * 5 = Entregado (estado final)
      * 6 = Anulado (estado final)
-     * 
+     *
      * Flujo principal: 1 → 2 → 4 → 5
      * Con desvío:      2 → 3 → 2 (espera repuesto)
      * Anulación:       Desde cualquier estado no-final → 6
@@ -57,44 +57,49 @@ class ActualizarReparacionService
         $estadoActualId = $reparacion->estado_reparacion_id;
         $nuevoEstadoId = $datos['estado_reparacion_id'];
         $nuevoEstado = EstadoReparacion::findOrFail($nuevoEstadoId);
-        
+
         // CU-12 Excepción 5b: Validar transición de estado permitida
         if ($estadoActualId != $nuevoEstadoId) {
-            if (!$this->esTransicionValidaPorId($estadoActualId, $nuevoEstadoId)) {
+            if (! $this->esTransicionValidaPorId($estadoActualId, $nuevoEstadoId)) {
                 throw new \DomainException("Cambio de estado no permitido: No se puede pasar de '{$reparacion->estado->nombreEstado}' a '{$nuevoEstado->nombreEstado}'. Por favor, seleccione un estado válido para el flujo actual.");
             }
         }
 
         return DB::transaction(function () use ($reparacion, $datos, $nuevoEstado, $userId) {
-            
-            // 3. Actualizar Cabecera 
+
+            // Capturar valores ANTERIORES antes del update (después, Eloquent
+            // sincroniza el "original" y getOriginal() ya devolvería el valor nuevo).
+            $estadoAnteriorId = $reparacion->estado_reparacion_id;
+            $diagnosticoAnterior = $reparacion->diagnostico_tecnico;
+
+            // 3. Actualizar Cabecera
             $reparacion->update([
                 // Gestión
                 'estado_reparacion_id' => $nuevoEstado->estadoReparacionID,
-                'diagnostico_tecnico'  => $datos['diagnostico_tecnico'] ?? $reparacion->diagnostico_tecnico,
-                'observaciones'        => $datos['observaciones'] ?? $reparacion->observaciones,
-                'tecnico_id'           => $datos['tecnico_id'] ?? $reparacion->tecnico_id ?? $userId,
-                'costo_mano_obra'      => $datos['costo_mano_obra'] ?? $reparacion->costo_mano_obra,
-                'total_final'          => $datos['total_final'] ?? $reparacion->total_final,
-                
+                'diagnostico_tecnico' => $datos['diagnostico_tecnico'] ?? $reparacion->diagnostico_tecnico,
+                'observaciones' => $datos['observaciones'] ?? $reparacion->observaciones,
+                'tecnico_id' => $datos['tecnico_id'] ?? $reparacion->tecnico_id ?? $userId,
+                'costo_mano_obra' => $datos['costo_mano_obra'] ?? $reparacion->costo_mano_obra,
+                'total_final' => $datos['total_final'] ?? $reparacion->total_final,
+
                 // Datos del Equipo (Corrección de Ingreso)
-                'modelo_id'            => $datos['modelo_id'] ?? $reparacion->modelo_id,
-                'numero_serie_imei'    => $datos['numero_serie_imei'] ?? $reparacion->numero_serie_imei,
-                'clave_bloqueo'        => $datos['clave_bloqueo'] ?? $reparacion->clave_bloqueo,
-                'accesorios_dejados'   => $datos['accesorios_dejados'] ?? $reparacion->accesorios_dejados,
-                'falla_declarada'      => $datos['falla_declarada'] ?? $reparacion->falla_declarada,
-                'fecha_promesa'        => $datos['fecha_promesa'] ?? $reparacion->fecha_promesa,
+                'modelo_id' => $datos['modelo_id'] ?? $reparacion->modelo_id,
+                'numero_serie_imei' => $datos['numero_serie_imei'] ?? $reparacion->numero_serie_imei,
+                'clave_bloqueo' => $datos['clave_bloqueo'] ?? $reparacion->clave_bloqueo,
+                'accesorios_dejados' => $datos['accesorios_dejados'] ?? $reparacion->accesorios_dejados,
+                'falla_declarada' => $datos['falla_declarada'] ?? $reparacion->falla_declarada,
+                'fecha_promesa' => $datos['fecha_promesa'] ?? $reparacion->fecha_promesa,
             ]);
 
             // 4. Procesar Nuevos Repuestos
-            if (!empty($datos['repuestos'])) {
+            if (! empty($datos['repuestos'])) {
                 foreach ($datos['repuestos'] as $item) {
                     $this->agregarRepuesto($reparacion, $item, $userId);
                 }
             }
 
             // 5. Lógica de Cierre (ID 5 = Entregado según nueva numeración BD)
-            if ($nuevoEstado->estadoReparacionID == 5 && !$reparacion->fecha_entrega_real) {
+            if ($nuevoEstado->estadoReparacionID == 5 && ! $reparacion->fecha_entrega_real) {
                 $reparacion->update(['fecha_entrega_real' => now()]);
 
                 // CU-32: Registrar comprobante de Entrega de Reparación
@@ -107,7 +112,7 @@ class ActualizarReparacionService
                         'entidad_id' => $reparacion->reparacionID,
                         'usuario_id' => $userId,
                         'tipo_comprobante_id' => $tipoComprobante,
-                        'numero_correlativo' => 'ENT-' . $reparacion->codigo_reparacion,
+                        'numero_correlativo' => 'ENT-'.$reparacion->codigo_reparacion,
                         'fecha_emision' => now(),
                         'estado_comprobante_id' => $estadoEmitido,
                     ]);
@@ -125,8 +130,8 @@ class ActualizarReparacionService
                 tabla: 'reparaciones',
                 registroId: $reparacion->reparacionID,
                 datosAnteriores: [
-                    'estado_anterior' => $reparacion->getOriginal('estado_reparacion_id'),
-                    'diagnostico_anterior' => $reparacion->getOriginal('diagnostico_tecnico'),
+                    'estado_anterior' => $estadoAnteriorId,
+                    'diagnostico_anterior' => $diagnosticoAnterior,
                 ],
                 datosNuevos: [
                     'estado_nuevo' => $nuevoEstado->estadoReparacionID,
@@ -135,9 +140,9 @@ class ActualizarReparacionService
                     'repuestos_agregados' => count($datos['repuestos'] ?? []),
                 ],
                 motivo: "Actualización de reparación {$reparacion->codigo_reparacion}",
-                detalles: "Estado cambiado a: {$nuevoEstado->nombreEstado}" . 
-                          (isset($datos['diagnostico_tecnico']) ? " | Diagnóstico actualizado" : "") .
-                          (!empty($datos['repuestos']) ? " | " . count($datos['repuestos']) . " repuestos agregados" : ""),
+                detalles: "Estado cambiado a: {$nuevoEstado->nombreEstado}".
+                          (isset($datos['diagnostico_tecnico']) ? ' | Diagnóstico actualizado' : '').
+                          (! empty($datos['repuestos']) ? ' | '.count($datos['repuestos']).' repuestos agregados' : ''),
                 usuarioId: $userId
             );
 
@@ -152,8 +157,11 @@ class ActualizarReparacionService
      */
     private function esTransicionValidaPorId(int $estadoActualId, int $nuevoEstadoId): bool
     {
-        if ($estadoActualId === $nuevoEstadoId) return true;
+        if ($estadoActualId === $nuevoEstadoId) {
+            return true;
+        }
         $posibles = self::TRANSICIONES_VALIDAS[$estadoActualId] ?? [];
+
         return in_array($nuevoEstadoId, $posibles);
     }
 
@@ -162,19 +170,19 @@ class ActualizarReparacionService
         $producto = Producto::findOrFail($itemData['producto_id']);
         $cantidad = $itemData['cantidad'];
 
-        // Validar Stock y Descontar (Si es físico)
-        if ($producto->unidadMedida !== 'Servicio') {
-            
+        // Validar Stock y Descontar (los servicios no descuentan stock)
+        if (! $producto->es_servicio) {
+
             // 1. Obtener Tipo de Movimiento Dinámicamente
             $tipoMovimiento = TipoMovimientoStock::where('nombre', 'Salida (Venta)')->first();
-            if (!$tipoMovimiento) {
+            if (! $tipoMovimiento) {
                 throw new \Exception("Error de Configuración: No se encontró el tipo de movimiento 'Salida (Venta)'.");
             }
 
             // 2. Bloqueo Pesimista (ACID)
             $stockRegistro = Stock::where('productoID', $producto->id)
-                                  ->lockForUpdate()
-                                  ->firstOrFail();
+                ->lockForUpdate()
+                ->firstOrFail();
 
             if ($stockRegistro->cantidad_disponible < $cantidad) {
                 throw new SinStockException($producto->nombre, $cantidad, $stockRegistro->cantidad_disponible);
@@ -190,7 +198,7 @@ class ActualizarReparacionService
                 'cantidad' => $cantidad,
                 'stockAnterior' => $stockAnterior,
                 'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
-                'motivo' => 'Repuesto en Reparación ' . $reparacion->codigo_reparacion,
+                'motivo' => 'Repuesto en Reparación '.$reparacion->codigo_reparacion,
                 'referenciaID' => $reparacion->reparacionID,
                 'referenciaTabla' => 'reparaciones',
                 'user_id' => $userId,
@@ -219,20 +227,23 @@ class ActualizarReparacionService
         $reparacion->load('repuestos.producto');
 
         $tipoDevolucion = TipoMovimientoStock::where('nombre', 'Devolución (Entrada)')->first();
-        if (!$tipoDevolucion) {
+        if (! $tipoDevolucion) {
             Log::error("No se encontró tipo de movimiento 'Devolución (Entrada)' al anular reparación {$reparacion->codigo_reparacion}");
+
             return;
         }
 
         foreach ($reparacion->repuestos as $detalle) {
             $producto = $detalle->producto;
-            if (!$producto || $producto->es_servicio) continue;
+            if (! $producto || $producto->es_servicio) {
+                continue;
+            }
 
             $cantidad = (int) $detalle->cantidad;
 
             $stockRegistro = Stock::where('productoID', $producto->id)
-                                  ->lockForUpdate()
-                                  ->first();
+                ->lockForUpdate()
+                ->first();
 
             if ($stockRegistro) {
                 $stockAnterior = $stockRegistro->cantidad_disponible;
@@ -245,7 +256,7 @@ class ActualizarReparacionService
                     'cantidad' => $cantidad,
                     'stockAnterior' => $stockAnterior,
                     'stockNuevo' => $stockRegistro->fresh()->cantidad_disponible,
-                    'motivo' => 'Anulación Reparación ' . $reparacion->codigo_reparacion,
+                    'motivo' => 'Anulación Reparación '.$reparacion->codigo_reparacion,
                     'referenciaID' => $reparacion->reparacionID,
                     'referenciaTabla' => 'reparaciones',
                     'user_id' => $userId,
@@ -264,7 +275,7 @@ class ActualizarReparacionService
             ->where('fechaDesde', '<=', Carbon::now())
             ->where(function ($query) {
                 $query->where('fechaHasta', '>=', Carbon::now())
-                      ->orWhereNull('fechaHasta');
+                    ->orWhereNull('fechaHasta');
             })
             ->orderBy('fechaDesde', 'desc')
             ->first();
