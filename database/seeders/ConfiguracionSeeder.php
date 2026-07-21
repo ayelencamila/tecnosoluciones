@@ -34,9 +34,8 @@ class ConfiguracionSeeder extends Seeder
         Configuracion::set('compras_max_recordatorios', 3, 'Cantidad máxima de recordatorios a enviar por solicitud.');
 
         // 5. REPARACIONES
-        // NOTA: Configuraciones de reparaciones movidas a ConfiguracionReparacionesSeeder (CU-31)
-        Configuracion::set('reparacion_bonificacion_diaria_porc', 0.5, '% Descuento diario por demora.');
-        Configuracion::set('reparacion_tope_bonificacion_porc', 20, 'Tope máximo de bonificación (%).');
+        // NOTA: Las configuraciones de reparaciones (SLA y bonificaciones por demora)
+        // se definen en ConfiguracionReparacionesSeeder (CU-31).
 
         // 6. COMUNICACIÓN (Parámetros básicos - Las plantillas están en módulo separado CU-30)
         Configuracion::set('whatsapp_activo', 'true', 'Activar envío de WhatsApp.');

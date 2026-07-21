@@ -3,7 +3,6 @@
 namespace App\Services\Reparaciones;
 
 use App\Models\AlertaReparacion;
-use App\Models\Configuracion;
 use App\Models\Reparacion;
 use App\Models\TipoAlertaReparacion;
 use App\Notifications\ReparacionDemoradaNotification;
@@ -181,39 +180,5 @@ class MonitoreoSLAReparacionService
         }
 
         return $agrupadas;
-    }
-
-    /**
-     * Calcula porcentaje de bonificación según días de exceso
-     *
-     * @return int Porcentaje de bonificación
-     */
-    public function calcularPorcentajeBonificacion(int $diasExcedidos): int
-    {
-        if ($diasExcedidos <= 0) {
-            return 0;
-        }
-
-        if ($diasExcedidos <= 3) {
-            return (int) Configuracion::get('bonificacion_1_3_dias', 10);
-        }
-
-        if ($diasExcedidos <= 7) {
-            return (int) Configuracion::get('bonificacion_4_7_dias', 20);
-        }
-
-        return (int) Configuracion::get('bonificacion_mas_7_dias', 30);
-    }
-
-    /**
-     * Aplica tope máximo a bonificación
-     *
-     * @return int Porcentaje ajustado al tope
-     */
-    public function aplicarTopeBonificacion(int $porcentajeSugerido): int
-    {
-        $topeMaximo = (int) Configuracion::get('bonificacion_tope_maximo', 50);
-
-        return min($porcentajeSugerido, $topeMaximo);
     }
 }

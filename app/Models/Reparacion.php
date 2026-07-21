@@ -206,6 +206,20 @@ class Reparacion extends Model
     }
 
     /**
+     * Bonificación cuya decisión del cliente fue "aceptar".
+     * Se usa para marcar la reparación como PRIORITARIA: el cliente aceptó el
+     * descuento por demora, así que no puede volver a olvidarse de repararla.
+     */
+    public function bonificacionAceptada()
+    {
+        return $this->hasOne(BonificacionReparacion::class, 'reparacionID', 'reparacionID')
+            ->whereHas('estadoDecision', function ($q) {
+                $q->where('nombre', 'aceptar')->where('contexto', 'bonificacion');
+            })
+            ->latest();
+    }
+
+    /**
      * Obtiene el SLA vigente para esta reparación
      * Prioridad: sla_dias > fecha_promesa > configuración default
      *

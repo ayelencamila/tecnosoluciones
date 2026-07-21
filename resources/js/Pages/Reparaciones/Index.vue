@@ -133,11 +133,29 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
-                                <tr v-for="reparacion in reparaciones.data" :key="reparacion.reparacionID" class="hover:bg-gray-50 transition duration-150 group">
-                                    
-                                    <td class="px-6 py-4 whitespace-nowrap">
-                                        <div class="text-sm font-bold text-indigo-700 font-mono">
-                                            {{ reparacion.codigo }}
+                                <tr
+                                    v-for="reparacion in reparaciones.data"
+                                    :key="reparacion.reparacionID"
+                                    :class="[
+                                        'transition duration-150 group',
+                                        reparacion.prioritaria
+                                            ? 'bg-red-50 hover:bg-red-100'
+                                            : 'hover:bg-gray-50',
+                                    ]"
+                                >
+                                    <td :class="['px-6 py-4 whitespace-nowrap border-l-4', reparacion.prioritaria ? 'border-red-500' : 'border-transparent']">
+                                        <div class="flex items-center gap-2">
+                                            <div class="text-sm font-bold text-indigo-700 font-mono">
+                                                {{ reparacion.codigo }}
+                                            </div>
+                                            <span
+                                                v-if="reparacion.prioritaria"
+                                                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-red-600 text-white"
+                                                title="El cliente aceptó el descuento por demora: priorizar la reparación"
+                                            >
+                                                <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                                                Prioridad
+                                            </span>
                                         </div>
                                         <div class="text-xs text-gray-500" title="Fecha de Ingreso">
                                             {{ reparacion.fecha_ingreso }}

@@ -37,7 +37,8 @@ class ReparacionController extends Controller
 
         // 1. Cargamos 'modelo.marca' para acceder al nombre de la marca (3FN)
         //    Scoping manual por empresa (multi-tenant): solo reparaciones propias.
-        $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'modelo.marca'])
+        //    'bonificacionAceptada' permite marcar prioridad (cliente aceptó descuento).
+        $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'modelo.marca', 'bonificacionAceptada'])
             ->where('empresa_id', $request->user()->empresa_id)
             ->latest();
 
@@ -69,6 +70,10 @@ class ReparacionController extends Controller
                     'id' => $r->estado->estadoReparacionID,
                 ],
                 'tecnico' => $r->tecnico ? $r->tecnico->name : 'Sin asignar',
+                // Prioridad: el cliente aceptó el descuento por demora y todavía no
+                // se reparó (estados 1=Recibido, 2=En Reparación, 3=Espera de Repuesto).
+                'prioritaria' => $r->bonificacionAceptada !== null
+                    && in_array($r->estado_reparacion_id, [1, 2, 3]),
             ]);
 
         return Inertia::render('Reparaciones/Index', [

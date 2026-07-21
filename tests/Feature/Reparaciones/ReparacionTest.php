@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Reparaciones;
 
+use App\Models\BonificacionReparacion;
 use App\Models\CategoriaProducto;
 use App\Models\Cliente;
 use App\Models\CuentaCorriente;
@@ -23,6 +24,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class ReparacionTest extends TestCase
@@ -514,6 +516,64 @@ class ReparacionTest extends TestCase
             route('reparaciones.destroy', $reparacion->reparacionID),
             ['motivo' => 'prueba de permisos denegada']
         )->assertForbidden();
+    }
+
+    // ─── PRIORIDAD POR DESCUENTO ACEPTADO (PA#2) ────────────────
+
+    /** @test */
+    public function una_reparacion_con_descuento_aceptado_se_marca_prioritaria()
+    {
+        // Los estados de decisión ya vienen seedeados por la migración; usamos el real.
+        $aceptarId = DB::table('estados_decision_cliente')
+            ->where('nombre', 'aceptar')->where('contexto', 'bonificacion')->value('estado_id');
+
+        $reparacion = Reparacion::create([
+            'clienteID' => $this->clienteMinorista->clienteID,
+            'tecnico_id' => $this->admin->id,
+            'estado_reparacion_id' => 2, // En Reparación (todavía por reparar)
+            'codigo_reparacion' => 'REP-PRIO-001',
+            'modelo_id' => $this->modelo->id,
+            'falla_declarada' => 'Falla',
+            'fecha_ingreso' => now()->subDays(10),
+            'total_final' => 10000,
+        ]);
+
+        BonificacionReparacion::create([
+            'reparacionID' => $reparacion->reparacionID,
+            'porcentaje_sugerido' => 10,
+            'monto_original' => 10000,
+            'monto_bonificado' => 1000,
+            'dias_excedidos' => 5,
+            'estado' => 'aprobada',
+            'estado_decision_id' => $aceptarId, // el cliente aceptó
+            'fecha_decision_cliente' => now(),
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('reparaciones.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Reparaciones/Index')
+                ->where('reparaciones.data.0.prioritaria', true));
+    }
+
+    /** @test */
+    public function sin_descuento_aceptado_no_es_prioritaria()
+    {
+        Reparacion::create([
+            'clienteID' => $this->clienteMinorista->clienteID,
+            'tecnico_id' => $this->admin->id,
+            'estado_reparacion_id' => 2,
+            'codigo_reparacion' => 'REP-NOPRIO-001',
+            'modelo_id' => $this->modelo->id,
+            'falla_declarada' => 'Falla',
+            'fecha_ingreso' => now(),
+            'total_final' => 10000,
+        ]);
+
+        $this->actingAs($this->admin)
+            ->get(route('reparaciones.index'))
+            ->assertInertia(fn (Assert $page) => $page
+                ->where('reparaciones.data.0.prioritaria', false));
     }
 
     // ─── HELPER ─────────────────────────────────────────────────
