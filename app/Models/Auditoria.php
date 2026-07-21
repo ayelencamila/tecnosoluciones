@@ -92,6 +92,12 @@ class Auditoria extends Model
     ];
 
     /**
+     * Patrón de claves consideradas sensibles (no deben quedar en texto plano).
+     * Incluye 'clave' → cubre `clave_bloqueo` (PIN de desbloqueo del equipo del cliente).
+     */
+    public const PATRON_SENSIBLE = '/password|contrase|token|secret|clave|remember_token|api_key/i';
+
+    /**
      * Constantes para tipos de acciones de auditoría del sistema completo
      */
 
@@ -257,6 +263,13 @@ class Auditoria extends Model
                 $auditoria->ip ??= request()->ip();
                 $auditoria->user_agent ??= substr((string) request()->userAgent(), 0, 512) ?: null;
             }
+
+            // Enmascaramiento en ESCRITURA: los campos sensibles (ej. la clave de
+            // desbloqueo del equipo del cliente) nunca se persisten en texto plano
+            // en la bitácora. Es la forma fuerte de protección: el secreto no queda
+            // guardado, ni siquiera para exportarse.
+            $auditoria->datos_anteriores = self::enmascararSensibles($auditoria->datos_anteriores);
+            $auditoria->datos_nuevos = self::enmascararSensibles($auditoria->datos_nuevos);
         });
 
         // Inmutabilidad (Sommerville): la bitácora es "solo inserción" (append-only).
@@ -278,6 +291,35 @@ class Auditoria extends Model
     public function empresa(): BelongsTo
     {
         return $this->belongsTo(Empresa::class, 'empresa_id', 'id');
+    }
+
+    /**
+     * Enmascara recursivamente los valores cuyas claves son sensibles.
+     *
+     * Solo enmascara valores realmente presentes: un `null` o cadena vacía se
+     * conserva tal cual (no falsea un "sin dato" como si hubiera un secreto).
+     *
+     * @param  array<string, mixed>|null  $datos
+     * @return array<string, mixed>|null
+     */
+    public static function enmascararSensibles(?array $datos): ?array
+    {
+        if ($datos === null) {
+            return null;
+        }
+
+        $resultado = [];
+        foreach ($datos as $clave => $valor) {
+            if (is_array($valor)) {
+                $resultado[$clave] = self::enmascararSensibles($valor);
+            } elseif (preg_match(self::PATRON_SENSIBLE, (string) $clave) && $valor !== null && $valor !== '') {
+                $resultado[$clave] = '******';
+            } else {
+                $resultado[$clave] = $valor;
+            }
+        }
+
+        return $resultado;
     }
 
     /**

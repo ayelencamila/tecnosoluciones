@@ -98,6 +98,41 @@ class AuditoriaTest extends TestCase
     }
 
     /** @test */
+    public function los_campos_sensibles_no_se_guardan_en_texto_plano(): void
+    {
+        $registro = Auditoria::create([
+            'accion' => 'CREAR_REPARACION',
+            'tabla_afectada' => 'reparaciones',
+            'datos_nuevos' => [
+                'modelo_id' => 7,
+                'clave_bloqueo' => '1234',   // sensible: se debe enmascarar
+                'observaciones' => 'pantalla rota', // normal: intacto
+            ],
+        ]);
+
+        $fresco = Auditoria::find($registro->auditoriaID);
+
+        $this->assertSame('******', $fresco->datos_nuevos['clave_bloqueo']);
+        $this->assertSame('pantalla rota', $fresco->datos_nuevos['observaciones']);
+        $this->assertSame(7, $fresco->datos_nuevos['modelo_id']);
+
+        // El crudo en la BD tampoco contiene el valor original.
+        $crudo = DB::table('auditorias')->where('auditoriaID', $registro->auditoriaID)->value('datos_nuevos');
+        $this->assertStringNotContainsString('1234', $crudo);
+    }
+
+    /** @test */
+    public function un_campo_sensible_nulo_se_conserva_como_nulo(): void
+    {
+        $registro = Auditoria::create([
+            'accion' => 'CREAR_REPARACION',
+            'datos_nuevos' => ['clave_bloqueo' => null],
+        ]);
+
+        $this->assertNull(Auditoria::find($registro->auditoriaID)->datos_nuevos['clave_bloqueo']);
+    }
+
+    /** @test */
     public function consultar_el_log_se_audita_a_si_mismo(): void
     {
         $admin = $this->usuarioCon('administrador', 1);

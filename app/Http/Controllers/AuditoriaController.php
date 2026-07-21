@@ -23,9 +23,6 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  */
 class AuditoriaController extends Controller
 {
-    /** Campos sensibles a enmascarar en la salida (defensa en profundidad). */
-    private const CAMPOS_SENSIBLES = '/(password|contrase|token|secret|clave|remember_token|api_key)/i';
-
     public function index(Request $request): Response
     {
         $empresaId = $request->user()->empresa_id;
@@ -147,29 +144,16 @@ class AuditoriaController extends Controller
         return $pdf->download("auditoria_{$timestamp}.pdf");
     }
 
-    /** Serializa datos JSON enmascarando campos sensibles. */
+    /**
+     * Serializa datos JSON para exportación, enmascarando campos sensibles.
+     * Defensa para filas antiguas: los registros nuevos ya se guardan enmascarados.
+     */
     private function datosParaExport(?array $datos): string
     {
         if (empty($datos)) {
             return '';
         }
 
-        return json_encode($this->enmascarar($datos), JSON_UNESCAPED_UNICODE);
-    }
-
-    private function enmascarar(mixed $valor): mixed
-    {
-        if (! is_array($valor)) {
-            return $valor;
-        }
-
-        $resultado = [];
-        foreach ($valor as $clave => $v) {
-            $resultado[$clave] = preg_match(self::CAMPOS_SENSIBLES, (string) $clave)
-                ? '******'
-                : $this->enmascarar($v);
-        }
-
-        return $resultado;
+        return json_encode(Auditoria::enmascararSensibles($datos), JSON_UNESCAPED_UNICODE);
     }
 }
