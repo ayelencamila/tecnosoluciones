@@ -268,8 +268,14 @@ class Auditoria extends Model
             // desbloqueo del equipo del cliente) nunca se persisten en texto plano
             // en la bitácora. Es la forma fuerte de protección: el secreto no queda
             // guardado, ni siquiera para exportarse.
-            $auditoria->datos_anteriores = self::enmascararSensibles($auditoria->datos_anteriores);
-            $auditoria->datos_nuevos = self::enmascararSensibles($auditoria->datos_nuevos);
+            // Guardas is_array: si algún callsite pasó un JSON string (doble-codificado),
+            // no enmascaramos pero tampoco reventamos el request.
+            if (is_array($auditoria->datos_anteriores)) {
+                $auditoria->datos_anteriores = self::enmascararSensibles($auditoria->datos_anteriores);
+            }
+            if (is_array($auditoria->datos_nuevos)) {
+                $auditoria->datos_nuevos = self::enmascararSensibles($auditoria->datos_nuevos);
+            }
         });
 
         // Inmutabilidad (Sommerville): la bitácora es "solo inserción" (append-only).

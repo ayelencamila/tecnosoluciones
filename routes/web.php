@@ -365,15 +365,16 @@ Route::middleware(['auth'])->group(function () {
 
     //--- MÓDULO DE CLIENTES (CU-01) ---
     Route::prefix('clientes')->name('clientes.')->group(function () {
-        Route::get('/', [ClienteController::class, 'index'])->name('index');   
-        Route::get('/crear', [ClienteController::class, 'create'])->name('create');   
-        Route::get('/{cliente}', [ClienteController::class, 'show'])->name('show');
-        Route::get('/{cliente}/editar', [ClienteController::class, 'edit'])->name('edit');
-        Route::post('/', [ClienteController::class, 'store'])->name('store');
-        Route::put('/{cliente}', [ClienteController::class, 'update'])->name('update');
-        Route::get('/{cliente}/verificar-baja', [ClienteController::class, 'verificarBaja'])->name('verificarBaja');
-        Route::get('/{cliente}/confirmar-baja', [ClienteController::class, 'confirmDelete'])->name('confirmDelete');   
-        Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])->name('darDeBaja'); 
+        Route::get('/', [ClienteController::class, 'index'])->middleware('permiso:clientes.ver')->name('index');
+        Route::get('/crear', [ClienteController::class, 'create'])->middleware('permiso:clientes.crear')->name('create');
+        Route::get('/{cliente}', [ClienteController::class, 'show'])->middleware('permiso:clientes.ver')->name('show');
+        Route::get('/{cliente}/editar', [ClienteController::class, 'edit'])->middleware('permiso:clientes.editar')->name('edit');
+        Route::post('/', [ClienteController::class, 'store'])->middleware('permiso:clientes.crear')->name('store');
+        Route::put('/{cliente}', [ClienteController::class, 'update'])->middleware('permiso:clientes.editar')->name('update');
+        // La baja lógica es una modificación → permiso 'editar'.
+        Route::get('/{cliente}/verificar-baja', [ClienteController::class, 'verificarBaja'])->middleware('permiso:clientes.editar')->name('verificarBaja');
+        Route::get('/{cliente}/confirmar-baja', [ClienteController::class, 'confirmDelete'])->middleware('permiso:clientes.editar')->name('confirmDelete');
+        Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])->middleware('permiso:clientes.editar')->name('darDeBaja');
     });
 
     // --- MÓDULO DE PROVEEDORES (CU-16 a CU-19) ---
@@ -404,25 +405,25 @@ Route::middleware(['auth'])->group(function () {
 
     //--- MÓDULO DE PRODUCTOS ---
     Route::prefix('productos')->name('productos.')->group(function () {
-        // CU-29: Consultar Stock   
-        Route::get('/consultar-stock', [ProductoController::class, 'stock'])->name('stock'); 
+        // CU-29: Consultar Stock
+        Route::get('/consultar-stock', [ProductoController::class, 'stock'])->middleware('permiso:productos.ver')->name('stock');
 
         // CU-28: Catálogo (Index)
-        Route::get('/', [ProductoController::class, 'index'])->name('index');   
-        
+        Route::get('/', [ProductoController::class, 'index'])->middleware('permiso:productos.ver')->name('index');
+
         // CU-25: Registrar (Create & Store)
-        Route::get('/crear', [ProductoController::class, 'create'])->name('create');   
-        Route::post('/', [ProductoController::class, 'store'])->name('store');
+        Route::get('/crear', [ProductoController::class, 'create'])->middleware('permiso:productos.crear')->name('create');
+        Route::post('/', [ProductoController::class, 'store'])->middleware('permiso:productos.crear')->name('store');
 
         // CU-28: Ver Detalle (Show)
-        Route::get('/{producto}', [ProductoController::class, 'show'])->name('show');
+        Route::get('/{producto}', [ProductoController::class, 'show'])->middleware('permiso:productos.ver')->name('show');
 
         // CU-26: Modificar (Edit & Update)
-        Route::get('/{producto}/editar', [ProductoController::class, 'edit'])->name('edit');
-        Route::put('/{producto}', [ProductoController::class, 'update'])->name('update');
+        Route::get('/{producto}/editar', [ProductoController::class, 'edit'])->middleware('permiso:productos.editar')->name('edit');
+        Route::put('/{producto}', [ProductoController::class, 'update'])->middleware('permiso:productos.editar')->name('update');
 
         // CU-27: Dar de Baja
-        Route::post('/{producto}/dar-de-baja', [ProductoController::class, 'darDeBaja'])->name('darDeBaja'); 
+        Route::post('/{producto}/dar-de-baja', [ProductoController::class, 'darDeBaja'])->middleware('permiso:productos.eliminar')->name('darDeBaja');
     });
 
     // Ruta para CU-30: Ajuste de Stock

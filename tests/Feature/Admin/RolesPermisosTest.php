@@ -65,6 +65,37 @@ class RolesPermisosTest extends TestCase
     }
 
     /** @test */
+    public function clientes_requiere_permiso_ver()
+    {
+        $sin = $this->userConPermisos(['dashboard.ver'], 'sin_clientes');
+        $this->actingAs($sin)->get(route('clientes.index'))->assertForbidden();
+
+        $con = $this->userConPermisos(['clientes.ver'], 'con_clientes');
+        $this->actingAs($con)->get(route('clientes.index'))->assertOk();
+    }
+
+    /** @test */
+    public function productos_requiere_permiso_ver()
+    {
+        $sin = $this->userConPermisos(['dashboard.ver'], 'sin_productos');
+        $this->actingAs($sin)->get(route('productos.index'))->assertForbidden();
+
+        $con = $this->userConPermisos(['productos.ver'], 'con_productos');
+        $this->actingAs($con)->get(route('productos.index'))->assertOk();
+    }
+
+    /** @test */
+    public function crear_producto_requiere_permiso_crear()
+    {
+        // Perfil tipo vendedor: ve productos pero (en este caso) no tiene crear.
+        $soloVer = $this->userConPermisos(['productos.ver'], 'prod_solo_ver');
+        $this->actingAs($soloVer)->get(route('productos.create'))->assertForbidden();
+
+        $conCrear = $this->userConPermisos(['productos.ver', 'productos.crear'], 'prod_con_crear');
+        $this->actingAs($conCrear)->get(route('productos.create'))->assertOk();
+    }
+
+    /** @test */
     public function un_rol_de_otra_empresa_no_es_gestionable()
     {
         $admin = $this->userConPermisos([], 'administrador'); // empresa 1
