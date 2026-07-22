@@ -1,22 +1,21 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use Illuminate\Foundation\Application;
-use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\ClienteController;
-use App\Http\Controllers\LocalidadController;
-use App\Http\Controllers\ProductoController;
-use App\Http\Controllers\VentaController;
-use App\Http\Controllers\PagoController;
-use App\Http\Controllers\DescuentoController;
-use App\Http\Controllers\StockController; 
-use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\ConfiguracionController;
-use App\Http\Controllers\ReparacionController;
-use App\Http\Controllers\ProveedorController; 
 use App\Http\Controllers\Admin\CategoriaProductoController;
 use App\Http\Controllers\Api\ClienteBonificacionController;
+use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\ComprobanteInternoController;
+use App\Http\Controllers\ConfiguracionController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DescuentoController;
+use App\Http\Controllers\LocalidadController;
+use App\Http\Controllers\PagoController;
+use App\Http\Controllers\ProductoController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\ReparacionController;
+use App\Http\Controllers\StockController;
+use App\Http\Controllers\VentaController;
+use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 /*
@@ -44,6 +43,7 @@ Route::get('/', function () {
     if (auth()->check()) {
         return redirect()->route('dashboard');
     }
+
     return redirect()->route('login');
 });
 
@@ -74,11 +74,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // --- GESTIÓN DE MAESTROS (Configuración de Tablas Paramétricas) ---
     // Todas estas rutas tendrán el prefijo /admin/ y el nombre admin.
     Route::prefix('admin')->name('admin.')->middleware('role:administrador')->group(function () {
-        
+
         // ============================================================
         // CU-12: GESTIÓN DE USUARIOS Y ROLES
         // ============================================================
-        
+
         // --- Gestión de Usuarios ---
         Route::resource('usuarios', \App\Http\Controllers\Admin\UserController::class);
         Route::patch('usuarios/{usuario}/toggle-activo', [\App\Http\Controllers\Admin\UserController::class, 'toggleActivo'])
@@ -96,7 +96,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         // ============================================================
         // MAESTROS (Tablas Paramétricas)
         // ============================================================
-        
+
         // 1. Categorías de Producto (Implementación Actual)
         Route::resource('categorias', CategoriaProductoController::class);
         Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
@@ -115,7 +115,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::resource('motivos-demora', \App\Http\Controllers\Admin\MotivoDemoraReparacionController::class);
         Route::post('admin/motivos-demora/reorder', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'reorder'])->name('admin.motivos-demora.reorder');
         Route::patch('admin/motivos-demora/{motivosDemora}/toggle', [\App\Http\Controllers\Admin\MotivoDemoraReparacionController::class, 'toggle'])->name('admin.motivos-demora.toggle');
-        
+
         // Categorías de Gasto (para módulo de gastos)
         Route::resource('categorias-gasto', \App\Http\Controllers\Admin\CategoriaGastoController::class);
         Route::patch('categorias-gasto/{categorias_gasto}/toggle-activo', [\App\Http\Controllers\Admin\CategoriaGastoController::class, 'toggleActivo'])->name('admin.categorias-gasto.toggle-activo');
@@ -138,52 +138,52 @@ Route::middleware(['auth'])->prefix('api')->group(function () {
     Route::get('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'index']);
     Route::post('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'store']);
     Route::delete('/tipos-cliente/{tipoCliente}', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'destroy']);
-    
+
     // Estados de Cliente
     Route::get('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'index']);
     Route::post('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'store']);
     Route::delete('/estados-cliente/{estadoCliente}', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'destroy']);
-    
+
     // Provincias
     Route::get('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'index']);
     Route::post('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'store']);
     Route::delete('/provincias/{provincia}', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'destroy']);
-    
+
     // Localidades
     Route::get('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'index']);
     Route::post('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'store']);
     Route::delete('/localidades/{localidad}', [\App\Http\Controllers\Api\LocalidadApiController::class, 'destroy']);
-    
+
     // Marcas
     Route::get('/marcas', [\App\Http\Controllers\Api\MarcaApiController::class, 'index']);
     Route::post('/marcas', [\App\Http\Controllers\Api\MarcaApiController::class, 'store']);
     Route::delete('/marcas/{marca}', [\App\Http\Controllers\Api\MarcaApiController::class, 'destroy']);
-    
+
     // Modelos (por marca)
     Route::get('/modelos', [\App\Http\Controllers\Api\ModeloController::class, 'indexAll']);
     Route::post('/modelos', [\App\Http\Controllers\Api\ModeloController::class, 'store']);
     Route::delete('/modelos/{modelo}', [\App\Http\Controllers\Api\ModeloController::class, 'destroy']);
-    
+
     // Unidades de Medida
     Route::get('/unidades-medida', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'index']);
     Route::post('/unidades-medida', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'store']);
     Route::delete('/unidades-medida/{unidadMedida}', [\App\Http\Controllers\Api\UnidadMedidaApiController::class, 'destroy']);
-    
+
     // Categorías de Producto
     Route::get('/categorias-producto', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'index']);
     Route::post('/categorias-producto', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'store']);
     Route::delete('/categorias-producto/{categoriaProducto}', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'destroy']);
-    
+
     // Estados de Producto
     Route::get('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'index']);
     Route::post('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'store']);
     Route::delete('/estados-producto/{estadoProducto}', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'destroy']);
-    
+
     // Medios de Pago
     Route::get('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'index']);
     Route::post('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'store']);
     Route::delete('/medios-pago/{medioPago}', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'destroy']);
-    
+
     // Tipos de Movimiento de Stock
     Route::get('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'index']);
     Route::post('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'store']);
@@ -197,16 +197,18 @@ Route::middleware(['auth'])->group(function () {
             ->take(20)
             ->get();
     });
-    
+
     Route::post('/api/notifications/{id}/read', function ($id) {
         auth()->user()->notifications()
             ->where('id', $id)
             ->update(['read_at' => now()]);
+
         return response()->json(['success' => true]);
     });
-    
+
     Route::post('/api/notifications/mark-all-read', function () {
         auth()->user()->unreadNotifications->markAsRead();
+
         return response()->json(['success' => true]);
     });
 
@@ -219,21 +221,23 @@ Route::middleware(['auth'])->group(function () {
             ->take(20)
             ->get();
     });
-    
+
     // Marcar alerta individual como leída
     Route::patch('/api/tecnico/alertas/{id}/marcar-leida', function ($id) {
         $alerta = \App\Models\AlertaReparacion::where('alertaReparacionID', $id)
             ->where('tecnicoID', auth()->id())
             ->firstOrFail();
         $alerta->update(['leida' => true, 'fecha_lectura' => now()]);
+
         return response()->json(['success' => true]);
     });
-    
+
     // Marcar todas las alertas como leídas
     Route::post('/api/tecnico/alertas/marcar-todas-leidas', function () {
         \App\Models\AlertaReparacion::where('tecnicoID', auth()->id())
             ->where('leida', false)
             ->update(['leida' => true, 'fecha_lectura' => now()]);
+
         return response()->json(['success' => true]);
     });
 
@@ -255,14 +259,14 @@ Route::middleware(['auth'])->group(function () {
         // Generar código si no se proporciona
         if (empty($validated['codigo'])) {
             $base = strtoupper(preg_replace('/[^A-Za-z0-9]/', '_', substr($validated['nombre'], 0, 10)));
-            $validated['codigo'] = 'MOT_' . $base . '_' . substr(time(), -4);
+            $validated['codigo'] = 'MOT_'.$base.'_'.substr(time(), -4);
         }
 
         // Asegurar que el código sea único
         $baseCode = $validated['codigo'];
         $counter = 1;
         while (\App\Models\MotivoDemoraReparacion::where('codigo', $validated['codigo'])->exists()) {
-            $validated['codigo'] = $baseCode . '_' . $counter++;
+            $validated['codigo'] = $baseCode.'_'.$counter++;
         }
 
         // Obtener el próximo orden disponible
@@ -279,7 +283,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::patch('/api/motivos-demora/{id}/toggle', function ($id) {
         $motivo = \App\Models\MotivoDemoraReparacion::findOrFail($id);
-        $motivo->update(['activo' => !$motivo->activo]);
+        $motivo->update(['activo' => ! $motivo->activo]);
+
         return response()->json(['success' => true, 'activo' => $motivo->activo]);
     });
 
@@ -287,6 +292,7 @@ Route::middleware(['auth'])->group(function () {
         $motivo = \App\Models\MotivoDemoraReparacion::findOrFail($id);
         // Soft delete: solo desactivar
         $motivo->update(['activo' => false]);
+
         return response()->json(['success' => true]);
     });
 });
@@ -296,7 +302,7 @@ Route::middleware(['auth'])->group(function () {
     // --- MÓDULO DE REPORTES Y ESTADÍSTICAS (CU-33 a CU-37) ---
     // Acceso restringido solo a Administradores (y Gerentes si existiera el rol)
     Route::prefix('reportes')->name('reportes.')->middleware(['role:administrador'])->group(function () {
-        
+
         // Ruta base /reportes → redirige al Reporte Mensual
         Route::get('/', fn () => redirect()->route('reportes.mensual'));
 
@@ -330,16 +336,26 @@ Route::middleware(['auth'])->group(function () {
     Route::patch('/gastos/{gasto}/anular', [\App\Http\Controllers\GastoController::class, 'anular'])->name('gastos.anular');
 
     // --- MÓDULO DE VENTAS ---
+    // Enforcement por permiso. Se definen rutas explícitas (solo las acciones que
+    // el controller implementa): index/create/store/show. Antes había un resource
+    // que registraba edit/update/destroy MUERTAS (sin método en el controller).
     Route::post('/ventas/{venta}/anular', [VentaController::class, 'anular'])
-        ->name('ventas.anular');
-    
+        ->middleware('permiso:ventas.anular')->name('ventas.anular');
+
     Route::get('/ventas/{venta}/imprimir', [VentaController::class, 'imprimirComprobante'])
-        ->name('ventas.imprimir');
-    
+        ->middleware('permiso:ventas.ver')->name('ventas.imprimir');
+
     Route::get('/ventas/{venta}/imprimir-anulacion', [VentaController::class, 'imprimirComprobanteAnulacion'])
-        ->name('ventas.imprimir-anulacion');
-    
-    Route::resource('ventas', VentaController::class);
+        ->middleware('permiso:ventas.ver')->name('ventas.imprimir-anulacion');
+
+    Route::get('/ventas', [VentaController::class, 'index'])
+        ->middleware('permiso:ventas.ver')->name('ventas.index');
+    Route::get('/ventas/create', [VentaController::class, 'create'])
+        ->middleware('permiso:ventas.crear')->name('ventas.create');
+    Route::post('/ventas', [VentaController::class, 'store'])
+        ->middleware('permiso:ventas.crear')->name('ventas.store');
+    Route::get('/ventas/{venta}', [VentaController::class, 'show'])
+        ->middleware('permiso:ventas.ver')->name('ventas.show');
 
     // --- MÓDULO DE DESCUENTOS (CU-08) ---
     Route::resource('descuentos', DescuentoController::class);
@@ -347,23 +363,29 @@ Route::middleware(['auth'])->group(function () {
     // --- MÓDULO DE PAGOS (CU-10) ---
     Route::prefix('pagos')->name('pagos.')->group(function () {
         // Listado (Index)
-        Route::get('/', [PagoController::class, 'index'])->name('index');
+        Route::get('/', [PagoController::class, 'index'])
+            ->middleware('permiso:pagos.ver')->name('index');
         // Formulario de Carga (Create)
-        Route::get('/crear', [PagoController::class, 'create'])->name('create');
-        // Obtener documentos pendientes de un cliente (CU-10 Paso 6)
+        Route::get('/crear', [PagoController::class, 'create'])
+            ->middleware('permiso:pagos.crear')->name('create');
+        // Obtener documentos pendientes de un cliente (CU-10 Paso 6) — parte del alta
         Route::get('/cliente/{cliente}/documentos-pendientes', [PagoController::class, 'obtenerDocumentosPendientes'])
-            ->name('cliente.documentos');
+            ->middleware('permiso:pagos.ver')->name('cliente.documentos');
         // Guardar Pago (Store)
-        Route::post('/', [PagoController::class, 'store'])->name('store');
+        Route::post('/', [PagoController::class, 'store'])
+            ->middleware('permiso:pagos.crear')->name('store');
         // Ver Recibo (Show)
-        Route::get('/{pago}', [PagoController::class, 'show'])->name('show');
+        Route::get('/{pago}', [PagoController::class, 'show'])
+            ->middleware('permiso:pagos.ver')->name('show');
         // Imprimir Recibo (CU-10 Paso 12 - Kendall)
-        Route::get('/{pago}/imprimir', [PagoController::class, 'imprimirRecibo'])->name('imprimir');
-        // Anular Pago
-        Route::delete('/{pago}', [PagoController::class, 'anular'])->name('anular');
+        Route::get('/{pago}/imprimir', [PagoController::class, 'imprimirRecibo'])
+            ->middleware('permiso:pagos.ver')->name('imprimir');
+        // Anular Pago (solo quien tiene el permiso; el vendedor no lo tiene)
+        Route::delete('/{pago}', [PagoController::class, 'anular'])
+            ->middleware('permiso:pagos.anular')->name('anular');
     });
 
-    //--- MÓDULO DE CLIENTES (CU-01) ---
+    // --- MÓDULO DE CLIENTES (CU-01) ---
     Route::prefix('clientes')->name('clientes.')->group(function () {
         Route::get('/', [ClienteController::class, 'index'])->middleware('permiso:clientes.ver')->name('index');
         Route::get('/crear', [ClienteController::class, 'create'])->middleware('permiso:clientes.crear')->name('create');
@@ -380,13 +402,13 @@ Route::middleware(['auth'])->group(function () {
     // --- MÓDULO DE PROVEEDORES (CU-16 a CU-19) ---
     // Ubicado aquí para acceso operativo (Admin/Compras)
     Route::resource('proveedores', ProveedorController::class)->parameters([
-        'proveedores' => 'proveedor'
+        'proveedores' => 'proveedor',
     ]);
-    
+
     // Ruta adicional para actualizar calificación (CU-21)
     Route::patch('proveedores/{proveedor}/calificacion', [ProveedorController::class, 'actualizarCalificacion'])
         ->name('proveedores.actualizar-calificacion');
-    
+
     // API Interna para buscar clientes (Buscador Asíncrono)
     Route::get('/api/clientes/buscar', [App\Http\Controllers\ClienteController::class, 'buscar'])
         ->name('api.clientes.buscar');
@@ -403,7 +425,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/productos/buscar', [ProductoController::class, 'buscar'])
         ->name('api.productos.buscar');
 
-    //--- MÓDULO DE PRODUCTOS ---
+    // --- MÓDULO DE PRODUCTOS ---
     Route::prefix('productos')->name('productos.')->group(function () {
         // CU-29: Consultar Stock
         Route::get('/consultar-stock', [ProductoController::class, 'stock'])->middleware('permiso:productos.ver')->name('stock');
@@ -428,12 +450,12 @@ Route::middleware(['auth'])->group(function () {
 
     // Ruta para CU-30: Ajuste de Stock
     Route::post('/stock/movimiento', [StockController::class, 'storeMovimiento'])
-      ->name('stock.movimiento.store');
-    
+        ->name('stock.movimiento.store');
+
     // NUEVA RUTA: Actualizar Configuración de Stock (Mínimos)
     Route::put('/stock/{stock}', [StockController::class, 'update'])
         ->name('stock.update');
-    
+
     // --- MÓDULO DE AUDITORÍA ---
     // Consulta restringida a administradores; scoping multi-tenant en el controller.
     Route::middleware('role:administrador')->group(function () {
@@ -443,7 +465,7 @@ Route::middleware(['auth'])->group(function () {
             ->where('formato', 'csv|pdf')
             ->name('auditorias.exportar');
     });
-    
+
     // --- MÓDULO DE COMPROBANTES INTERNOS (CU-32) ---
     Route::prefix('comprobantes')->name('comprobantes.')->group(function () {
         Route::get('/', [ComprobanteInternoController::class, 'index'])->name('index');
@@ -453,7 +475,7 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/{comprobante}/anular', [ComprobanteInternoController::class, 'anular'])->name('anular');
         Route::post('/{comprobante}/reemitir', [ComprobanteInternoController::class, 'reemitir'])->name('reemitir');
     })->scopeBindings();
-    
+
     // --- MÓDULO DE CONFIGURACIÓN ---
     Route::prefix('configuracion')->name('configuracion.')->group(function () {
         Route::get('/', [ConfiguracionController::class, 'index'])->name('index');
@@ -532,7 +554,7 @@ Route::middleware(['auth'])->group(function () {
     // --- MÓDULO DE COMPRAS (CU-20 a CU-23) ---
     // MODELO SIMPLIFICADO: SolicitudCotizacion → CotizacionProveedor → OrdenCompra
     // (Tabla ofertas_compra eliminada - ver migración simplificar_modelo_compras)
-    
+
     // CU-21: DEPRECADO - Las ofertas ahora son las cotizaciones del proveedor
     // Las rutas de /ofertas se mantienen comentadas por compatibilidad temporal
     // Route::prefix('ofertas')->name('ofertas.')->middleware('role:administrador')->group(function () {
@@ -600,4 +622,3 @@ Route::middleware(['auth'])->group(function () {
     });
 
 });
-

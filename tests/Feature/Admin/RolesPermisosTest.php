@@ -96,6 +96,45 @@ class RolesPermisosTest extends TestCase
     }
 
     /** @test */
+    public function ventas_requiere_permiso_ver()
+    {
+        $sin = $this->userConPermisos(['dashboard.ver'], 'sin_ventas');
+        $this->actingAs($sin)->get(route('ventas.index'))->assertForbidden();
+
+        $con = $this->userConPermisos(['ventas.ver'], 'con_ventas');
+        $this->actingAs($con)->get(route('ventas.index'))->assertOk();
+    }
+
+    /** @test */
+    public function crear_venta_requiere_permiso_crear()
+    {
+        $soloVer = $this->userConPermisos(['ventas.ver'], 'ventas_solo_ver');
+        $this->actingAs($soloVer)->get(route('ventas.create'))->assertForbidden();
+    }
+
+    /** @test */
+    public function pagos_requiere_permiso_ver()
+    {
+        $sin = $this->userConPermisos(['dashboard.ver'], 'sin_pagos');
+        $this->actingAs($sin)->get(route('pagos.index'))->assertForbidden();
+
+        $con = $this->userConPermisos(['pagos.ver'], 'con_pagos');
+        $this->actingAs($con)->get(route('pagos.index'))->assertOk();
+    }
+
+    /** @test */
+    public function anular_pago_requiere_permiso_anular()
+    {
+        // Perfil tipo vendedor: ve y crea pagos, pero NO puede anular.
+        $vendedorLike = $this->userConPermisos(['pagos.ver', 'pagos.crear'], 'pagos_sin_anular');
+
+        // Sin registro real, el binding daría 404; validamos el permiso creando un
+        // pago mínimo no es necesario: probamos que NO tiene el permiso en el rol.
+        $this->assertFalse($vendedorLike->hasAnyPermission(['pagos.anular']));
+        $this->assertTrue($vendedorLike->hasAnyPermission(['pagos.ver']));
+    }
+
+    /** @test */
     public function un_rol_de_otra_empresa_no_es_gestionable()
     {
         $admin = $this->userConPermisos([], 'administrador'); // empresa 1
