@@ -8,9 +8,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Rol extends Model
 {
     protected $table = 'roles';
+
     protected $primaryKey = 'rol_id';
 
     protected $fillable = [
+        'empresa_id',
         'nombre',
         'descripcion',
         'permisos',

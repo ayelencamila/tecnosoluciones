@@ -476,15 +476,33 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // --- MÓDULO DE REPARACIONES (CU-11, CU-12, CU-13) ---
+    // PILOTO de enforcement por PERMISO (el admin siempre pasa; ver PermisoMiddleware).
     Route::prefix('reparaciones')->name('reparaciones.')->group(function () {
-        Route::get('/', [ReparacionController::class, 'index'])->name('index');
-        Route::get('/crear', [ReparacionController::class, 'create'])->name('create');
-        Route::post('/', [ReparacionController::class, 'store'])->name('store');
-        Route::get('/{reparacion}', [ReparacionController::class, 'show'])->name('show');
-        Route::get('/{reparacion}/imprimir-ingreso', [ReparacionController::class, 'imprimirComprobanteIngreso'])->name('imprimir-ingreso');
-        Route::get('/{reparacion}/imprimir-entrega', [ReparacionController::class, 'imprimirComprobanteEntrega'])->name('imprimir-entrega');
-        Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])->name('edit');
-        Route::put('/{reparacion}', [ReparacionController::class, 'update'])->name('update');
+        // Listado (ver)
+        Route::get('/', [ReparacionController::class, 'index'])
+            ->middleware('permiso:reparaciones.ver')->name('index');
+
+        // Registrar ingreso — rutas LITERALES antes de las paramétricas
+        // (recepción/vendedor; el técnico no hace ingresos).
+        Route::get('/crear', [ReparacionController::class, 'create'])
+            ->middleware('permiso:reparaciones.crear')->name('create');
+        Route::post('/', [ReparacionController::class, 'store'])
+            ->middleware('permiso:reparaciones.crear')->name('store');
+
+        // Ver detalle / comprobantes (ver)
+        Route::get('/{reparacion}', [ReparacionController::class, 'show'])
+            ->middleware('permiso:reparaciones.ver')->name('show');
+        Route::get('/{reparacion}/imprimir-ingreso', [ReparacionController::class, 'imprimirComprobanteIngreso'])
+            ->middleware('permiso:reparaciones.ver')->name('imprimir-ingreso');
+        Route::get('/{reparacion}/imprimir-entrega', [ReparacionController::class, 'imprimirComprobanteEntrega'])
+            ->middleware('permiso:reparaciones.ver')->name('imprimir-entrega');
+
+        // Editar datos / cambiar estado (basta uno de los dos permisos)
+        Route::get('/{reparacion}/editar', [ReparacionController::class, 'edit'])
+            ->middleware('permiso:reparaciones.editar,reparaciones.cambiar_estado')->name('edit');
+        Route::put('/{reparacion}', [ReparacionController::class, 'update'])
+            ->middleware('permiso:reparaciones.editar,reparaciones.cambiar_estado')->name('update');
+
         // Cobrar: solo quienes manejan plata (no el técnico).
         Route::post('/{reparacion}/cobrar', [ReparacionController::class, 'cobrar'])
             ->middleware('role:administrador,vendedor')->name('cobrar');

@@ -15,7 +15,7 @@ use Inertia\Response;
 
 /**
  * Controlador para la gestión de roles del sistema.
- * 
+ *
  * Implementa los casos de uso:
  * - CU Registrar nuevo rol
  * - CU Modificar rol
@@ -31,12 +31,21 @@ class RolController extends Controller
     {
         $modulos = config('permisos.modulos', []);
         $resultado = [];
-        
+
         foreach ($modulos as $modulo => $config) {
             $resultado[$config['label'] ?? $modulo] = $config['permisos'] ?? [];
         }
-        
+
         return $resultado;
+    }
+
+    /**
+     * Garantiza que el rol pertenezca a la empresa del usuario (multi-tenant).
+     * Lanza 404 si es de otra empresa (no se filtra info de otros tenants).
+     */
+    protected function autorizarEmpresa(Rol $role): void
+    {
+        abort_if($role->empresa_id !== auth()->user()->empresa_id, 404);
     }
 
     /**
@@ -44,7 +53,9 @@ class RolController extends Controller
      */
     public function index(): Response
     {
+        // Scoping manual multi-tenant: solo los roles de la empresa del usuario.
         $roles = Rol::withCount('users')
+            ->where('empresa_id', auth()->user()->empresa_id)
             ->orderBy('nombre')
             ->get();
 
@@ -73,6 +84,7 @@ class RolController extends Controller
             DB::beginTransaction();
 
             $rol = Rol::create([
+                'empresa_id' => auth()->user()->empresa_id,
                 'nombre' => $request->nombre,
                 'descripcion' => $request->descripcion,
                 'permisos' => $request->permisos ?? [],
@@ -99,7 +111,8 @@ class RolController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al crear el rol: ' . $e->getMessage());
+
+            return back()->with('error', 'Error al crear el rol: '.$e->getMessage());
         }
     }
 
@@ -108,6 +121,8 @@ class RolController extends Controller
      */
     public function edit(Rol $role): Response
     {
+        $this->autorizarEmpresa($role);
+
         return Inertia::render('Admin/Roles/Edit', [
             'rol' => $role->loadCount('users'),
             'permisosDisponibles' => $this->getPermisosDisponibles(),
@@ -120,6 +135,8 @@ class RolController extends Controller
      */
     public function update(RolRequest $request, Rol $role): RedirectResponse
     {
+        $this->autorizarEmpresa($role);
+
         // Proteger el rol administrador de modificaciones críticas
         if ($role->nombre === 'administrador' && $request->nombre !== 'administrador') {
             return back()->with('error', 'No se puede cambiar el nombre del rol Administrador.');
@@ -160,7 +177,8 @@ class RolController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al actualizar el rol: ' . $e->getMessage());
+
+            return back()->with('error', 'Error al actualizar el rol: '.$e->getMessage());
         }
     }
 
@@ -170,6 +188,8 @@ class RolController extends Controller
      */
     public function destroy(Request $request, Rol $role): RedirectResponse
     {
+        $this->autorizarEmpresa($role);
+
         // No permitir eliminar el rol administrador
         if ($role->nombre === 'administrador') {
             return back()->with('error', 'El rol Administrador no puede ser eliminado por seguridad.');
@@ -177,7 +197,7 @@ class RolController extends Controller
 
         // Verificar si tiene usuarios asociados
         $usuariosAsociados = $role->users()->count();
-        
+
         if ($usuariosAsociados > 0) {
             // Si tiene usuarios, necesitamos saber qué hacer con ellos
             $request->validate([
@@ -229,7 +249,8 @@ class RolController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al eliminar el rol: ' . $e->getMessage());
+
+            return back()->with('error', 'Error al eliminar el rol: '.$e->getMessage());
         }
     }
 
@@ -238,6 +259,8 @@ class RolController extends Controller
      */
     public function toggleActivo(Rol $role): RedirectResponse
     {
+        $this->autorizarEmpresa($role);
+
         if ($role->nombre === 'administrador') {
             return back()->with('error', 'El rol Administrador no puede ser desactivado.');
         }
@@ -246,7 +269,7 @@ class RolController extends Controller
             DB::beginTransaction();
 
             $estadoAnterior = $role->activo;
-            $role->activo = !$role->activo;
+            $role->activo = ! $role->activo;
             $role->save();
 
             Auditoria::registrar(
@@ -260,7 +283,7 @@ class RolController extends Controller
 
             DB::commit();
 
-            $mensaje = $role->activo 
+            $mensaje = $role->activo
                 ? "Rol '{$role->nombre}' activado exitosamente."
                 : "Rol '{$role->nombre}' desactivado exitosamente.";
 
@@ -268,7 +291,8 @@ class RolController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->with('error', 'Error al cambiar estado del rol: ' . $e->getMessage());
+
+            return back()->with('error', 'Error al cambiar estado del rol: '.$e->getMessage());
         }
     }
 }
