@@ -18,5 +18,23 @@ import { Link } from '@inertiajs/vue3';
         >
             <slot />
         </div>
+
+        <!-- Los textos legales tienen que estar accesibles ANTES de crear la
+             cuenta, porque el registro exige aceptarlos. -->
+        <footer class="mt-6 pb-6 text-center text-xs text-gray-500">
+            <Link
+                :href="route('legal.terminos')"
+                class="hover:text-gray-700 hover:underline"
+            >
+                Términos y Condiciones
+            </Link>
+            <span class="mx-2 text-gray-300">|</span>
+            <Link
+                :href="route('legal.privacidad')"
+                class="hover:text-gray-700 hover:underline"
+            >
+                Política de Privacidad
+            </Link>
+        </footer>
     </div>
 </template>

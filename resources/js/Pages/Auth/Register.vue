@@ -1,5 +1,6 @@
 <script setup>
 import GuestLayout from '@/Layouts/GuestLayout.vue';
+import Checkbox from '@/Components/Checkbox.vue';
 import InputError from '@/Components/InputError.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -11,6 +12,9 @@ const form = useForm({
     email: '',
     password: '',
     password_confirmation: '',
+    // La aceptación arranca en false a propósito: tiene que ser un acto
+    // explícito del usuario, no una casilla pre-marcada.
+    acepta_terminos: false,
 });
 
 const submit = () => {
@@ -90,6 +94,36 @@ const submit = () => {
                     class="mt-2"
                     :message="form.errors.password_confirmation"
                 />
+            </div>
+
+            <!-- Aceptación de las reglas de uso, exigida antes de crear la
+                 cuenta. Los enlaces abren en una pestaña nueva para que no se
+                 pierda lo que ya se cargó en el formulario. -->
+            <div class="mt-6">
+                <label class="flex items-start gap-3">
+                    <Checkbox
+                        v-model:checked="form.acepta_terminos"
+                        name="acepta_terminos"
+                        class="mt-0.5"
+                    />
+                    <span class="text-sm text-gray-600">
+                        Acepto los
+                        <a
+                            :href="route('legal.terminos')"
+                            target="_blank"
+                            rel="noopener"
+                            class="text-indigo-600 underline hover:text-indigo-800"
+                        >Términos y Condiciones</a>
+                        y la
+                        <a
+                            :href="route('legal.privacidad')"
+                            target="_blank"
+                            rel="noopener"
+                            class="text-indigo-600 underline hover:text-indigo-800"
+                        >Política de Privacidad</a>.
+                    </span>
+                </label>
+                <InputError class="mt-2" :message="form.errors.acepta_terminos" />
             </div>
 
             <div class="mt-4 flex items-center justify-end">

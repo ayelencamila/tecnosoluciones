@@ -756,6 +756,24 @@ const isActive = (routeName) => {
                     </div>
                 </div>
                 <slot />
+
+                <!-- Footer legal: los enlaces quedan accesibles desde cualquier
+                     pantalla del sistema, no solo desde el registro. -->
+                <footer class="mt-10 border-t border-gray-200 pt-4 text-center text-xs text-gray-500">
+                    <Link
+                        :href="route('legal.terminos')"
+                        class="hover:text-gray-700 hover:underline"
+                    >
+                        Términos y Condiciones
+                    </Link>
+                    <span class="mx-2 text-gray-300">|</span>
+                    <Link
+                        :href="route('legal.privacidad')"
+                        class="hover:text-gray-700 hover:underline"
+                    >
+                        Política de Privacidad
+                    </Link>
+                </footer>
             </main>
         </div>
     </div>
