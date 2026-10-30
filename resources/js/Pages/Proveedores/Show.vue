@@ -3,6 +3,7 @@ import { ref, watch } from 'vue';
 import AppLayout from '@/Layouts/AppLayout.vue';
 import { Link, Head, useForm, router } from '@inertiajs/vue3';
 import StarRating from '@/Components/StarRating.vue';
+import AvisoDatosParciales from '@/Components/AvisoDatosParciales.vue';
 
 const props = defineProps({
     proveedor: Object
@@ -39,7 +40,9 @@ const clearRating = () => {
     <AppLayout>
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                
+
+                <AvisoDatosParciales v-if="proveedor?.datos_contacto_parciales" entidad="este proveedor" />
+
                 <!-- Loading state -->
                 <div v-if="!proveedor" class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
                     <p class="text-gray-500">Cargando datos del proveedor...</p>

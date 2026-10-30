@@ -10,6 +10,7 @@ import DangerButton from '@/Components/DangerButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
+import AvisoDatosParciales from '@/Components/AvisoDatosParciales.vue';
 import { debounce } from 'lodash';
 
 const props = defineProps({
@@ -20,6 +21,11 @@ const props = defineProps({
     filters: Object,
     counts: Object, 
 });
+
+// El backend marca cada fila cuando devuelve el contacto enmascarado.
+const datosParciales = computed(
+    () => props.clientes?.data?.[0]?.datos_contacto_parciales === true,
+);
 
 const form = ref({
     search: props.filters.search || '',
@@ -202,6 +208,8 @@ const getPaginationLabel = (label, index, totalLinks) => {
                         <p class="text-2xl font-bold text-gray-900">{{ props.counts?.inactivos || 0 }}</p>
                     </div>
                 </div>
+
+                <AvisoDatosParciales v-if="datosParciales" entidad="los clientes" />
 
                 <div class="bg-white shadow-sm sm:rounded-lg p-4 mb-6">
                     <div class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">

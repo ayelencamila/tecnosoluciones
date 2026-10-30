@@ -9,6 +9,7 @@ import Modal from '@/Components/Modal.vue';
 import TextInput from '@/Components/TextInput.vue';
 import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
+import AvisoDatosParciales from '@/Components/AvisoDatosParciales.vue';
 import { onMounted, computed } from 'vue';
 
 const props = defineProps({
@@ -167,7 +168,9 @@ const volverAPasoMotivo = () => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
-                
+
+                <AvisoDatosParciales v-if="cliente?.datos_contacto_parciales" entidad="este cliente" />
+
                 <div class="bg-white shadow overflow-hidden sm:rounded-lg">
                     <div class="px-4 py-5 sm:px-6 flex justify-between items-center">
                         <div>

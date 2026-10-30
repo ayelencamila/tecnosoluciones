@@ -10,6 +10,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import InputError from '@/Components/InputError.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import DangerButton from '@/Components/DangerButton.vue';
+import AvisoDatosParciales from '@/Components/AvisoDatosParciales.vue';
 import { debounce } from 'lodash';
 
 const props = defineProps({
@@ -18,6 +19,11 @@ const props = defineProps({
     filters: Object,
     stats: Object,
 });
+
+// El backend marca cada fila cuando devuelve el contacto enmascarado.
+const datosParciales = computed(
+    () => props.proveedores?.data?.[0]?.datos_contacto_parciales === true,
+);
 
 // --- FILTROS ---
 const form = ref({
@@ -117,6 +123,8 @@ const getCalificacionStars = (calificacion) => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+
+                <AvisoDatosParciales v-if="datosParciales" entidad="los proveedores" />
 
                 <!-- TARJETAS DE ESTADÍSTICAS -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 text-center" v-if="stats">
