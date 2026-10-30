@@ -20,6 +20,7 @@ use App\Services\Reparaciones\AnularReparacionService;
 use App\Services\Reparaciones\CobrarReparacionService;
 // Servicios
 use App\Services\Reparaciones\RegistrarReparacionService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -44,6 +45,16 @@ class ReparacionController extends Controller
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'modelo.marca', 'bonificacionAceptada'])
             ->where('empresa_id', TenantContext::empresaId())
             ->latest();
+
+        // Quien no tiene `reparaciones.ver_todas` ve únicamente las que tiene
+        // asignadas. El resto del sistema ya trabajaba así (las alertas de
+        // SLA se filtran por técnico y el tablero muestra "Mis
+        // Reparaciones"); este listado era el único que mostraba todo.
+        //
+        // Si alguna vez el ingreso deja de exigir técnico (hoy
+        // StoreReparacionRequest lo pide obligatorio), habría que incluir
+        // acá las de tecnico_id NULL para que alguien pueda tomarlas.
+        $this->restringirAReparacionesPropias($query);
 
         // Filtro de Búsqueda General (delegado al modelo - Alta Cohesión)
         $query->search($request->search);
@@ -330,8 +341,14 @@ class ReparacionController extends Controller
             'repuestos.*.cantidad' => 'required|integer|min:1',
         ]);
 
+        // La búsqueda va FUERA del try: el `catch (\Exception)` de más abajo
+        // está para los fallos al guardar, y si se la deja adentro se traga
+        // también el ModelNotFoundException y lo convierte en un "Error al
+        // guardar" genérico. Eso enmascaraba dos casos distintos: un id que
+        // no existe y una reparación que no es de quien la pide.
+        $reparacion = $this->reparacionScoped($id);
+
         try {
-            $reparacion = $this->reparacionScoped($id);
             $service->handle($reparacion, $validated, $request->user()->id);
 
             return redirect()->route('reparaciones.show', $id)
@@ -408,8 +425,38 @@ class ReparacionController extends Controller
      */
     private function reparacionScoped(int $id, array $with = []): Reparacion
     {
-        return Reparacion::with($with)
-            ->where('empresa_id', TenantContext::empresaId())
-            ->findOrFail($id);
+        $query = Reparacion::with($with)
+            ->where('empresa_id', TenantContext::empresaId());
+
+        // Misma restricción que en el listado, para que no se pueda llegar a
+        // la reparación de un compañero escribiendo el id en la URL. Pasa por
+        // acá todo el módulo: ver, editar, actualizar, imprimir, cobrar y
+        // anular. Cobrar y anular ya están limitados a vendedor y
+        // administrador, que tienen el permiso, así que no cambian.
+        //
+        // Se resuelve como 404 y no como 403 a propósito: un 403 confirmaría
+        // que esa reparación existe, y el técnico ya no la tiene en su
+        // listado, así que tampoco debería poder deducir su existencia.
+        $this->restringirAReparacionesPropias($query);
+
+        return $query->findOrFail($id);
+    }
+
+    /**
+     * Aplica el filtro "solo las mías" cuando el usuario no tiene el permiso
+     * `reparaciones.ver_todas`.
+     *
+     * Es un filtro explícito y no un global scope: ver el comentario de
+     * User::puedeVerTodasLasReparaciones().
+     */
+    private function restringirAReparacionesPropias(Builder $query): void
+    {
+        $usuario = auth()->user();
+
+        if (! $usuario || $usuario->puedeVerTodasLasReparaciones()) {
+            return;
+        }
+
+        $query->where('tecnico_id', $usuario->id);
     }
 }

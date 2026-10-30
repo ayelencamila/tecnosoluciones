@@ -93,8 +93,17 @@ class DashboardController extends Controller
                 $q->where('nombreEstado', 'Reparado')
             )->count();
 
-            // Reparaciones del técnico actual (si es técnico)
-            if ($role === 'tecnico') {
+            // Los tres contadores de arriba son del taller completo a
+            // propósito: son volúmenes de trabajo, no datos de una persona, y
+            // saber que hay cinco equipos esperando le sirve al técnico.
+            //
+            // De acá en adelante sí se separa por usuario. La condición es el
+            // permiso `reparaciones.ver_todas` y no el nombre del rol, para
+            // que sea la misma regla que aplica el módulo de reparaciones y
+            // que cada empresa pueda configurarla.
+            $soloPropias = ! $user->puedeVerTodasLasReparaciones();
+
+            if ($soloPropias) {
                 $kpis['misReparaciones'] = Reparacion::where('tecnico_id', $user->id)
                     ->whereHas('estado', fn($q) => $q->whereNotIn('nombreEstado', $estadosFinales))
                     ->count();
@@ -102,12 +111,11 @@ class DashboardController extends Controller
 
             // Últimas reparaciones
             $query = Reparacion::with(['cliente', 'tecnico', 'estado']);
-            
-            // Si es técnico, solo sus reparaciones
-            if ($role === 'tecnico') {
+
+            if ($soloPropias) {
                 $query->where('tecnico_id', $user->id);
             }
-            
+
             $tablas['ultimasReparaciones'] = $query
                 ->latest()
                 ->take(5)

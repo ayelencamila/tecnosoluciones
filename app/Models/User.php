@@ -212,4 +212,19 @@ class User extends Authenticatable
             "{$modulo}.editar",
         ]);
     }
+
+    /**
+     * Decide si el usuario ve el tablero completo de reparaciones o solo las
+     * que tiene asignadas.
+     *
+     * IMPORTANTE: esta regla se aplica como filtro EXPLÍCITO en los
+     * controladores, nunca como global scope sobre Reparacion. El monitoreo
+     * de SLA, los recordatorios y las notificaciones corren desde la consola
+     * sin usuario autenticado, y un scope atado al usuario actual los dejaría
+     * sin reparaciones que procesar sin que nadie se entere.
+     */
+    public function puedeVerTodasLasReparaciones(): bool
+    {
+        return $this->hasPermission('reparaciones.ver_todas');
+    }
 }

@@ -47,6 +47,11 @@ return [
             'label' => 'Reparaciones',
             'permisos' => [
                 'reparaciones.ver' => 'Ver listado de reparaciones',
+                // Sin este permiso, el usuario solo ve las reparaciones que
+                // tiene asignadas. Lo necesita quien atiende al público, que
+                // tiene que poder responder "¿cómo va mi equipo?" de
+                // cualquier cliente; un técnico trabaja sobre las suyas.
+                'reparaciones.ver_todas' => 'Ver las reparaciones de todos los técnicos, no solo las propias',
                 'reparaciones.crear' => 'Registrar ingreso de equipos',
                 'reparaciones.editar' => 'Modificar datos de reparaciones',
                 'reparaciones.cambiar_estado' => 'Cambiar estado de reparaciones',
