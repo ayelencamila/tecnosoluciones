@@ -112,4 +112,24 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Registro Público
+    |--------------------------------------------------------------------------
+    |
+    | Si una persona puede crearse una cuenta por sí misma desde /register.
+    |
+    | Apagado por defecto: este es un sistema multi-empresa y el alta de
+    | usuarios es responsabilidad del administrador de cada empresa, que es
+    | quien decide el rol. Con el registro abierto, cualquiera que conozca la
+    | URL entra como vendedor a la empresa de registro público y ve datos
+    | reales de clientes y precios.
+    |
+    | Se habilita solo para demostraciones, con REGISTRO_PUBLICO_HABILITADO
+    | en el .env. Ver routes/auth.php.
+    |
+    */
+
+    'registro_publico' => env('REGISTRO_PUBLICO_HABILITADO', false),
+
 ];

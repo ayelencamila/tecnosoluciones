@@ -12,10 +12,26 @@ use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
-    Route::get('register', [RegisteredUserController::class, 'create'])
-        ->name('register');
+    /*
+    | Registro público: APAGADO por defecto.
+    |
+    | Venía habilitado de Laravel Breeze, y en un sistema multi-empresa eso
+    | significa que cualquiera con la URL se crea una cuenta operativa dentro
+    | de una empresa real y ve sus clientes, sus precios y sus ventas. No es
+    | una fuga entre empresas: es una puerta abierta a una.
+    |
+    | El alta de usuarios corresponde al administrador de cada empresa desde
+    | /admin/usuarios, que es quien sabe qué rol le toca a cada persona.
+    |
+    | Queda detrás de una bandera y no borrado para poder habilitarlo en una
+    | demostración: REGISTRO_PUBLICO_HABILITADO=true en el .env.
+    */
+    if (config('auth.registro_publico')) {
+        Route::get('register', [RegisteredUserController::class, 'create'])
+            ->name('register');
 
-    Route::post('register', [RegisteredUserController::class, 'store']);
+        Route::post('register', [RegisteredUserController::class, 'store']);
+    }
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
