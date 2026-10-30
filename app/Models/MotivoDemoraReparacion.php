@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class MotivoDemoraReparacion extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEmpresa;
 
     protected $table = 'motivos_demora_reparacion';
     protected $primaryKey = 'motivoDemoraID';

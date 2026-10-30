@@ -118,6 +118,7 @@ class AltaEmpresaService
                 ]);
 
                 $this->crearParametrosIniciales($empresa);
+                $this->crearCatalogosIniciales($empresa);
                 $this->copiarPlantillasBase();
 
                 // La auditoria se registra DENTRO del contexto de la empresa
@@ -189,6 +190,75 @@ class AltaEmpresaService
         }
 
         DB::table('configuracion')->insert($filas);
+    }
+
+    /**
+     * Carga los catalogos propios con los que arranca la empresa.
+     *
+     * Son entidad debil de `empresas`: sin estas filas el sistema de la
+     * empresa nueva queda inutilizable, porque no podria registrar una venta
+     * (exige medio de pago), ni un cliente (exige tipo), ni un producto
+     * (exige unidad de medida). El alta tiene que dejarla operativa.
+     *
+     * Los valores son un punto de partida razonable y editable: cada empresa
+     * despues agrega, renombra o da de baja los suyos desde /admin.
+     */
+    private function crearCatalogosIniciales(Empresa $empresa): void
+    {
+        $ahora = now();
+        $sello = ['empresa_id' => $empresa->id, 'created_at' => $ahora, 'updated_at' => $ahora];
+
+        DB::table('medios_pago')->insert(array_map(fn ($fila) => $fila + $sello, [
+            ['nombre' => 'Efectivo', 'recargo_porcentaje' => 0, 'activo' => true],
+            ['nombre' => 'Transferencia Bancaria', 'recargo_porcentaje' => 0, 'activo' => true],
+            ['nombre' => 'Tarjeta de Débito', 'recargo_porcentaje' => 0, 'activo' => true],
+            ['nombre' => 'Tarjeta de Crédito (1 pago)', 'recargo_porcentaje' => 0, 'activo' => true],
+            ['nombre' => 'Cuenta Corriente', 'recargo_porcentaje' => 0, 'activo' => true],
+        ]));
+
+        DB::table('tipos_cliente')->insert(array_map(fn ($fila) => $fila + $sello, [
+            ['nombreTipo' => 'Minorista', 'descripcion' => 'Público general', 'activo' => true],
+            ['nombreTipo' => 'Mayorista', 'descripcion' => 'Compra por volumen', 'activo' => true],
+        ]));
+
+        DB::table('unidades_medida')->insert(array_map(fn ($fila) => $fila + $sello, [
+            ['nombre' => 'Unidad', 'abreviatura' => 'u', 'activo' => true],
+            ['nombre' => 'Servicio', 'abreviatura' => 'srv', 'activo' => true],
+            ['nombre' => 'Kilogramo', 'abreviatura' => 'kg', 'activo' => true],
+            ['nombre' => 'Metro', 'abreviatura' => 'm', 'activo' => true],
+            ['nombre' => 'Litro', 'abreviatura' => 'l', 'activo' => true],
+            ['nombre' => 'Pack', 'abreviatura' => 'pck', 'activo' => true],
+        ]));
+
+        DB::table('motivos_demora_reparacion')->insert(array_map(fn ($fila) => $fila + $sello, [
+            [
+                'codigo' => 'FALTA_REPUESTO',
+                'nombre' => 'Falta de repuesto',
+                'descripcion' => 'El repuesto necesario no está disponible.',
+                'requiere_bonificacion' => true,
+                'pausa_sla' => true,
+                'activo' => true,
+                'orden' => 1,
+            ],
+            [
+                'codigo' => 'ESPERA_CLIENTE',
+                'nombre' => 'Espera de respuesta del cliente',
+                'descripcion' => 'Se aguarda que el cliente apruebe el presupuesto.',
+                'requiere_bonificacion' => false,
+                'pausa_sla' => true,
+                'activo' => true,
+                'orden' => 2,
+            ],
+            [
+                'codigo' => 'SOBRECARGA',
+                'nombre' => 'Sobrecarga de trabajo',
+                'descripcion' => 'Demora por volumen de reparaciones en curso.',
+                'requiere_bonificacion' => true,
+                'pausa_sla' => false,
+                'activo' => true,
+                'orden' => 3,
+            ],
+        ]));
     }
 
     /**

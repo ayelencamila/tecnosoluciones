@@ -4,11 +4,28 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\MotivoDemoraReparacion;
+use App\Support\TenantContext;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Unique;
 use Inertia\Inertia;
 
+/**
+ * Motivos de demora: catalogo propio de cada empresa, porque cada una
+ * tipifica sus demoras distinto. Ver MedioPagoController para el detalle de
+ * por que la regla `unique` se acota a mano mientras el resto lo cubre el
+ * Global Scope (que ademas acota `max('orden')` y el reordenamiento).
+ */
 class MotivoDemoraReparacionController extends Controller
 {
+    private function reglaCodigoUnico(?int $ignorarId = null): Unique
+    {
+        $regla = Rule::unique('motivos_demora_reparacion', 'codigo')
+            ->where('empresa_id', TenantContext::empresaId());
+
+        return $ignorarId ? $regla->ignore($ignorarId, 'motivoDemoraID') : $regla;
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -35,7 +52,7 @@ class MotivoDemoraReparacionController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'codigo' => 'required|string|max:50|unique:motivos_demora_reparacion,codigo',
+            'codigo' => ['required', 'string', 'max:50', $this->reglaCodigoUnico()],
             'nombre' => 'required|string|max:100',
             'descripcion' => 'nullable|string|max:500',
             'requiere_bonificacion' => 'required|boolean',
@@ -79,7 +96,7 @@ class MotivoDemoraReparacionController extends Controller
     public function update(Request $request, MotivoDemoraReparacion $motivosDemora)
     {
         $validated = $request->validate([
-            'codigo' => 'required|string|max:50|unique:motivos_demora_reparacion,codigo,' . $motivosDemora->motivoDemoraID . ',motivoDemoraID',
+            'codigo' => ['required', 'string', 'max:50', $this->reglaCodigoUnico($motivosDemora->motivoDemoraID)],
             'nombre' => 'required|string|max:100',
             'descripcion' => 'nullable|string|max:500',
             'requiere_bonificacion' => 'required|boolean',
