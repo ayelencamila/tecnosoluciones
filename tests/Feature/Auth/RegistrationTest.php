@@ -6,18 +6,42 @@ use App\Models\Rol;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
+/**
+ * Pruebas del flujo de registro público.
+ *
+ * El registro está APAGADO por defecto (ver config/auth.php), así que esta
+ * clase lo habilita a propósito para ejercitar el flujo. La bandera se
+ * escribe en el entorno ANTES de parent::setUp() porque las rutas se
+ * registran durante el arranque de la aplicación: cambiar la config una vez
+ * arrancada ya no agregaría la ruta.
+ *
+ * Que el registro esté cerrado por defecto lo verifica
+ * RegistroPublicoDeshabilitadoTest.
+ */
 class RegistrationTest extends TestCase
 {
     use RefreshDatabase;
 
     protected function setUp(): void
     {
+        putenv('REGISTRO_PUBLICO_HABILITADO=true');
+
         parent::setUp();
+
         // El rol se crea en la empresa 1, que es la que usa el registro público.
         Rol::firstOrCreate(
             ['nombre' => 'vendedor', 'empresa_id' => 1],
             ['descripcion' => 'Vendedor', 'activo' => true]
         );
+    }
+
+    protected function tearDown(): void
+    {
+        // Sin esto la bandera quedaría encendida para las clases siguientes,
+        // que corren en el mismo proceso de PHPUnit.
+        putenv('REGISTRO_PUBLICO_HABILITADO');
+
+        parent::tearDown();
     }
 
     public function test_registration_screen_can_be_rendered(): void
