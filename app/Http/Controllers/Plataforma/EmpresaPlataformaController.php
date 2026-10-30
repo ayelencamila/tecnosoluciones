@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Plataforma;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Plataforma\ActualizarEmpresaRequest;
 use App\Http\Requests\Plataforma\AltaEmpresaRequest;
 use App\Models\Auditoria;
 use App\Models\Empresa;
@@ -10,6 +11,8 @@ use App\Models\User;
 use App\Services\Plataforma\AltaEmpresaService;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -123,6 +126,105 @@ class EmpresaPlataformaController extends Controller
     }
 
     /**
+     * Actualiza los datos de una empresa cliente.
+     *
+     * Hacía falta porque un cliente cambia de domicilio, de teléfono o
+     * corrige su CUIT, y hasta ahora la única manera de tocarlo era entrar
+     * como esa empresa, que es un rodeo y además queda auditado como si lo
+     * hubiera hecho ella.
+     *
+     * No cambia `activa` ni `slug`: ver ActualizarEmpresaRequest.
+     */
+    public function update(ActualizarEmpresaRequest $request, Empresa $empresa): RedirectResponse
+    {
+        $datos = $request->validated();
+        $anterior = $empresa->only(array_keys($datos));
+
+        $empresa->fill($datos);
+
+        if (! $empresa->isDirty()) {
+            return back()->with('success', 'No había cambios para guardar.');
+        }
+
+        // Se capturan los cambios ANTES de save(), porque después el modelo
+        // ya no está "dirty" y getDirty() devolvería un arreglo vacío.
+        $cambios = $empresa->getDirty();
+        $empresa->save();
+
+        Auditoria::registrar(
+            Auditoria::ACCION_MODIFICAR_EMPRESA,
+            'empresas',
+            $empresa->id,
+            array_intersect_key($anterior, $cambios),
+            $cambios,
+            "Modificación de los datos de '{$empresa->nombre}' desde el panel de plataforma"
+        );
+
+        return back()->with('success', 'Datos de la empresa actualizados.');
+    }
+
+    /**
+     * Devuelve el acceso al administrador de una empresa.
+     *
+     * Es el hueco operativo que quedaba: si el único administrador de un
+     * cliente pierde la contraseña o queda bloqueado por intentos fallidos,
+     * nadie dentro de esa empresa puede desbloquearlo —justamente porque es
+     * el único que podría hacerlo— y el operador de la plataforma tampoco
+     * tenía una acción para eso.
+     *
+     * Hace las tres cosas que hacen falta a la vez, porque por separado no
+     * alcanzan: genera una contraseña temporal, levanta el bloqueo por
+     * intentos fallidos y reactiva la cuenta si estaba desactivada.
+     *
+     * Deliberadamente solo opera sobre usuarios con rol de administrador de
+     * esa empresa: para el resto del personal ya existe /admin/usuarios, y
+     * es su propio administrador quien debe resolverlo.
+     */
+    public function restablecerAccesoAdmin(Empresa $empresa, User $usuario): RedirectResponse
+    {
+        if ($usuario->empresa_id !== $empresa->id) {
+            abort(404);
+        }
+
+        $esAdmin = TenantContext::paraEmpresa(
+            $empresa->id,
+            fn () => (bool) $usuario->rol?->es_admin_empresa
+        );
+
+        abort_unless($esAdmin, 422, 'Esta acción es solo para el administrador de la empresa.');
+
+        $passwordTemporal = Str::password(14);
+
+        $estadoAnterior = [
+            'activo' => $usuario->activo,
+            'bloqueado_hasta' => $usuario->bloqueado_hasta,
+        ];
+
+        $usuario->password = Hash::make($passwordTemporal);
+        $usuario->bloqueado_hasta = null;
+        $usuario->activo = true;
+        $usuario->save();
+
+        // La auditoría se registra DENTRO de la empresa afectada: su
+        // administración tiene derecho a ver en su propia bitácora que el
+        // operador de la plataforma le restableció el acceso, y cuándo.
+        TenantContext::paraEmpresa($empresa->id, fn () => Auditoria::registrar(
+            Auditoria::ACCION_RESTABLECER_PASSWORD,
+            'users',
+            $usuario->id,
+            $estadoAnterior,
+            ['password_restablecida' => true, 'activo' => true, 'bloqueado_hasta' => null],
+            "El operador de la plataforma restableció el acceso de '{$usuario->name}'"
+        ));
+
+        // La contraseña se devuelve una sola vez, por flash: no se guarda en
+        // ningún lado ni se envía por mail, así que el operador tiene que
+        // entregarla ahora por un canal acordado con el cliente.
+        return back()->with('password_temporal', $passwordTemporal)
+            ->with('success', "Acceso de '{$usuario->name}' restablecido.");
+    }
+
+    /**
      * Entra al contexto de una empresa para operar dentro de ella.
      */
     public function entrar(Empresa $empresa): RedirectResponse
@@ -174,6 +276,10 @@ class EmpresaPlataformaController extends Controller
                 'rol'      => $usuario->rol?->nombre,
                 'es_admin' => (bool) $usuario->rol?->es_admin_empresa,
                 'activo'   => $usuario->activo,
+                // Para que el operador vea POR QUÉ el cliente no puede entrar
+                // antes de restablecerle el acceso.
+                'bloqueado' => $usuario->estaBloqueado(),
+                'bloqueado_hasta' => $usuario->bloqueado_hasta?->format('d/m/Y H:i'),
             ]));
 
         return Inertia::render('Plataforma/Empresas/Show', [

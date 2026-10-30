@@ -60,6 +60,11 @@ class HandleInertiaRequests extends Middleware
             'flash' => [
                 'success' => fn () => $request->session()->get('success'),
                 'error' => fn () => $request->session()->get('error'),
+                // Contraseña temporal recién generada por el operador de la
+                // plataforma al restablecerle el acceso al administrador de
+                // una empresa. Viaja por flash justamente para que exista una
+                // sola vez: no se guarda ni se vuelve a poder consultar.
+                'password_temporal' => fn () => $request->session()->get('password_temporal'),
             ],
 
             'ziggy' => fn () => [

@@ -77,7 +77,15 @@ Route::middleware(['auth', 'super'])->prefix('super')->name('super.')->group(fun
     Route::get('/empresas', [EmpresaPlataformaController::class, 'index'])->name('empresas.index');
     Route::post('/empresas', [EmpresaPlataformaController::class, 'store'])->name('empresas.store');
     Route::get('/empresas/{empresa}', [EmpresaPlataformaController::class, 'show'])->name('empresas.show');
+    Route::put('/empresas/{empresa}', [EmpresaPlataformaController::class, 'update'])->name('empresas.update');
     Route::post('/empresas/{empresa}/acceso', [EmpresaPlataformaController::class, 'toggleActiva'])->name('empresas.acceso');
+
+    // Devuelve el acceso al administrador de un cliente que quedó afuera de su
+    // propio sistema (contraseña perdida o bloqueo por intentos fallidos).
+    // Nadie dentro de esa empresa puede resolverlo si el administrador es uno
+    // solo, así que la acción vive en el nivel de plataforma.
+    Route::post('/empresas/{empresa}/usuarios/{usuario}/restablecer-acceso', [EmpresaPlataformaController::class, 'restablecerAccesoAdmin'])
+        ->name('empresas.restablecer-acceso');
     Route::post('/empresas/{empresa}/entrar', [EmpresaPlataformaController::class, 'entrar'])->name('empresas.entrar');
     Route::post('/salir-de-empresa', [EmpresaPlataformaController::class, 'salir'])->name('empresas.salir');
 
