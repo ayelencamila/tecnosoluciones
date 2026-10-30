@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage, router } from '@inertiajs/vue3';
 import Dropdown from '@/Components/Dropdown.vue';
 import DropdownLink from '@/Components/DropdownLink.vue';
 import NotificationBell from '@/Components/NotificationBell.vue';
@@ -15,10 +15,16 @@ const showingAdmin = ref(false);
 
 const page = usePage(); 
 
-// Helper para verificar permisos
+// Helper para verificar permisos.
+// Refleja exactamente la jerarquía de User::hasPermission() en el backend:
+// super usuario de plataforma > administrador de la empresa > permisos del rol.
+// Antes comparaba el nombre del rol con 'administrador', lo que dejaba sin
+// menú al administrador cuyo rol se hubiera renombrado, aunque el backend sí
+// le permitiera entrar.
 const can = (permiso) => {
+    if (page.props.auth.es_super_admin) return true;
+    if (page.props.auth.es_admin_empresa) return true;
     const permisos = page.props.auth.permisos || [];
-    if (page.props.auth.user?.role === 'administrador') return true;
     return permisos.includes(permiso);
 };
 
@@ -33,6 +39,14 @@ const empresa = computed(() => page.props.auth.empresa);
 const empresaLogoUrl = computed(() => {
     return empresa.value?.logo ? `/storage/${empresa.value.logo}` : null;
 });
+
+// El operador de la plataforma necesita saber siempre en qué empresa está
+// trabajando y poder salir desde cualquier pantalla.
+const esSuperAdmin = computed(() => !!page.props.auth.es_super_admin);
+
+const salirDeEmpresa = () => {
+    router.post(route('super.empresas.salir'));
+};
 
 const empresaInitials = computed(() => {
     if (!empresa.value?.nombre) return '';
@@ -286,7 +300,29 @@ const isActive = (routeName) => {
 
 <template>
     <div class="min-h-screen bg-gray-100 flex">
-        
+
+        <!-- Indicador de contexto para el operador de la plataforma.
+             Es flotante para no alterar el layout del panel de empresa, y
+             está siempre visible porque el operador está viendo datos de un
+             cliente: no debería poder olvidarse de eso. -->
+        <div
+            v-if="esSuperAdmin && empresa"
+            class="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-lg bg-slate-900 px-4 py-3 shadow-lg"
+        >
+            <div class="text-xs leading-tight text-slate-200">
+                <div class="font-semibold text-amber-300">Modo plataforma</div>
+                <div>dentro de {{ empresa.nombre }}</div>
+            </div>
+            <button
+                type="button"
+                class="rounded bg-amber-500 px-3 py-1.5 text-xs font-medium text-slate-900 hover:bg-amber-400"
+                @click="salirDeEmpresa"
+            >
+                Salir
+            </button>
+        </div>
+
+
         <aside 
             class="bg-white w-64 min-h-screen flex flex-col border-r border-gray-200 fixed md:relative z-30 transition-transform duration-300 ease-in-out"
             :class="showingSidebar ? 'translate-x-0' : '-translate-x-full md:translate-x-0'"
