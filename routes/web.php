@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DescuentoController;
 use App\Http\Controllers\LocalidadController;
 use App\Http\Controllers\PagoController;
+use App\Http\Controllers\Plataforma\EmpresaPlataformaController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ProveedorController;
@@ -48,8 +49,25 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'verified', 'tenant'])
     ->name('dashboard');
+
+/*
+|--------------------------------------------------------------------------
+| NIVEL DE PLATAFORMA (super usuario)
+|--------------------------------------------------------------------------
+| Gestion de los clientes del sistema. Es el unico grupo que trabaja por
+| encima del tenant, de modo que queda deliberadamente FUERA del middleware
+| `tenant`: si lo tuviera, el operador no podria llegar a elegir empresa.
+*/
+Route::middleware(['auth', 'super'])->prefix('super')->name('super.')->group(function () {
+    Route::get('/empresas', [EmpresaPlataformaController::class, 'index'])->name('empresas.index');
+    Route::post('/empresas', [EmpresaPlataformaController::class, 'store'])->name('empresas.store');
+    Route::get('/empresas/{empresa}', [EmpresaPlataformaController::class, 'show'])->name('empresas.show');
+    Route::post('/empresas/{empresa}/acceso', [EmpresaPlataformaController::class, 'toggleActiva'])->name('empresas.acceso');
+    Route::post('/empresas/{empresa}/entrar', [EmpresaPlataformaController::class, 'entrar'])->name('empresas.entrar');
+    Route::post('/salir-de-empresa', [EmpresaPlataformaController::class, 'salir'])->name('empresas.salir');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -60,7 +78,7 @@ Route::middleware('auth')->group(function () {
 });
 
 // --- RUTAS VERIFICADAS Y DE ADMINISTRACIÓN ---
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'verified', 'tenant'])->group(function () {
     // Accesible por Admin y Vendedor (Panel General)
     Route::get('/vendedor', function () {
         return Inertia::render('Panel/General');
@@ -133,7 +151,7 @@ Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloContr
     ->name('api.modelos.por-marca');
 
 // --- API CONFIGURABLE SELECTS (CRUD RÁPIDO) ---
-Route::middleware(['auth'])->prefix('api')->group(function () {
+Route::middleware(['auth', 'tenant'])->prefix('api')->group(function () {
     // Tipos de Cliente
     Route::get('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'index']);
     Route::post('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'store']);
@@ -191,7 +209,7 @@ Route::middleware(['auth'])->prefix('api')->group(function () {
 });
 
 // --- API DE NOTIFICACIONES ---
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'tenant'])->group(function () {
     Route::get('/api/notifications', function () {
         return auth()->user()->notifications()
             ->take(20)
@@ -298,7 +316,7 @@ Route::middleware(['auth'])->group(function () {
 });
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'tenant'])->group(function () {
     // --- MÓDULO DE REPORTES Y ESTADÍSTICAS (CU-33 a CU-37) ---
     // Acceso restringido solo a Administradores (y Gerentes si existiera el rol)
     Route::prefix('reportes')->name('reportes.')->middleware(['role:administrador'])->group(function () {
@@ -614,7 +632,7 @@ Route::middleware(['auth'])->group(function () {
         ->middleware('role:administrador');
 
     // Egresos de Stock (robo, pérdida, defectuosos, etc.)
-    Route::prefix('egresos-stock')->name('egresos-stock.')->middleware('role:administrador|deposito')->group(function () {
+    Route::prefix('egresos-stock')->name('egresos-stock.')->middleware('role:administrador,deposito')->group(function () {
         Route::get('/', [\App\Http\Controllers\EgresoStockController::class, 'index'])->name('index');
         Route::get('/crear', [\App\Http\Controllers\EgresoStockController::class, 'create'])->name('create');
         Route::post('/', [\App\Http\Controllers\EgresoStockController::class, 'store'])->name('store');

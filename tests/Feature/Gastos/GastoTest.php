@@ -28,6 +28,7 @@ class GastoTest extends TestCase
         // Rol + usuario
         $rol = Rol::create([
             'nombre' => 'administrador',
+            'es_admin_empresa' => true,
             'descripcion' => 'Admin',
             'permisos' => [],
             'activo' => true,

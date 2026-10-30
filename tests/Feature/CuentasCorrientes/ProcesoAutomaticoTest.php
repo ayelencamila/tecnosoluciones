@@ -86,7 +86,7 @@ class ProcesoAutomaticoTest extends TestCase
         // Admin para notificaciones
         $rolAdmin = Rol::firstOrCreate(
             ['nombre' => 'administrador'],
-            ['descripcion' => 'Administrador', 'activo' => true]
+            ['descripcion' => 'Administrador', 'activo' => true, 'es_admin_empresa' => true]
         );
         User::factory()->create([
             'name' => 'Admin Test',

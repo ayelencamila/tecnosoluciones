@@ -14,14 +14,23 @@ class RolesPermisosTest extends TestCase
 
     /**
      * Crea un usuario con un rol de permisos dados (empresa 1 por defecto).
+     *
+     * `$esAdminEmpresa` es explícito a propósito: el bypass de permisos del
+     * administrador se resuelve por el flag `roles.es_admin_empresa` y ya no
+     * por llamarse "administrador", así que el test tiene que declararlo igual
+     * que lo hace el alta real de una empresa.
      */
-    private function userConPermisos(array $permisos, string $nombreRol, int $empresa = 1): User
-    {
+    private function userConPermisos(
+        array $permisos,
+        string $nombreRol,
+        int $empresa = 1,
+        bool $esAdminEmpresa = false
+    ): User {
         $rol = Rol::firstOrCreate(
             ['nombre' => $nombreRol, 'empresa_id' => $empresa],
             ['descripcion' => $nombreRol, 'activo' => true],
         );
-        $rol->update(['permisos' => $permisos]);
+        $rol->update(['permisos' => $permisos, 'es_admin_empresa' => $esAdminEmpresa]);
 
         return User::factory()->create(['rol_id' => $rol->rol_id, 'empresa_id' => $empresa]);
     }
@@ -58,7 +67,7 @@ class RolesPermisosTest extends TestCase
     public function el_administrador_pasa_sin_permisos_explicitos()
     {
         // Rol administrador SIN permisos en el array: igual debe pasar (bypass).
-        $admin = $this->userConPermisos([], 'administrador');
+        $admin = $this->userConPermisos([], 'administrador', esAdminEmpresa: true);
 
         $this->actingAs($admin)->get(route('reparaciones.index'))->assertOk();
         $this->actingAs($admin)->get(route('reparaciones.create'))->assertOk();
@@ -137,11 +146,13 @@ class RolesPermisosTest extends TestCase
     /** @test */
     public function un_rol_de_otra_empresa_no_es_gestionable()
     {
-        $admin = $this->userConPermisos([], 'administrador'); // empresa 1
+        $admin = $this->userConPermisos([], 'administrador', esAdminEmpresa: true); // empresa 1
 
-        Empresa::create(['nombre' => 'Otra', 'slug' => 'otra-'.uniqid()]);
+        // Id real y no un 2 fijo: InnoDB no revierte el AUTO_INCREMENT en el
+        // rollback de RefreshDatabase, asi que depende del orden de los tests.
+        $otraEmpresa = Empresa::create(['nombre' => 'Otra', 'slug' => 'otra-'.uniqid()]);
         $rolAjeno = Rol::create([
-            'empresa_id' => 2,
+            'empresa_id' => $otraEmpresa->id,
             'nombre' => 'rol_empresa_2',
             'descripcion' => 'x',
             'permisos' => [],

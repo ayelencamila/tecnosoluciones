@@ -19,7 +19,14 @@ class AuditoriaTest extends TestCase
     {
         $rol = Rol::firstOrCreate(
             ['nombre' => $rolNombre, 'empresa_id' => $empresaId],
-            ['descripcion' => $rolNombre, 'permisos' => [], 'activo' => true],
+            [
+                'descripcion' => $rolNombre,
+                'permisos' => [],
+                'activo' => true,
+                // El bypass del administrador se resuelve por este flag y ya
+                // no por el nombre del rol, igual que en el alta real.
+                'es_admin_empresa' => $rolNombre === 'administrador',
+            ],
         );
 
         return User::factory()->create([
@@ -53,9 +60,13 @@ class AuditoriaTest extends TestCase
     public function el_log_esta_scopeado_por_empresa(): void
     {
         $admin = $this->usuarioCon('administrador', 1);
-        Empresa::create(['nombre' => 'Otra Empresa', 'slug' => 'otra-empresa']);
 
-        Auditoria::create(['empresa_id' => 2, 'accion' => 'AJENO', 'motivo' => 'empresa 2']);
+        // Se usa el id real de la empresa creada y no un 2 fijo: InnoDB no
+        // revierte el contador AUTO_INCREMENT cuando RefreshDatabase hace
+        // rollback, asi que el id depende de los tests que corrieron antes.
+        $otraEmpresa = Empresa::create(['nombre' => 'Otra Empresa', 'slug' => 'otra-empresa-'.uniqid()]);
+
+        Auditoria::create(['empresa_id' => $otraEmpresa->id, 'accion' => 'AJENO', 'motivo' => 'empresa ajena']);
 
         // El admin de empresa 1 filtra por la acción de la empresa 2: no debe verla.
         $this->actingAs($admin)

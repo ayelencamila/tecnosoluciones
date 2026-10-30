@@ -63,7 +63,7 @@ class SolicitudCotizacionTest extends TestCase
         // Crear rol y usuario
         $rol = Rol::firstOrCreate(
             ['nombre' => 'administrador'],
-            ['descripcion' => 'Administrador', 'activo' => true]
+            ['descripcion' => 'Administrador', 'activo' => true, 'es_admin_empresa' => true]
         );
         $this->usuario = User::factory()->create(['rol_id' => $rol->rol_id]);
 

@@ -64,7 +64,7 @@ class VerificarEstadoCuentaServiceTest extends TestCase
         // Crear usuario admin (el servicio busca rol 'administrador')
         $rolAdmin = Rol::firstOrCreate(
             ['nombre' => 'administrador'],
-            ['descripcion' => 'Administrador', 'activo' => true]
+            ['descripcion' => 'Administrador', 'activo' => true, 'es_admin_empresa' => true]
         );
         User::factory()->create([
             'name' => 'Admin Test',

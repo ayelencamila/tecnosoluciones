@@ -34,6 +34,7 @@ class ProductoTest extends TestCase
         // Crear rol administrador
         $rol = Rol::create([
             'nombre' => 'administrador',
+            'es_admin_empresa' => true,
             'descripcion' => 'Administrador del sistema',
             'permisos' => [],
             'activo' => true,

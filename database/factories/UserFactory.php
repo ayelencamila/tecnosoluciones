@@ -25,14 +25,19 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
+            // empresa_id explicito y no heredado del DEFAULT de la columna:
+            // Eloquent no relee los valores por defecto despues del INSERT, de
+            // modo que el modelo en memoria quedaba con empresa_id = null y el
+            // usuario no resolvia ningun tenant durante el test.
+            'empresa_id' => 1,
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
             'rol_id' => fn () => Rol::firstOrCreate(
-                ['nombre' => 'Administrador'],
-                ['descripcion' => 'Administrador del sistema', 'activo' => true]
+                ['nombre' => 'Administrador', 'empresa_id' => 1],
+                ['descripcion' => 'Administrador del sistema', 'activo' => true, 'es_admin_empresa' => true]
             )->rol_id,
         ];
     }
