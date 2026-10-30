@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class MedioPago extends Model
 {
-    use SoftDeletes;
+    use SoftDeletes, BelongsToEmpresa;
 
     protected $table = 'medios_pago';
     protected $primaryKey = 'medioPagoID';
