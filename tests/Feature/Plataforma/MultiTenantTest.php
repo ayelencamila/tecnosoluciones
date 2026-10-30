@@ -65,27 +65,37 @@ class MultiTenantTest extends TestCase
     }
 
     /**
-     * Crea un cliente en la empresa indicada. `tipoClienteID` y
-     * `estadoClienteID` apuntan a catalogos globales (no son por empresa).
+     * Crea un cliente en la empresa indicada.
+     *
+     * `tipos_cliente` es un catalogo POR EMPRESA, asi que el tipo se crea
+     * dentro del mismo tenant que el cliente. Si se creara afuera quedaria en
+     * la empresa default y la FK compuesta
+     * (clientes.empresa_id, tipoClienteID) -> (tipos_cliente.empresa_id, tipoClienteID)
+     * rechazaria el insert, que es justamente lo que debe hacer.
+     *
+     * `estados_cliente`, en cambio, es global y se crea una sola vez.
      */
     private function clienteEn(int $empresaId, string $dni): Cliente
     {
-        $tipo = \App\Models\TipoCliente::firstOrCreate(
-            ['nombreTipo' => 'Minorista'],
-            ['descripcion' => 'Público general', 'activo' => true]
-        );
         $estado = \App\Models\EstadoCliente::firstOrCreate(
             ['nombreEstado' => 'Normal'],
             ['descripcion' => 'Al día']
         );
 
-        return TenantContext::paraEmpresa($empresaId, fn () => Cliente::create([
-            'nombre' => 'Cliente',
-            'apellido' => 'Test',
-            'DNI' => $dni,
-            'tipoClienteID' => $tipo->tipoClienteID ?? $tipo->getKey(),
-            'estadoClienteID' => $estado->estadoClienteID ?? $estado->getKey(),
-        ]));
+        return TenantContext::paraEmpresa($empresaId, function () use ($dni, $estado) {
+            $tipo = \App\Models\TipoCliente::firstOrCreate(
+                ['nombreTipo' => 'Minorista'],
+                ['descripcion' => 'Público general', 'activo' => true]
+            );
+
+            return Cliente::create([
+                'nombre' => 'Cliente',
+                'apellido' => 'Test',
+                'DNI' => $dni,
+                'tipoClienteID' => $tipo->tipoClienteID,
+                'estadoClienteID' => $estado->estadoClienteID ?? $estado->getKey(),
+            ]);
+        });
     }
 
     private function superUsuario(): User
