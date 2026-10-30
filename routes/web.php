@@ -189,13 +189,24 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function () {
 
 require __DIR__.'/auth.php';
 
-// --- RUTAS API ---
-Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
-    ->name('api.localidades.por-provincia');
+/*
+| --- RUTAS API ---
+|
+| Estas dos alimentan selects dependientes (provincia -> localidad,
+| marca -> modelo) y estaban declaradas sin middleware, o sea abiertas sin
+| autenticar. En el caso de los modelos eso exponía datos de empresa: el
+| scope de Modelo hereda el tenant de la marca, pero sin usuario autenticado
+| TenantContext no resuelve ninguna empresa y por lo tanto no restringe, asi
+| que devolvia los modelos de todas. Van dentro de `auth` + `tenant`.
+*/
+Route::middleware(['auth', 'tenant'])->group(function () {
+    Route::get('/api/provincias/{provincia}/localidades', [LocalidadController::class, 'getLocalidadesByProvincia'])
+        ->name('api.localidades.por-provincia');
 
-// API de Modelos por Marca
-Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
-    ->name('api.modelos.por-marca');
+    // API de Modelos por Marca
+    Route::get('/api/marcas/{marca}/modelos', [\App\Http\Controllers\API\ModeloController::class, 'index'])
+        ->name('api.modelos.por-marca');
+});
 
 // --- API CONFIGURABLE SELECTS (CRUD RÁPIDO) ---
 Route::middleware(['auth', 'tenant'])->prefix('api')->group(function () {

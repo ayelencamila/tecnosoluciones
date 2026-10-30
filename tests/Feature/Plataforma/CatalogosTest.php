@@ -3,7 +3,9 @@
 namespace Tests\Feature\Plataforma;
 
 use App\Models\Empresa;
+use App\Models\Marca;
 use App\Models\MedioPago;
+use App\Models\Modelo;
 use App\Models\MotivoDemoraReparacion;
 use App\Models\Rol;
 use App\Models\TipoCliente;
@@ -215,6 +217,42 @@ class CatalogosTest extends TestCase
             ->assertRedirect();
 
         $this->assertDatabaseHas('provincias', ['nombre' => 'Provincia Nueva']);
+    }
+
+    /**
+     * Los endpoints que alimentan selects dependientes son los mas faciles de
+     * olvidar, porque se declaran sueltos al final del archivo de rutas. El de
+     * modelos devuelve datos de empresa, asi que tiene que exigir sesion y
+     * respetar el tenant.
+     *
+     * @test
+     */
+    public function el_endpoint_de_modelos_por_marca_exige_sesion_y_respeta_la_empresa(): void
+    {
+        [$empresaA, $adminA] = $this->empresaConAdmin('Empresa A');
+        [, $adminB] = $this->empresaConAdmin('Empresa B');
+
+        $marcaDeA = TenantContext::paraEmpresa($empresaA->id, function () {
+            $marca = Marca::create(['nombre' => 'Marca de A', 'activo' => true]);
+            Modelo::create(['marca_id' => $marca->id, 'nombre' => 'Modelo de A', 'activo' => true]);
+
+            return $marca;
+        });
+
+        // Sin autenticar: antes respondia la lista completa.
+        $this->getJson("/api/marcas/{$marcaDeA->id}/modelos")->assertUnauthorized();
+
+        // La empresa duena si lo ve.
+        $this->actingAs($adminA)
+            ->getJson("/api/marcas/{$marcaDeA->id}/modelos")
+            ->assertOk()
+            ->assertJsonCount(1);
+
+        // Otra empresa, con el id de la marca a la vista, no.
+        $this->actingAs($adminB)
+            ->getJson("/api/marcas/{$marcaDeA->id}/modelos")
+            ->assertOk()
+            ->assertJsonCount(0);
     }
 
     /**
