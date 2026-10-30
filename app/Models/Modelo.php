@@ -2,12 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Modelo extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantPorRelacion;
+
+    /** Empresa heredada de marca: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'marca';
+
 
     // AQUÍ ESTABA EL ERROR: Faltaba 'marca_id' en esta lista
     protected $fillable = [

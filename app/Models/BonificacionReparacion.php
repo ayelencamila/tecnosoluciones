@@ -2,13 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BonificacionReparacion extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantPorRelacion;
+
+    /** Empresa heredada de reparacion: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'reparacion';
+
 
     protected $table = 'bonificaciones_reparacion';
     protected $primaryKey = 'bonificacionID';

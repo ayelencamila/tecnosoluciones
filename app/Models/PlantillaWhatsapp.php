@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Log;
@@ -17,6 +18,8 @@ use Carbon\Carbon;
  */
 class PlantillaWhatsapp extends Model
 {
+    use BelongsToEmpresa;
+
     protected $table = 'plantillas_whatsapp';
     protected $primaryKey = 'plantilla_id';
 

@@ -89,9 +89,45 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'activo' => 'boolean',           
+            'activo' => 'boolean',
             'bloqueado_hasta' => 'datetime',
+            'es_super_admin' => 'boolean',
         ];
+    }
+
+    /**
+     * Indica si el usuario es el operador de la plataforma.
+     *
+     * Deliberadamente NO figura en $fillable: es el privilegio maximo del
+     * sistema y no debe poder otorgarse por asignacion masiva desde un
+     * formulario. Se concede unicamente por consola (`php artisan
+     * plataforma:crear-super-usuario`).
+     */
+    public function esSuperAdmin(): bool
+    {
+        return (bool) $this->es_super_admin;
+    }
+
+    /**
+     * Indica si el usuario administra su propia empresa.
+     *
+     * Se resuelve por el flag `roles.es_admin_empresa` y no comparando
+     * `nombre === 'administrador'`: el privilegio no debe depender de un
+     * texto editable desde la UI de roles.
+     */
+    public function esAdminEmpresa(): bool
+    {
+        if (! $this->rol_id) {
+            return false;
+        }
+
+        if ($this->relationLoaded('rol') && $this->rol) {
+            return (bool) $this->rol->es_admin_empresa;
+        }
+
+        return (bool) \DB::table('roles')
+            ->where('rol_id', $this->rol_id)
+            ->value('es_admin_empresa');
     }
     
     /**
@@ -132,16 +168,20 @@ class User extends Authenticatable
     }
 
     /**
-     * Verifica si el usuario tiene un permiso específico
+     * Verifica si el usuario tiene un permiso específico.
+     *
+     * Jerarquía de resolución (de mayor a menor autoridad):
+     *  1. Super usuario de plataforma: todo, en la empresa en la que esté.
+     *  2. Administrador de la empresa: todo, dentro de su empresa.
+     *  3. Rol operativo: solo los permisos explícitos de su rol.
      */
     public function hasPermission(string $permiso): bool
     {
-        // Administrador tiene todos los permisos
-        if ($this->role === 'administrador') {
+        if ($this->esSuperAdmin() || $this->esAdminEmpresa()) {
             return true;
         }
 
-        return in_array($permiso, $this->permisos);
+        return in_array($permiso, $this->permisos, true);
     }
 
     /**
@@ -149,7 +189,7 @@ class User extends Authenticatable
      */
     public function hasAnyPermission(array $permisos): bool
     {
-        if ($this->role === 'administrador') {
+        if ($this->esSuperAdmin() || $this->esAdminEmpresa()) {
             return true;
         }
 

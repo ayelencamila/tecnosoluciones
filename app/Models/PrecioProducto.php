@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PrecioProducto extends Model
 {
+    use TenantPorRelacion;
+
+    /** Empresa heredada de producto: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'producto';
+
     protected $table = 'precios_producto';
 
     protected $fillable = [

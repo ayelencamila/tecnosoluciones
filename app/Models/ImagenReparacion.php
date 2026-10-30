@@ -2,12 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 class ImagenReparacion extends Model
 {
+    use TenantPorRelacion;
+
+    /** Empresa heredada de reparacion: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'reparacion';
+
     protected $table = 'imagenes_reparacion';
 
     protected $fillable = [

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class DetalleVenta extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantPorRelacion;
+
+    /** Empresa heredada de venta: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'venta';
+
 
     protected $table = 'detalle_ventas';
     protected $primaryKey = 'detalle_venta_id';

@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MovimientoStock extends Model
 {
+    use TenantPorRelacion;
+
+    /** Empresa heredada de producto: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'producto';
+
     protected $table = 'movimientos_stock';
 
     protected $fillable = [

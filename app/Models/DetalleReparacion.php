@@ -2,11 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DetalleReparacion extends Model
 {
+    use TenantPorRelacion;
+
+    /** Empresa heredada de reparacion: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'reparacion';
+
     // --- ESTA LÍNEA ES LA SOLUCIÓN ---
     protected $table = 'detalle_reparaciones'; 
     // ---------------------------------

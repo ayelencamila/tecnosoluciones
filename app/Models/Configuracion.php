@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
+use App\Support\TenantContext;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Configuracion extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEmpresa;
 
     protected $table = 'configuracion';
 
@@ -20,14 +22,26 @@ class Configuracion extends Model
     ];
 
     /**
+     * Clave de caché del parámetro, particionada por empresa.
+     *
+     * Imprescindible desde que `configuracion` es por empresa: una clave de
+     * caché compartida (`config:stock_minimo_global`) haría que el valor de
+     * la primera empresa que consulte se le sirva a todas las demás. Es una
+     * fuga entre tenants que el Global Scope no puede evitar, porque ocurre
+     * antes de llegar a la base de datos.
+     */
+    private static function cacheKey(string $clave): string
+    {
+        return 'config:'.(TenantContext::empresaId() ?? 'sin-empresa').":{$clave}";
+    }
+
+    /**
      * Obtiene un valor de configuración por su clave con caché.
      * TTL: 1 hora (3600 segundos)
      */
     public static function get(string $clave, mixed $default = null): mixed
     {
-        $cacheKey = "config:{$clave}";
-        
-        return cache()->remember($cacheKey, 3600, function () use ($clave, $default) {
+        return cache()->remember(self::cacheKey($clave), 3600, function () use ($clave, $default) {
             $config = self::where('clave', $clave)->first();
             return $config ? $config->valor : $default;
         });
@@ -44,13 +58,20 @@ class Configuracion extends Model
         if ($descripcion) {
             $config->descripcion = $descripcion;
         }
+
+        // El estado "sucio" se captura ANTES de guardar: despues de save() el
+        // modelo ya esta sincronizado y isDirty() siempre devuelve false, por
+        // lo que la auditoria de cambios de parametros nunca se registraba.
+        $valorCambio = $config->isDirty('valor');
+        $valorAnterior = $config->getOriginal('valor');
+
         $guardado = $config->save();
 
         // Invalidar caché para esta clave
-        cache()->forget("config:{$clave}");
+        cache()->forget(self::cacheKey($clave));
 
-        // Opcional: Registrar auditoría si el valor cambió
-        if ($guardado && $config->isDirty('valor')) {
+        // Registrar auditoría si el valor cambió
+        if ($guardado && $valorCambio) {
             Auditoria::registrar(
                 Auditoria::ACCION_MODIFICAR_PARAMETRO_GLOBAL,
                 'configuracion',
@@ -58,7 +79,7 @@ class Configuracion extends Model
                 $config->getOriginal(),
                 $config->toArray(),
                 "Parámetro global modificado: {$clave}",
-                "Valor anterior: {$config->getOriginal('valor')}, Valor nuevo: {$config->valor}",
+                "Valor anterior: {$valorAnterior}, Valor nuevo: {$config->valor}",
                 auth()->id() // Asume que hay un usuario logueado
             );
         }
@@ -96,7 +117,7 @@ class Configuracion extends Model
     {
         $configs = self::all();
         foreach ($configs as $config) {
-            cache()->forget("config:{$config->clave}");
+            cache()->forget(self::cacheKey($config->clave));
         }
     }
 
@@ -108,7 +129,7 @@ class Configuracion extends Model
     {
         $configs = self::all();
         foreach ($configs as $config) {
-            cache()->put("config:{$config->clave}", $config->valor, 3600);
+            cache()->put(self::cacheKey($config->clave), $config->valor, 3600);
         }
     }
 }

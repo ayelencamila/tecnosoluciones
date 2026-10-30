@@ -4,13 +4,18 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MovimientoCuentaCorriente extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantPorRelacion;
+
+    /** Empresa heredada de cuentaCorriente: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'cuentaCorriente';
+
 
     protected $table = 'movimientos_cuenta_corriente';
 

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Rol extends Model
 {
+    use BelongsToEmpresa;
+
     protected $table = 'roles';
 
     protected $primaryKey = 'rol_id';
@@ -14,6 +17,7 @@ class Rol extends Model
     protected $fillable = [
         'empresa_id',
         'nombre',
+        'es_admin_empresa',
         'descripcion',
         'permisos',
         'activo',
@@ -21,6 +25,7 @@ class Rol extends Model
 
     protected $casts = [
         'activo' => 'boolean',
+        'es_admin_empresa' => 'boolean',
         'permisos' => 'array',
     ];
 

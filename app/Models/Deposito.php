@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Deposito extends Model
 {
+    use BelongsToEmpresa;
+
     protected $table = 'depositos';
 
     protected $primaryKey = 'deposito_id';

@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class CategoriaProducto extends Model
 {
+    use BelongsToEmpresa;
+
     protected $table = 'categorias_producto';
 
     protected $fillable = [

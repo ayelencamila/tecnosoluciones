@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -29,7 +30,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class DetalleSolicitudCotizacion extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantPorRelacion;
+
+    /** Empresa heredada de solicitud: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'solicitud';
+
 
     protected $table = 'detalle_solicitudes_cotizacion';
 

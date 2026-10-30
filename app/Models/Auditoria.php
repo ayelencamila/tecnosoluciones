@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToEmpresa;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -30,7 +31,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Auditoria extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToEmpresa;
 
     /**
      * Nombre de la tabla en la base de datos
@@ -129,6 +130,15 @@ class Auditoria extends Model
     public const ACCION_MODIFICAR_PARAMETRO_GLOBAL = 'MODIFICAR_PARAMETRO_GLOBAL';
 
     public const ACCION_MODIFICAR_EMPRESA = 'MODIFICAR_EMPRESA';
+
+    // Nivel de plataforma: acciones del operador del sistema sobre los tenants
+    public const ACCION_CREAR_EMPRESA = 'CREAR_EMPRESA';
+
+    public const ACCION_SUSPENDER_EMPRESA = 'SUSPENDER_EMPRESA';
+
+    public const ACCION_REACTIVAR_EMPRESA = 'REACTIVAR_EMPRESA';
+
+    public const ACCION_INGRESO_PLATAFORMA = 'INGRESO_PLATAFORMA';
 
     // Módulo Plantillas WhatsApp (CU-30)
     public const ACCION_MODIFICAR_PLANTILLA_WHATSAPP = 'MODIFICAR_PLANTILLA_WHATSAPP';
@@ -254,7 +264,11 @@ class Auditoria extends Model
     {
         static::creating(function (self $auditoria) {
             if (empty($auditoria->empresa_id)) {
-                $auditoria->empresa_id = auth()->user()?->empresa_id
+                // TenantContext primero: si el super usuario de plataforma esta
+                // operando dentro de una empresa, el registro debe quedar
+                // atribuido a ESA empresa y no quedar sin tenant (el super
+                // usuario no tiene `empresa_id` propio).
+                $auditoria->empresa_id = \App\Support\TenantContext::empresaId()
                     ?? ($auditoria->usuarioID ? User::find($auditoria->usuarioID)?->empresa_id : null)
                     ?? 1;
             }

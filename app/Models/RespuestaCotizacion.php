@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,7 +33,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class RespuestaCotizacion extends Model
 {
-    use HasFactory;
+    use HasFactory, TenantPorRelacion;
+
+    /** Empresa heredada de cotizacionProveedor: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'cotizacionProveedor';
+
 
     protected $table = 'respuestas_cotizacion';
 

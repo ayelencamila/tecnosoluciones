@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +14,11 @@ use App\Models\Configuracion;
 
 class CuentaCorriente extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, TenantPorRelacion;
+
+    /** Empresa heredada de cliente: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'cliente';
+
 
     protected $table = 'cuentas_corriente';
     protected $primaryKey = 'cuentaCorrienteID';

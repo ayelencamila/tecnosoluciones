@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\TenantPorRelacion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -20,6 +21,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class DetalleRecepcion extends Model
 {
+    use TenantPorRelacion;
+
+    /** Empresa heredada de recepcion: ver TenantPorRelacion. */
+    protected static string $relacionTenant = 'recepcion';
+
     protected $table = 'detalle_recepciones';
 
     protected $fillable = [
