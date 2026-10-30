@@ -490,14 +490,25 @@ Route::middleware(['auth', 'tenant'])->group(function () {
         Route::post('/{cliente}/dar-de-baja', [ClienteController::class, 'darDeBaja'])->middleware('permiso:clientes.editar')->name('darDeBaja');
     });
 
-    // --- MÓDULO DE PROVEEDORES (CU-16 a CU-19) ---
-    // Ubicado aquí para acceso operativo (Admin/Compras)
-    Route::resource('proveedores', ProveedorController::class)->parameters([
-        'proveedores' => 'proveedor',
-    ]);
+    /*
+    | --- MÓDULO DE PROVEEDORES (CU-16 a CU-19) ---
+    | Ubicado aquí para acceso operativo (Admin/Compras).
+    |
+    | El resource estaba declarado SIN `permiso:`, de modo que los permisos
+    | `proveedores.*` existían en el config y se asignaban en la UI de roles
+    | pero nunca se verificaban: cualquier usuario autenticado podía listar,
+    | crear, editar y borrar proveedores con su CUIT y su domicilio. Cada
+    | verbo queda asociado al permiso que le corresponde.
+    */
+    Route::resource('proveedores', ProveedorController::class)
+        ->parameters(['proveedores' => 'proveedor'])
+        ->middlewareFor(['index', 'show'], 'permiso:proveedores.ver')
+        ->middlewareFor(['create', 'store'], 'permiso:proveedores.crear')
+        ->middlewareFor(['edit', 'update', 'destroy'], 'permiso:proveedores.editar');
 
     // Ruta adicional para actualizar calificación (CU-21)
     Route::patch('proveedores/{proveedor}/calificacion', [ProveedorController::class, 'actualizarCalificacion'])
+        ->middleware('permiso:proveedores.editar')
         ->name('proveedores.actualizar-calificacion');
 
     // API Interna para buscar clientes (Buscador Asíncrono)
