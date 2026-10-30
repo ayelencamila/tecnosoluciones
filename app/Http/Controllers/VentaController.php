@@ -18,6 +18,7 @@ use App\Models\MedioPago;
 use App\Models\Descuento;
 
 // Requests
+use App\Http\Resources\ClienteResource;
 use App\Http\Requests\Ventas\StoreVentaRequest;
 use App\Http\Requests\Ventas\AnularVentaRequest; // <--- Asegúrate de tener este archivo
 
@@ -88,10 +89,14 @@ class VentaController extends Controller
     public function create(): Response
     {
         return Inertia::render('Ventas/FormularioVenta', [
+            // El DNI del selector sirve para distinguir homónimos, así que
+            // sale enmascarado si el rol no tiene permiso de contacto: los
+            // últimos dígitos alcanzan para desambiguar (ver ClienteResource).
             'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni', 'tipoClienteID')
                 ->with('tipoCliente', 'cuentaCorriente')
                 ->orderBy('apellido')
-                ->get(),
+                ->get()
+                ->map(fn (Cliente $cliente) => ClienteResource::make($cliente)->resolve()),
             
             'productos' => Producto::where('estadoProductoID', 1)
                 ->with(['categoria', 'precios' => fn($q) => $q->whereNull('fechaHasta')->with('tipoCliente')])

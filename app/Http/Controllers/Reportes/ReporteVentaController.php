@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Reportes;
 use App\Exports\VentaExport;
 use App\Http\Controllers\Controller;
 use App\Models\Auditoria;
+use App\Http\Resources\ClienteResource;
 use App\Models\Cliente;
 use App\Models\Venta;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -96,9 +97,14 @@ class ReporteVentaController extends Controller
         ];
 
         // Obtener cliente seleccionado si existe (para mostrar en el buscador)
-        $clienteSeleccionado = $clienteId
+        // Se mantiene `find` (no `findOrFail`): un cliente_id inválido en la
+        // query string deja el filtro vacío, como hasta ahora, en vez de
+        // romper el reporte con un 404.
+        $cliente = $clienteId
             ? Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->find($clienteId)
             : null;
+
+        $clienteSeleccionado = $cliente ? ClienteResource::make($cliente)->resolve() : null;
 
         return Inertia::render('Reportes/Ventas/Index', [
             'ventas' => $ventas,

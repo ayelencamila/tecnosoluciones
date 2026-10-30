@@ -59,6 +59,9 @@ return [
                 'proveedores.ver' => 'Ver listado de proveedores',
                 'proveedores.crear' => 'Registrar nuevos proveedores',
                 'proveedores.editar' => 'Modificar proveedores',
+                // Mismo criterio que en clientes: el CUIT y el contacto del
+                // proveedor son datos de un tercero identificable.
+                'proveedores.ver_datos_contacto' => 'Ver datos de contacto completos (CUIT, email, teléfono y domicilio)',
             ],
         ],
         
@@ -68,6 +71,12 @@ return [
                 'clientes.ver' => 'Ver listado de clientes',
                 'clientes.crear' => 'Registrar nuevos clientes',
                 'clientes.editar' => 'Modificar datos de clientes',
+                // Sin este permiso el listado muestra el contacto enmascarado
+                // ("j•••@gmail.com", "••••3456"): alcanza para reconocer al
+                // cliente y no para contactarlo. Quien puede editar lo recibe
+                // completo de todas formas, porque no se puede modificar un
+                // dato que no se ve.
+                'clientes.ver_datos_contacto' => 'Ver datos de contacto completos (DNI, email, teléfono y domicilio)',
             ],
         ],
         

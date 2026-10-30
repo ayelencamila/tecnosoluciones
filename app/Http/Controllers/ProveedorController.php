@@ -9,6 +9,7 @@ use App\Models\Localidad;
 use App\Models\Auditoria;
 use App\Http\Requests\Proveedores\StoreProveedorRequest;
 use App\Http\Requests\Proveedores\UpdateProveedorRequest;
+use App\Http\Resources\ProveedorResource;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\DB;
@@ -48,7 +49,11 @@ class ProveedorController extends Controller
         ];
 
         return Inertia::render('Proveedores/Index', [
-            'proveedores' => $query->paginate(10)->withQueryString(),
+            // El `through` enmascara CUIT y contacto si el rol no tiene el
+            // permiso, sin cambiar la forma del paginador (ver ProveedorResource).
+            'proveedores' => $query->paginate(10)
+                ->withQueryString()
+                ->through(fn (Proveedor $proveedor) => ProveedorResource::make($proveedor)->resolve($request)),
             'provincias' => \App\Models\Provincia::orderBy('nombre')->get(),
             'filters' => $request->only(['search', 'provincia_id', 'estado', 'calificacion_min', 'sort_column', 'sort_direction']),
             'stats' => $stats,
@@ -67,7 +72,7 @@ class ProveedorController extends Controller
     {
         $proveedor->load('direccion.localidad.provincia');
         return Inertia::render('Proveedores/Show', [
-            'proveedor' => $proveedor,
+            'proveedor' => ProveedorResource::make($proveedor)->resolve(),
         ]);
     }
 
@@ -190,7 +195,10 @@ class ProveedorController extends Controller
             ->limit(15)
             ->get(['id', 'razon_social', 'cuit']);
 
-        return response()->json($proveedores);
+        // Arreglo plano, igual que en el buscador de clientes.
+        return response()->json(
+            $proveedores->map(fn (Proveedor $proveedor) => ProveedorResource::make($proveedor)->resolve($request))
+        );
     }
 
     // CU-19: Dar de baja Proveedor

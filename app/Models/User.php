@@ -195,4 +195,21 @@ class User extends Authenticatable
 
         return !empty(array_intersect($permisos, $this->permisos));
     }
+
+    /**
+     * Decide si el usuario recibe los datos de contacto completos de un
+     * módulo ('clientes' o 'proveedores') o la versión enmascarada.
+     *
+     * Exige el permiso explícito, con una excepción necesaria: quien puede
+     * editar los recibe completos siempre. Un formulario de edición cargado
+     * con "j•••@gmail.com" guardaría ese texto en la base y destruiría el
+     * dato real, así que acá el permiso de escritura implica el de lectura.
+     */
+    public function puedeVerDatosContacto(string $modulo): bool
+    {
+        return $this->hasAnyPermission([
+            "{$modulo}.ver_datos_contacto",
+            "{$modulo}.editar",
+        ]);
+    }
 }

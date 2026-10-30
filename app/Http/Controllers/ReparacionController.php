@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Exceptions\Ventas\SinStockException;
 use App\Http\Requests\Reparaciones\AnularReparacionRequest;
 use App\Http\Requests\Reparaciones\StoreReparacionRequest;
+use App\Http\Resources\ClienteResource;
 use App\Models\Cliente;
 use App\Models\EstadoReparacion;
 // Modelos
@@ -25,6 +26,7 @@ use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 // Excepciones
 use Inertia\Response;
+use App\Support\DatoSensible;
 use App\Support\TenantContext;
 
 class ReparacionController extends Controller
@@ -51,6 +53,8 @@ class ReparacionController extends Controller
             $query->where('estado_reparacion_id', $request->estado_id);
         }
 
+        $contactoCompleto = $request->user()?->puedeVerDatosContacto('clientes') ?? false;
+
         $reparaciones = $query->paginate(10)
             ->withQueryString()
             ->through(fn ($r) => [
@@ -60,7 +64,16 @@ class ReparacionController extends Controller
                 'fecha_promesa' => $r->fecha_promesa ? $r->fecha_promesa->format('d/m/Y') : null,
                 'cliente' => [
                     'nombre_completo' => "{$r->cliente->apellido}, {$r->cliente->nombre}",
-                    'telefono' => $r->cliente->whatsapp ?? $r->cliente->telefono ?? '-',
+                    // Mismo criterio que en el módulo de clientes: este es un
+                    // listado recorrible de toda la cartera, así que el
+                    // teléfono sale enmascarado para quien no tenga el
+                    // permiso. El número completo está en la ficha de la
+                    // reparación, que es donde el técnico necesita llamar al
+                    // cliente del equipo que tiene en el banco de trabajo
+                    // (necesidad de conocer acotada a la tarea).
+                    'telefono' => $contactoCompleto
+                        ? ($r->cliente->whatsapp ?? $r->cliente->telefono ?? '-')
+                        : (DatoSensible::telefono($r->cliente->whatsapp ?? $r->cliente->telefono) ?? '-'),
                 ],
                 // Mapeo correcto: Marca a través del Modelo
                 'equipo' => ($r->modelo->marca->nombre ?? 'N/A').' '.($r->modelo->nombre ?? ''),
@@ -109,7 +122,11 @@ class ReparacionController extends Controller
         }
 
         return Inertia::render('Reparaciones/Create', [
-            'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')->orderBy('apellido')->get(),
+            // DNI enmascarado si el rol no tiene permiso (ver ClienteResource).
+            'clientes' => Cliente::select('clienteID', 'nombre', 'apellido', 'dni')
+                ->orderBy('apellido')
+                ->get()
+                ->map(fn (Cliente $cliente) => ClienteResource::make($cliente)->resolve()),
             'productos' => $queryProductos->with(['precios' => fn ($q) => $q->whereNull('fechaHasta')])
                 ->orderBy('nombre')->get()->map(fn ($p) => [
                     'id' => $p->id,

@@ -11,10 +11,11 @@ use App\Models\EstadoCuentaCorriente;
 use App\Models\Auditoria;
 
 // --- ARQUITECTURA LARMAN (BCE) ---
-// 1. Boundaries (Validación)
+// 1. Boundaries (Validación y presentación)
 use App\Http\Requests\Clientes\StoreClienteRequest;
 use App\Http\Requests\Clientes\UpdateClienteRequest;
 use App\Http\Requests\Clientes\DarDeBajaClienteRequest;
+use App\Http\Resources\ClienteResource;
 
 // 2. Controls (Lógica de Negocio)
 use App\Services\Clientes\RegistrarClienteService;
@@ -83,7 +84,13 @@ class ClienteController extends Controller
             $query->orderBy($sortColumn, $sortDirection);
         }
 
-        $clientes = $query->paginate(10)->withQueryString(); // withQueryString mantiene los filtros al paginar
+        // withQueryString mantiene los filtros al paginar.
+        // El `through` enmascara el contacto cuando el rol no tiene permiso
+        // para verlo (CLAUDE.md, Auditoría Legal punto 4) sin alterar la
+        // forma del paginador, que es la que consume la vista.
+        $clientes = $query->paginate(10)
+            ->withQueryString()
+            ->through(fn (Cliente $cliente) => ClienteResource::make($cliente)->resolve($request));
         
         // Lógica de contadores (Dashboard en Index)
         $counts = [
@@ -150,7 +157,7 @@ class ClienteController extends Controller
         $historialAuditoria = Auditoria::historialCliente($cliente->clienteID);
 
         return Inertia::render('Clientes/Show', [
-            'cliente' => $cliente,
+            'cliente' => ClienteResource::make($cliente)->resolve(),
             'historialAuditoria' => $historialAuditoria,
         ]);
     }
@@ -313,6 +320,11 @@ class ClienteController extends Controller
             ->limit(20)
             ->get(['clienteID', 'nombre', 'apellido', 'DNI', 'tipoClienteID', 'cuentaCorrienteID']);
 
-        return response()->json($clientes);
+        // Se mapea uno por uno en lugar de usar ResourceCollection para
+        // conservar el arreglo plano que espera el autocomplete: la colección
+        // lo envolvería en {"data": [...]} y rompería el buscador.
+        return response()->json(
+            $clientes->map(fn (Cliente $cliente) => ClienteResource::make($cliente)->resolve($request))
+        );
     }
 }
