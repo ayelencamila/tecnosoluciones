@@ -6,6 +6,7 @@ namespace App\Http\Requests\Clientes;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use App\Models\Cliente; // Importamos Cliente para el type-hinting
+use App\Support\TenantContext;
 
 /**
  * Request class para validación de actualización de clientes
@@ -39,7 +40,7 @@ class UpdateClienteRequest extends FormRequest
                 'max:20',
                 // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
                 Rule::unique('clientes', 'DNI')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($clienteId, 'clienteID'),
             ],
             'mail' => ['nullable', 'email', 'max:255', Rule::unique('clientes', 'mail')->ignore($clienteId, 'clienteID')],

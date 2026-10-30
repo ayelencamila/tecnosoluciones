@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\RolRequest;
 use App\Models\Auditoria;
 use App\Models\Rol;
 use App\Models\User;
+use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,7 +46,7 @@ class RolController extends Controller
      */
     protected function autorizarEmpresa(Rol $role): void
     {
-        abort_if($role->empresa_id !== auth()->user()->empresa_id, 404);
+        abort_if($role->empresa_id !== TenantContext::empresaId(), 404);
     }
 
     /**
@@ -53,9 +54,8 @@ class RolController extends Controller
      */
     public function index(): Response
     {
-        // Scoping manual multi-tenant: solo los roles de la empresa del usuario.
+        // El Global Scope de `Rol` ya restringe por empresa activa.
         $roles = Rol::withCount('users')
-            ->where('empresa_id', auth()->user()->empresa_id)
             ->orderBy('nombre')
             ->get();
 
@@ -84,7 +84,7 @@ class RolController extends Controller
             DB::beginTransaction();
 
             $rol = Rol::create([
-                'empresa_id' => auth()->user()->empresa_id,
+                'empresa_id' => TenantContext::empresaId(),
                 'nombre' => $request->nombre,
                 'descripcion' => $request->descripcion,
                 'permisos' => $request->permisos ?? [],
@@ -137,10 +137,10 @@ class RolController extends Controller
     {
         $this->autorizarEmpresa($role);
 
-        // Proteger el rol administrador de modificaciones críticas
-        if ($role->nombre === 'administrador' && $request->nombre !== 'administrador') {
-            return back()->with('error', 'No se puede cambiar el nombre del rol Administrador.');
-        }
+        // El rol administrador puede renombrarse libremente: su privilegio ya
+        // no depende del nombre sino del flag `es_admin_empresa`. Lo que no
+        // puede es dejar de ser administrador, porque la empresa se quedaria
+        // sin forma de gestionar sus propios roles y usuarios.
 
         try {
             DB::beginTransaction();
@@ -190,8 +190,8 @@ class RolController extends Controller
     {
         $this->autorizarEmpresa($role);
 
-        // No permitir eliminar el rol administrador
-        if ($role->nombre === 'administrador') {
+        // No permitir eliminar el rol administrador de la empresa
+        if ($role->es_admin_empresa) {
             return back()->with('error', 'El rol Administrador no puede ser eliminado por seguridad.');
         }
 
@@ -202,7 +202,13 @@ class RolController extends Controller
             // Si tiene usuarios, necesitamos saber qué hacer con ellos
             $request->validate([
                 'accion_usuarios' => ['required', 'in:reasignar,deshabilitar'],
-                'rol_destino_id' => ['required_if:accion_usuarios,reasignar', 'exists:roles,rol_id'],
+                // El rol de destino debe ser de la misma empresa: reasignar a un
+                // rol de otro tenant movería a los usuarios fuera de su empresa.
+                'rol_destino_id' => [
+                    'required_if:accion_usuarios,reasignar',
+                    \Illuminate\Validation\Rule::exists('roles', 'rol_id')
+                        ->where('empresa_id', TenantContext::empresaId()),
+                ],
             ], [
                 'accion_usuarios.required' => 'Debe indicar qué hacer con los usuarios asociados.',
                 'rol_destino_id.required_if' => 'Debe seleccionar el rol de destino para reasignar usuarios.',
@@ -261,7 +267,7 @@ class RolController extends Controller
     {
         $this->autorizarEmpresa($role);
 
-        if ($role->nombre === 'administrador') {
+        if ($role->es_admin_empresa) {
             return back()->with('error', 'El rol Administrador no puede ser desactivado.');
         }
 

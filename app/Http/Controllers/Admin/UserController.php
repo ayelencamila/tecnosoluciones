@@ -7,6 +7,7 @@ use App\Http\Requests\Admin\UserRequest;
 use App\Models\Auditoria;
 use App\Models\Rol;
 use App\Models\User;
+use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -28,11 +29,43 @@ use Inertia\Response;
 class UserController extends Controller
 {
     /**
+     * Garantiza que el usuario objetivo pertenezca a la empresa activa.
+     *
+     * A diferencia del resto de los modelos del sistema, `User` NO lleva el
+     * Global Scope de empresa: resolverlo requeriria consultar al usuario
+     * autenticado, que es justamente lo que se esta resolviendo, y produciria
+     * una recursion infinita durante el login. Por eso el aislamiento de
+     * `users` se hace explicito aca, en el unico controller que los gestiona.
+     *
+     * Devuelve 404 y no 403 a proposito: un 403 confirmaria que el usuario
+     * existe en otra empresa, filtrando informacion entre tenants.
+     *
+     * Como el super usuario de plataforma tiene `empresa_id` NULL, esta misma
+     * comprobacion impide que el administrador de una empresa lo modifique,
+     * lo bloquee o le restablezca la contraseña.
+     */
+    protected function autorizarEmpresa(User $usuario): void
+    {
+        abort_if($usuario->empresa_id !== TenantContext::empresaId(), 404);
+    }
+
+    /**
+     * Roles asignables: solo los de la empresa activa y activos.
+     * El Global Scope de `Rol` ya restringe por empresa; el filtro explicito
+     * se mantiene por legibilidad del caso de uso.
+     */
+    protected function rolesAsignables()
+    {
+        return Rol::where('activo', true)->orderBy('nombre')->get();
+    }
+
+    /**
      * Muestra el listado de usuarios con filtros.
      */
     public function index(Request $request): Response
     {
         $query = User::with('rol')
+            ->where('empresa_id', TenantContext::empresaId())
             ->when($request->search, function ($q, $search) {
                 $q->where(function ($query) use ($search) {
                     $query->where('name', 'like', "%{$search}%")
@@ -48,7 +81,7 @@ class UserController extends Controller
 
         return Inertia::render('Admin/Usuarios/Index', [
             'usuarios' => $query->paginate(15)->withQueryString(),
-            'roles' => Rol::where('activo', true)->orderBy('nombre')->get(),
+            'roles' => $this->rolesAsignables(),
             'filtros' => $request->only(['search', 'rol_id', 'activo']),
         ]);
     }
@@ -59,7 +92,7 @@ class UserController extends Controller
     public function create(): Response
     {
         return Inertia::render('Admin/Usuarios/Create', [
-            'roles' => Rol::where('activo', true)->orderBy('nombre')->get(),
+            'roles' => $this->rolesAsignables(),
         ]);
     }
 
@@ -72,7 +105,11 @@ class UserController extends Controller
         try {
             DB::beginTransaction();
 
+            // empresa_id explicito: `users` no tiene Global Scope, y confiar en
+            // el DEFAULT 1 de la columna haria que el administrador de la
+            // empresa 2 creara usuarios dentro de la empresa 1.
             $user = User::create([
+                'empresa_id' => TenantContext::empresaId(),
                 'name' => $request->name,
                 'email' => $request->email,
                 'telefono' => $request->telefono,
@@ -113,9 +150,11 @@ class UserController extends Controller
      */
     public function edit(User $usuario): Response
     {
+        $this->autorizarEmpresa($usuario);
+
         return Inertia::render('Admin/Usuarios/Edit', [
             'usuario' => $usuario->load('rol'),
-            'roles' => Rol::where('activo', true)->orderBy('nombre')->get(),
+            'roles' => $this->rolesAsignables(),
         ]);
     }
 
@@ -126,6 +165,8 @@ class UserController extends Controller
      */
     public function update(UserRequest $request, User $usuario): RedirectResponse
     {
+        $this->autorizarEmpresa($usuario);
+
         try {
             DB::beginTransaction();
 
@@ -172,12 +213,18 @@ class UserController extends Controller
      */
     public function toggleActivo(User $usuario): RedirectResponse
     {
-        // Validar que no se desactive al último administrador activo
-        if ($usuario->activo && $usuario->rol && $usuario->rol->nombre === 'administrador') {
-            $adminsActivos = User::whereHas('rol', fn($q) => $q->where('nombre', 'administrador'))
+        $this->autorizarEmpresa($usuario);
+
+        // Validar que no se desactive al último administrador activo DE ESTA
+        // EMPRESA. Sin el filtro por empresa, los administradores de otras
+        // empresas contarian como respaldo y una empresa podria quedarse sin
+        // ningun administrador, es decir sin forma de gestionar su sistema.
+        if ($usuario->activo && $usuario->esAdminEmpresa()) {
+            $adminsActivos = User::where('empresa_id', TenantContext::empresaId())
+                ->whereHas('rol', fn($q) => $q->where('es_admin_empresa', true))
                 ->where('activo', true)
                 ->count();
-            
+
             if ($adminsActivos <= 1) {
                 return back()->with('error', 'No se puede desactivar el último usuario con rol Administrador activo.');
             }
@@ -219,6 +266,8 @@ class UserController extends Controller
      */
     public function toggleBloqueo(User $usuario): RedirectResponse
     {
+        $this->autorizarEmpresa($usuario);
+
         try {
             DB::beginTransaction();
 
@@ -263,6 +312,8 @@ class UserController extends Controller
      */
     public function resetPassword(Request $request, User $usuario): RedirectResponse
     {
+        $this->autorizarEmpresa($usuario);
+
         $request->validate([
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
             'generar_temporal' => ['boolean'],
@@ -309,6 +360,8 @@ class UserController extends Controller
      */
     public function show(User $usuario): Response
     {
+        $this->autorizarEmpresa($usuario);
+
         $historial = Auditoria::where('tabla_afectada', 'users')
             ->where('registro_id', $usuario->id)
             ->with('usuario')
@@ -336,6 +389,7 @@ class UserController extends Controller
         }
 
         $usuarios = User::with('rol')
+            ->where('empresa_id', TenantContext::empresaId())
             ->where('activo', true)
             ->where(function ($q) use ($query) {
                 $q->where('name', 'like', "%{$query}%")

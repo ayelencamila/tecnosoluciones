@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 // Excepciones
 use Inertia\Response;
+use App\Support\TenantContext;
 
 class ReparacionController extends Controller
 {
@@ -39,7 +40,7 @@ class ReparacionController extends Controller
         //    Scoping manual por empresa (multi-tenant): solo reparaciones propias.
         //    'bonificacionAceptada' permite marcar prioridad (cliente aceptó descuento).
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'modelo.marca', 'bonificacionAceptada'])
-            ->where('empresa_id', $request->user()->empresa_id)
+            ->where('empresa_id', TenantContext::empresaId())
             ->latest();
 
         // Filtro de Búsqueda General (delegado al modelo - Alta Cohesión)
@@ -391,7 +392,7 @@ class ReparacionController extends Controller
     private function reparacionScoped(int $id, array $with = []): Reparacion
     {
         return Reparacion::with($with)
-            ->where('empresa_id', auth()->user()->empresa_id)
+            ->where('empresa_id', TenantContext::empresaId())
             ->findOrFail($id);
     }
 }

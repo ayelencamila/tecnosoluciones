@@ -4,6 +4,7 @@ namespace App\Http\Requests\Clientes;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Support\TenantContext;
 
 /**
  * Request class para validación de creación de clientes
@@ -35,7 +36,7 @@ class StoreClienteRequest extends FormRequest
                 'string',
                 'max:20',
                 // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
-                Rule::unique('clientes', 'DNI')->where('empresa_id', auth()->user()->empresa_id),
+                Rule::unique('clientes', 'DNI')->where('empresa_id', TenantContext::empresaId()),
             ],
             'mail' => ['nullable', 'email', 'max:255', Rule::unique('clientes', 'mail')],
             'whatsapp' => 'nullable|string|max:20', // Lo dejamos nullable, es más flexible

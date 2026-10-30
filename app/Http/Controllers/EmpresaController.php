@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\UpdateEmpresaRequest;
 use App\Models\Auditoria;
 use App\Models\Empresa;
+use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -137,15 +138,20 @@ class EmpresaController extends Controller
     }
 
     /**
-     * Devuelve la empresa del usuario autenticado. Falla con 404 si por
-     * alguna razon el usuario no tiene empresa asociada (no deberia pasar
-     * con el modelo multi-tenant actual).
+     * Devuelve la empresa ACTIVA, que no es lo mismo que la empresa del
+     * usuario: el super usuario de plataforma no tiene empresa propia y
+     * trabaja sobre la que eligio, de modo que resolverla desde
+     * `auth()->user()->empresa` le daba 404 en este modulo.
+     *
+     * El middleware `tenant` garantiza que a esta altura hay empresa resuelta.
      */
     private function empresaActual(): Empresa
     {
-        $empresa = auth()->user()?->empresa;
+        $empresaId = TenantContext::empresaId();
 
-        abort_if(! $empresa, 404, 'Empresa no encontrada para el usuario actual.');
+        $empresa = $empresaId ? Empresa::find($empresaId) : null;
+
+        abort_if(! $empresa, 404, 'Empresa no encontrada para el contexto actual.');
 
         return $empresa;
     }

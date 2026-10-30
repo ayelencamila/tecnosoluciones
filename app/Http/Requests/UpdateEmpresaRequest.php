@@ -2,17 +2,23 @@
 
 namespace App\Http\Requests;
 
+use App\Support\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
- * Validacion para edicion de la empresa (tenant) del usuario logueado.
+ * Validacion para edicion de la empresa (tenant) activa.
  * El logo es opcional. Si se envia, debe ser una imagen <= 2MB.
  */
 class UpdateEmpresaRequest extends FormRequest
 {
+    /**
+     * Se autoriza cuando hay una empresa activa, no cuando el usuario tiene
+     * empresa propia: el super usuario de plataforma no tiene `empresa_id`
+     * pero si trabaja sobre la empresa en la que entro.
+     */
     public function authorize(): bool
     {
-        return $this->user() !== null && $this->user()->empresa_id !== null;
+        return $this->user() !== null && TenantContext::tieneEmpresa();
     }
 
     public function rules(): array

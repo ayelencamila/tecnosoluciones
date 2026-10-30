@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Support\TenantContext;
 
 /**
  * Request para validación de datos de rol.
@@ -28,7 +29,7 @@ class RolRequest extends FormRequest
                 // Multi-tenant: roles modelados como entidad debil de empresas
                 // (Elmasri Cap.7). Unicidad parcial: (empresa_id, nombre).
                 Rule::unique('roles', 'nombre')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($rolId, 'rol_id'),
             ],
             'descripcion' => ['nullable', 'string', 'max:255'],

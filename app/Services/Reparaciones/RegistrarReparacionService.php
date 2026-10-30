@@ -19,6 +19,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Support\TenantContext;
 
 class RegistrarReparacionService
 {
@@ -38,7 +39,7 @@ class RegistrarReparacionService
             // 3. CREAR LA REPARACIÓN (Cabecera)
             $reparacion = Reparacion::create([
                 // Tenant: se atribuye a la empresa del usuario que registra (scoping manual).
-                'empresa_id' => auth()->user()?->empresa_id ?? 1,
+                'empresa_id' => TenantContext::empresaId(),
                 'clienteID' => $datosValidados['clienteID'],
                 'tecnico_id' => $datosValidados['tecnico_id'], // CU-11 Paso 5: Técnico asignado
                 'estado_reparacion_id' => $estadoInicial->estadoReparacionID,

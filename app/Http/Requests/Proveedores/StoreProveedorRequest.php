@@ -4,6 +4,7 @@ namespace App\Http\Requests\Proveedores;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Support\TenantContext;
 
 class StoreProveedorRequest extends FormRequest
 {
@@ -20,18 +21,18 @@ class StoreProveedorRequest extends FormRequest
                 'required',
                 'string',
                 'max:100',
-                Rule::unique('proveedores', 'razon_social')->where('empresa_id', auth()->user()->empresa_id),
+                Rule::unique('proveedores', 'razon_social')->where('empresa_id', TenantContext::empresaId()),
             ],
             'cuit' => [
                 'nullable',
                 'digits:11',
-                Rule::unique('proveedores', 'cuit')->where('empresa_id', auth()->user()->empresa_id),
+                Rule::unique('proveedores', 'cuit')->where('empresa_id', TenantContext::empresaId()),
             ],
             'email' => [
                 'nullable',
                 'email',
                 'max:100',
-                Rule::unique('proveedores', 'email')->where('empresa_id', auth()->user()->empresa_id),
+                Rule::unique('proveedores', 'email')->where('empresa_id', TenantContext::empresaId()),
             ],
             'telefono' => ['nullable', 'string', 'max:20'],
             'whatsapp' => ['nullable', 'string', 'max:20'],

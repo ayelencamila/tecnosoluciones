@@ -7,6 +7,7 @@ use App\Models\Proveedor;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Support\TenantContext;
 
 class ProveedorController extends Controller
 {
@@ -24,7 +25,7 @@ class ProveedorController extends Controller
             'cuit' => [
                 'required', 'string', 'max:20',
                 Rule::unique('proveedores', 'cuit')
-                    ->where('empresa_id', auth()->user()->empresa_id),
+                    ->where('empresa_id', TenantContext::empresaId()),
             ],
             'email' => 'nullable|email',
             'telefono' => 'nullable|string|max:20'
@@ -42,7 +43,7 @@ class ProveedorController extends Controller
             'cuit' => [
                 'required', 'string', 'max:20',
                 Rule::unique('proveedores', 'cuit')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($id),
             ],
             'email' => 'nullable|email',

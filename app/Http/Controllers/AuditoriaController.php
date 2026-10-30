@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use App\Support\TenantContext;
 
 /**
  * Consulta y explotación del Log de Auditoría (CU-Consultar Log de Auditoría).
@@ -25,7 +26,7 @@ class AuditoriaController extends Controller
 {
     public function index(Request $request): Response
     {
-        $empresaId = $request->user()->empresa_id;
+        $empresaId = TenantContext::empresaId();
 
         // Auditar al auditor: registrar la consulta (evitando spam al paginar).
         $navegandoPaginas = $request->filled('page') && (int) $request->page > 1;
@@ -55,7 +56,7 @@ class AuditoriaController extends Controller
      */
     public function exportar(Request $request, string $formato): StreamedResponse|\Illuminate\Http\Response
     {
-        $empresaId = $request->user()->empresa_id;
+        $empresaId = TenantContext::empresaId();
 
         $this->registrarConsulta(
             $request,

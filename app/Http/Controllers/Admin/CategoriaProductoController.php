@@ -7,6 +7,7 @@ use App\Models\CategoriaProducto;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Support\TenantContext;
 
 class CategoriaProductoController extends Controller
 {
@@ -37,7 +38,7 @@ class CategoriaProductoController extends Controller
             'nombre' => [
                 'required', 'string', 'max:255',
                 Rule::unique('categorias_producto', 'nombre')
-                    ->where('empresa_id', auth()->user()->empresa_id),
+                    ->where('empresa_id', TenantContext::empresaId()),
             ],
             'descripcion' => 'nullable|string|max:500',
         ], [
@@ -66,7 +67,7 @@ class CategoriaProductoController extends Controller
             'nombre' => [
                 'required', 'string', 'max:255',
                 Rule::unique('categorias_producto', 'nombre')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($categoria->id),
             ],
             'descripcion' => 'nullable|string|max:500',

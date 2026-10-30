@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Support\TenantContext;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -24,7 +25,13 @@ class UserRequest extends FormRequest
         $rules = [
             'name' => ['required', 'string', 'max:255'],
             'telefono' => ['nullable', 'string', 'max:20'],
-            'rol_id' => ['required', 'exists:roles,rol_id'],
+            // El rol debe pertenecer a la empresa activa: sin este filtro, el
+            // administrador de una empresa podria asignarle a su empleado un
+            // rol definido por otra empresa.
+            'rol_id' => [
+                'required',
+                Rule::exists('roles', 'rol_id')->where('empresa_id', TenantContext::empresaId()),
+            ],
         ];
 
         // En creación, validamos email y password

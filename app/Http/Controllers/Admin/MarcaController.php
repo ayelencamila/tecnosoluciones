@@ -7,6 +7,7 @@ use App\Models\Marca;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Support\TenantContext;
 
 class MarcaController extends Controller
 {
@@ -23,7 +24,7 @@ class MarcaController extends Controller
             'nombre' => [
                 'required', 'string', 'max:50',
                 Rule::unique('marcas', 'nombre')
-                    ->where('empresa_id', auth()->user()->empresa_id),
+                    ->where('empresa_id', TenantContext::empresaId()),
             ],
         ]);
         Marca::create($request->all());
@@ -37,7 +38,7 @@ class MarcaController extends Controller
             'nombre' => [
                 'required', 'string', 'max:50',
                 Rule::unique('marcas', 'nombre')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($marca->id),
             ],
             'activo' => 'boolean'

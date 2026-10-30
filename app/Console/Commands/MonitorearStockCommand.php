@@ -21,13 +21,25 @@ use Illuminate\Support\Facades\Log;
  */
 class MonitorearStockCommand extends Command
 {
-    protected $signature = 'stock:monitorear 
+    use \App\Console\Concerns\EjecutaPorEmpresa;
+
+    protected $signature = 'stock:monitorear
                             {--solo-detectar : Solo detecta y muestra, sin crear solicitudes}
                             {--forzar-envio : Forzar envío automático (ignora configuración)}';
 
     protected $description = 'Monitorea el stock y genera/envía solicitudes según configuración del sistema';
 
-    public function handle(MonitoreoStockService $monitoreoService)
+    public function handle(MonitoreoStockService $monitoreoService): int
+    {
+        return $this->porCadaEmpresa(fn () => $this->procesarEmpresa($monitoreoService));
+    }
+
+    /**
+     * Cuerpo original del comando, ahora acotado a una sola empresa: la
+     * automatizacion de compras y los dias de vencimiento son parametros de
+     * cada empresa, y el stock monitoreado debe ser el de sus productos.
+     */
+    private function procesarEmpresa(MonitoreoStockService $monitoreoService): int
     {
         $this->info('🔍 Iniciando monitoreo de stock...');
         $this->newLine();

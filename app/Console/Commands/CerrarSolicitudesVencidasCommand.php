@@ -22,6 +22,8 @@ use Illuminate\Support\Facades\Log;
  */
 class CerrarSolicitudesVencidasCommand extends Command
 {
+    use \App\Console\Concerns\EjecutaPorEmpresa;
+
     /**
      * The name and signature of the console command.
      */
@@ -44,6 +46,15 @@ class CerrarSolicitudesVencidasCommand extends Command
      * Execute the console command.
      */
     public function handle(): int
+    {
+        return $this->porCadaEmpresa(fn () => $this->procesarEmpresa());
+    }
+
+    /**
+     * Cuerpo original del comando, ahora acotado a una sola empresa: cada una
+     * cierra sus propias solicitudes de cotizacion.
+     */
+    private function procesarEmpresa(): int
     {
         $this->info('🕐 Verificando solicitudes de cotización vencidas...');
         Log::info('Comando cotizaciones:cerrar-vencidas ejecutado');

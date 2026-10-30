@@ -4,6 +4,7 @@ namespace App\Http\Requests\Productos;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Support\TenantContext;
 
 class StoreProductoRequest extends FormRequest
 {
@@ -21,7 +22,7 @@ class StoreProductoRequest extends FormRequest
                 'string',
                 'max:50',
                 // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
-                Rule::unique('productos', 'codigo')->where('empresa_id', auth()->user()->empresa_id),
+                Rule::unique('productos', 'codigo')->where('empresa_id', TenantContext::empresaId()),
             ],
             'nombre' => ['required', 'string', 'max:100'],
             'descripcion' => ['nullable', 'string'],

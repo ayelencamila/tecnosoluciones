@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Console\Concerns\EjecutaPorEmpresa;
 use App\Services\Reparaciones\MonitoreoSLAReparacionService;
 use Illuminate\Console\Command;
 
@@ -11,6 +12,8 @@ use Illuminate\Console\Command;
  */
 class MonitorearSLAReparaciones extends Command
 {
+    use EjecutaPorEmpresa;
+
     /**
      * The name and signature of the console command.
      *
@@ -28,7 +31,17 @@ class MonitorearSLAReparaciones extends Command
     /**
      * Execute the console command.
      */
-    public function handle(MonitoreoSLAReparacionService $service)
+    public function handle(MonitoreoSLAReparacionService $service): int
+    {
+        return $this->porCadaEmpresa(fn () => $this->procesarEmpresa($service));
+    }
+
+    /**
+     * Cuerpo original del comando, ahora acotado a una sola empresa: el SLA
+     * por defecto y los estados que pausan el contador son parametros de cada
+     * empresa, y las alertas deben notificarse a sus propios tecnicos.
+     */
+    private function procesarEmpresa(MonitoreoSLAReparacionService $service): int
     {
         $this->info('===========================================');
         $this->info('  MONITOREO DE SLA - REPARACIONES (CU-14)  ');

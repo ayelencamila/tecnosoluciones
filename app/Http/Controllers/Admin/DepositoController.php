@@ -7,6 +7,7 @@ use App\Models\Deposito;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
+use App\Support\TenantContext;
 
 class DepositoController extends Controller
 {
@@ -26,7 +27,7 @@ class DepositoController extends Controller
             'nombre' => [
                 'required', 'string', 'max:100',
                 Rule::unique('depositos', 'nombre')
-                    ->where('empresa_id', auth()->user()->empresa_id),
+                    ->where('empresa_id', TenantContext::empresaId()),
             ],
             'direccion' => 'nullable|string|max:255',
         ]);
@@ -49,7 +50,7 @@ class DepositoController extends Controller
             'nombre' => [
                 'required', 'string', 'max:100',
                 Rule::unique('depositos', 'nombre')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($id, 'deposito_id'),
             ],
             'direccion' => 'nullable|string|max:255',

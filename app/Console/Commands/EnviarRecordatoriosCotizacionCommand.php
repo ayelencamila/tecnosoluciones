@@ -29,6 +29,8 @@ use Carbon\Carbon;
  */
 class EnviarRecordatoriosCotizacionCommand extends Command
 {
+    use \App\Console\Concerns\EjecutaPorEmpresa;
+
     /**
      * The name and signature of the console command.
      */
@@ -46,8 +48,18 @@ class EnviarRecordatoriosCotizacionCommand extends Command
      */
     public function handle(): int
     {
+        return $this->porCadaEmpresa(fn () => $this->procesarEmpresa());
+    }
+
+    /**
+     * Cuerpo original del comando, ahora acotado a una sola empresa: los dias
+     * de recordatorio y el maximo de reintentos son parametros de cada
+     * empresa, y los proveedores a contactar son los suyos.
+     */
+    private function procesarEmpresa(): int
+    {
         // Usar parámetro de comando o configuración global
-        $diasDesdeEnvio = $this->option('dias') 
+        $diasDesdeEnvio = $this->option('dias')
             ? (int) $this->option('dias') 
             : (int) Configuracion::get('compras_dias_recordatorio', 2);
         

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Proveedores;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Support\TenantContext;
 
 class UpdateProveedorRequest extends FormRequest
 {
@@ -23,14 +24,14 @@ class UpdateProveedorRequest extends FormRequest
                 'string',
                 'max:100',
                 Rule::unique('proveedores', 'razon_social')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($proveedorId),
             ],
             'cuit' => [
                 'nullable',
                 'digits:11',
                 Rule::unique('proveedores', 'cuit')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($proveedorId),
             ],
             'email' => [
@@ -38,7 +39,7 @@ class UpdateProveedorRequest extends FormRequest
                 'email',
                 'max:100',
                 Rule::unique('proveedores', 'email')
-                    ->where('empresa_id', auth()->user()->empresa_id)
+                    ->where('empresa_id', TenantContext::empresaId())
                     ->ignore($proveedorId),
             ],
             'telefono' => ['nullable', 'string', 'max:20'],

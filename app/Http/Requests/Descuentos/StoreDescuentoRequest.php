@@ -4,6 +4,7 @@ namespace App\Http\Requests\Descuentos;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use App\Support\TenantContext;
 
 class StoreDescuentoRequest extends FormRequest
 {
@@ -20,7 +21,7 @@ class StoreDescuentoRequest extends FormRequest
 
         // Multi-tenant: unicidad por empresa (Elmasri: scope de particion tenant).
         $uniqueRule = Rule::unique('descuentos', 'codigo')
-            ->where('empresa_id', auth()->user()->empresa_id);
+            ->where('empresa_id', TenantContext::empresaId());
 
         if ($ignoreId) {
             $uniqueRule = $uniqueRule->ignore($ignoreId, 'descuento_id');
