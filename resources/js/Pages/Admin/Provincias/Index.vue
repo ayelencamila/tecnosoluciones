@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Head, useForm, router, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, useForm, router, Link, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import Modal from '@/Components/Modal.vue';
@@ -12,6 +12,12 @@ import InputError from '@/Components/InputError.vue';
 const props = defineProps({
     provincias: Object
 });
+
+// Las provincias son un catálogo GLOBAL compartido por todas las empresas:
+// la geografía argentina es la misma para todas. Por eso el administrador de
+// empresa las ve en modo lectura y solo el operador de la plataforma puede
+// modificarlas, para que una empresa no altere los datos de las demás.
+const esSuperAdmin = computed(() => !!usePage().props.auth.es_super_admin);
 
 const showModal = ref(false);
 const isEditing = ref(false);
@@ -48,11 +54,11 @@ const closeModal = () => {
 const submit = () => {
     if (isEditing.value) {
         // Usamos la ruta update con la PK correcta
-        form.put(route('admin.provincias.update', form.provinciaID), {
+        form.put(route('super.catalogos.provincias.update', form.provinciaID), {
             onSuccess: () => closeModal()
         });
     } else {
-        form.post(route('admin.provincias.store'), {
+        form.post(route('super.catalogos.provincias.store'), {
             onSuccess: () => closeModal()
         });
     }
@@ -60,7 +66,7 @@ const submit = () => {
 
 const deleteProvincia = (provincia) => {
     if (confirm(`¿Eliminar la provincia "${provincia.nombre}"?`)) {
-        router.delete(route('admin.provincias.destroy', provincia.provinciaID));
+        router.delete(route('super.catalogos.provincias.destroy', provincia.provinciaID));
     }
 };
 
@@ -77,8 +83,8 @@ const getPaginationLabel = (label, index, totalLinks) => {
     <AppLayout>
         <template #header>
             <div class="flex justify-between items-center">
-                <h2 class="font-semibold text-xl text-gray-800 leading-tight">Gestión de Provincias</h2>
-                <PrimaryButton @click="openCreateModal">
+                <h2 class="font-semibold text-xl text-gray-800 leading-tight">Provincias</h2>
+                <PrimaryButton v-if="esSuperAdmin" @click="openCreateModal">
                     + Nueva Provincia
                 </PrimaryButton>
             </div>
@@ -86,6 +92,14 @@ const getPaginationLabel = (label, index, totalLinks) => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <div v-if="!esSuperAdmin" class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <p class="text-sm text-blue-800">
+                        Las provincias son un listado compartido por todo el sistema, así que
+                        se consultan pero no se editan desde acá. Si necesitás agregar o
+                        corregir una, pedíselo al proveedor del sistema.
+                    </p>
+                </div>
+
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6">
                         <table class="min-w-full divide-y divide-gray-200 mb-4">
@@ -93,14 +107,14 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                 <tr>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    <th v-if="esSuperAdmin" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
                                 <tr v-for="prov in provincias.data" :key="prov.provinciaID">
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{{ prov.provinciaID }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-900">{{ prov.nombre }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <td v-if="esSuperAdmin" class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button @click="openEditModal(prov)" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
                                         <button @click="deleteProvincia(prov)" class="text-red-600 hover:text-red-900">Borrar</button>
                                     </td>

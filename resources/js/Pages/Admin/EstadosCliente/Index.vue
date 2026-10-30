@@ -1,7 +1,7 @@
 <script setup>
 import AppLayout from '@/Layouts/AppLayout.vue';
-import { Head, useForm, router, Link } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, useForm, router, Link, usePage } from '@inertiajs/vue3';
+import { computed, ref } from 'vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import Modal from '@/Components/Modal.vue';
@@ -15,6 +15,11 @@ const props = defineProps({
 });
 
 // --- Lógica del Modal ---
+// Catálogo GLOBAL compartido por todas las empresas: el administrador de
+// empresa lo consulta y solo el operador de la plataforma puede modificarlo,
+// para que una empresa no altere los datos de las demás.
+const esSuperAdmin = computed(() => !!usePage().props.auth.es_super_admin);
+
 const showModal = ref(false);
 const isEditing = ref(false);
 const modalTitle = ref('');
@@ -52,11 +57,11 @@ const closeModal = () => {
 const submit = () => {
     if (isEditing.value) {
         // Ruta update con la PK correcta
-        form.put(route('admin.estados-cliente.update', form.estadoClienteID), {
+        form.put(route('super.catalogos.estados-cliente.update', form.estadoClienteID), {
             onSuccess: () => closeModal()
         });
     } else {
-        form.post(route('admin.estados-cliente.store'), {
+        form.post(route('super.catalogos.estados-cliente.store'), {
             onSuccess: () => closeModal()
         });
     }
@@ -64,7 +69,7 @@ const submit = () => {
 
 const deleteEstado = (estado) => {
     if (confirm(`¿Estás seguro de eliminar el estado "${estado.nombreEstado}"?`)) {
-        router.delete(route('admin.estados-cliente.destroy', estado.estadoClienteID));
+        router.delete(route('super.catalogos.estados-cliente.destroy', estado.estadoClienteID));
     }
 };
 
@@ -83,7 +88,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="font-semibold text-xl text-gray-800 leading-tight">Estados de Cliente</h2>
-                <PrimaryButton @click="openCreateModal">
+                <PrimaryButton v-if="esSuperAdmin" @click="openCreateModal">
                     + Nuevo Estado
                 </PrimaryButton>
             </div>
@@ -91,6 +96,10 @@ const getPaginationLabel = (label, index, totalLinks) => {
 
         <div class="py-12">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+                <div v-if="!esSuperAdmin" class="mb-6 rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <p class="text-sm text-blue-800">Los estados de cliente son fijos del sistema: el código los usa para decidir bloqueos y avisos de cuenta corriente, así que se consultan pero no se editan desde acá.</p>
+                </div>
+
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6">
                         <table class="min-w-full divide-y divide-gray-200 mb-4">
@@ -99,7 +108,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre Estado</th>
                                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Descripción</th>
-                                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                                    <th v-if="esSuperAdmin" class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody class="bg-white divide-y divide-gray-200">
@@ -107,7 +116,7 @@ const getPaginationLabel = (label, index, totalLinks) => {
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">#{{ estado.estadoClienteID }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-900">{{ estado.nombreEstado }}</td>
                                     <td class="px-6 py-4 text-sm text-gray-500">{{ estado.descripcion || '-' }}</td>
-                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <td v-if="esSuperAdmin" class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <button @click="openEditModal(estado)" class="text-indigo-600 hover:text-indigo-900 mr-3">Editar</button>
                                         <button @click="deleteEstado(estado)" class="text-red-600 hover:text-red-900">Borrar</button>
                                     </td>

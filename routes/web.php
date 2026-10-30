@@ -39,6 +39,19 @@ Route::prefix('portal')->name('portal.')->group(function () {
     Route::get('/cotizacion/{token}/agradecimiento-rechazo', [\App\Http\Controllers\Portal\PortalProveedorController::class, 'agradecimientoRechazo'])->name('agradecimiento.rechazo');
 });
 
+/*
+|--------------------------------------------------------------------------
+| TEXTOS LEGALES (publicos)
+|--------------------------------------------------------------------------
+| Deliberadamente fuera de `auth`: tienen que poder leerse ANTES de crear
+| una cuenta, porque el registro exige aceptarlos, y seguir accesibles
+| despues para quien quiera volver a consultarlos.
+*/
+Route::prefix('legal')->name('legal.')->group(function () {
+    Route::get('/privacidad', fn () => Inertia::render('Legal/Privacidad'))->name('privacidad');
+    Route::get('/terminos', fn () => Inertia::render('Legal/Terminos'))->name('terminos');
+});
+
 // Ruta de inicio - Redirigir al login o dashboard
 Route::get('/', function () {
     if (auth()->check()) {
@@ -67,6 +80,28 @@ Route::middleware(['auth', 'super'])->prefix('super')->name('super.')->group(fun
     Route::post('/empresas/{empresa}/acceso', [EmpresaPlataformaController::class, 'toggleActiva'])->name('empresas.acceso');
     Route::post('/empresas/{empresa}/entrar', [EmpresaPlataformaController::class, 'entrar'])->name('empresas.entrar');
     Route::post('/salir-de-empresa', [EmpresaPlataformaController::class, 'salir'])->name('empresas.salir');
+
+    /*
+    | Catálogos GLOBALES compartidos por todas las empresas.
+    |
+    | La escritura queda a nivel de plataforma porque una fila de estas tablas
+    | la usan todos los clientes: si el administrador de una empresa borrara
+    | la provincia "Misiones" o el estado "Activo", rompería los datos de las
+    | demás. Los administradores de empresa los ven en modo lectura desde
+    | /admin (ver el grupo de maestros).
+    |
+    | Los `estados_*` además están acoplados al código: el parámetro
+    | `estados_pausa_sla` referencia sus nombres, de modo que renombrarlos
+    | altera el cálculo del SLA de reparaciones.
+    */
+    Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class)
+        ->except(['index', 'show'])->names('catalogos.provincias');
+    Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class)
+        ->except(['index', 'show'])->names('catalogos.localidades');
+    Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class)
+        ->except(['index', 'show'])->names('catalogos.estados-producto');
+    Route::resource('estados-cliente', \App\Http\Controllers\Admin\EstadoClienteController::class)
+        ->except(['index', 'show'])->names('catalogos.estados-cliente');
 });
 
 Route::middleware('auth')->group(function () {
@@ -115,19 +150,31 @@ Route::middleware(['auth', 'verified', 'tenant'])->group(function () {
         // MAESTROS (Tablas Paramétricas)
         // ============================================================
 
-        // 1. Categorías de Producto (Implementación Actual)
+        // --- Catálogos PROPIOS de cada empresa (CRUD completo) ---
+        // Llevan empresa_id y Global Scope: cada empresa ve y edita solo los
+        // suyos. Son decisiones de negocio de cada cliente.
         Route::resource('categorias', CategoriaProductoController::class);
-        Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class);
-        // Proveedores MOVIDO al grupo principal (es un módulo operativo)
-        Route::resource('unidades-medida', \App\Http\Controllers\Admin\UnidadMedidaController::class);
-        // 2. Otras posibles rutas para maestros
-        // NOTA: estados-reparacion ELIMINADO - Los estados son FIJOS (no parametrizables)
-        Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class);
-        Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class);
         Route::resource('depositos', \App\Http\Controllers\Admin\DepositoController::class);
+        Route::resource('unidades-medida', \App\Http\Controllers\Admin\UnidadMedidaController::class);
         Route::resource('tipos-cliente', \App\Http\Controllers\Admin\TipoClienteController::class);
-        Route::resource('estados-cliente', \App\Http\Controllers\Admin\EstadoClienteController::class);
         Route::resource('medios-pago', \App\Http\Controllers\Admin\MedioPagoController::class);
+
+        // --- Catálogos GLOBALES: solo lectura para el admin de empresa ---
+        // La geografía argentina es la misma para todas las empresas y los
+        // estados están acoplados al código (el parámetro `estados_pausa_sla`
+        // referencia sus nombres). Son tablas compartidas entre clientes
+        // distintos, así que permitir escritura dejaría que una empresa
+        // rompiera el sistema de otra. La escritura vive más abajo, bajo
+        // el middleware `super`.
+        Route::resource('provincias', \App\Http\Controllers\Admin\ProvinciaController::class)
+            ->only(['index', 'show']);
+        Route::resource('localidades', \App\Http\Controllers\Admin\LocalidadController::class)
+            ->only(['index', 'show']);
+        Route::resource('estados-producto', \App\Http\Controllers\Admin\EstadoProductoController::class)
+            ->only(['index', 'show']);
+        Route::resource('estados-cliente', \App\Http\Controllers\Admin\EstadoClienteController::class)
+            ->only(['index', 'show']);
+        // NOTA: estados-reparacion ELIMINADO - Los estados son FIJOS (no parametrizables)
         Route::resource('marcas', \App\Http\Controllers\Admin\MarcaController::class);
         Route::resource('modelos', \App\Http\Controllers\Admin\ModeloController::class);
         Route::resource('motivos-demora', \App\Http\Controllers\Admin\MotivoDemoraReparacionController::class);
@@ -157,20 +204,14 @@ Route::middleware(['auth', 'tenant'])->prefix('api')->group(function () {
     Route::post('/tipos-cliente', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'store']);
     Route::delete('/tipos-cliente/{tipoCliente}', [\App\Http\Controllers\Api\TipoClienteApiController::class, 'destroy']);
 
-    // Estados de Cliente
+    // Estados de Cliente: GLOBALES y acoplados al código, solo lectura.
     Route::get('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'index']);
-    Route::post('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'store']);
-    Route::delete('/estados-cliente/{estadoCliente}', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'destroy']);
 
-    // Provincias
+    // Provincias y Localidades: GLOBALES, solo lectura.
+    // La escritura exige nivel de plataforma (ver el grupo `super` más abajo),
+    // porque son tablas compartidas por todas las empresas.
     Route::get('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'index']);
-    Route::post('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'store']);
-    Route::delete('/provincias/{provincia}', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'destroy']);
-
-    // Localidades
     Route::get('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'index']);
-    Route::post('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'store']);
-    Route::delete('/localidades/{localidad}', [\App\Http\Controllers\Api\LocalidadApiController::class, 'destroy']);
 
     // Marcas
     Route::get('/marcas', [\App\Http\Controllers\Api\MarcaApiController::class, 'index']);
@@ -192,18 +233,39 @@ Route::middleware(['auth', 'tenant'])->prefix('api')->group(function () {
     Route::post('/categorias-producto', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'store']);
     Route::delete('/categorias-producto/{categoriaProducto}', [\App\Http\Controllers\Api\CategoriaProductoApiController::class, 'destroy']);
 
-    // Estados de Producto
+    // Estados de Producto: GLOBALES y acoplados al código, solo lectura.
     Route::get('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'index']);
-    Route::post('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'store']);
-    Route::delete('/estados-producto/{estadoProducto}', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'destroy']);
 
     // Medios de Pago
     Route::get('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'index']);
     Route::post('/medios-pago', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'store']);
     Route::delete('/medios-pago/{medioPago}', [\App\Http\Controllers\Api\MedioPagoApiController::class, 'destroy']);
 
-    // Tipos de Movimiento de Stock
+    // Tipos de Movimiento de Stock: GLOBALES y acoplados al código
+    // (los servicios de stock los buscan por nombre), solo lectura.
     Route::get('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'index']);
+});
+
+/*
+| Escritura de los catálogos GLOBALES vía API, a nivel de plataforma.
+|
+| Son los mismos endpoints que antes vivían en el grupo de empresa: se
+| movieron acá para que una empresa no pueda alterar tablas que usan todas
+| las demás. Quedan disponibles para el operador del sistema.
+*/
+Route::middleware(['auth', 'super'])->prefix('api/plataforma')->group(function () {
+    Route::post('/provincias', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'store']);
+    Route::delete('/provincias/{provincia}', [\App\Http\Controllers\Api\ProvinciaApiController::class, 'destroy']);
+
+    Route::post('/localidades', [\App\Http\Controllers\Api\LocalidadApiController::class, 'store']);
+    Route::delete('/localidades/{localidad}', [\App\Http\Controllers\Api\LocalidadApiController::class, 'destroy']);
+
+    Route::post('/estados-cliente', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'store']);
+    Route::delete('/estados-cliente/{estadoCliente}', [\App\Http\Controllers\Api\EstadoClienteApiController::class, 'destroy']);
+
+    Route::post('/estados-producto', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'store']);
+    Route::delete('/estados-producto/{estadoProducto}', [\App\Http\Controllers\Api\EstadoProductoApiController::class, 'destroy']);
+
     Route::post('/tipos-movimiento-stock', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'store']);
     Route::delete('/tipos-movimiento-stock/{tipoMovimientoStock}', [\App\Http\Controllers\Api\TipoMovimientoStockApiController::class, 'destroy']);
 });
