@@ -280,14 +280,23 @@ class ReporteMensualTest extends TestCase
             'total' => 50000,
         ]);
 
-        // Venta del mes anterior (no debería contar)
+        /*
+         * Venta del mes anterior (no debería contar).
+         *
+         * subMonthNoOverflow y no subMonth: en PHP, "2026-10-31 menos un mes"
+         * da 2026-10-01, porque septiembre no tiene 31 y la fecha desborda al
+         * mes siguiente. Con subMonth(), este test se rompía SOLO los días 31
+         * --la venta "del mes anterior" caía dentro del mes en curso y el
+         * reporte contaba dos-- lo que lo volvía un test que falla según el
+         * día del calendario.
+         */
         Venta::create([
             'clienteID' => $cliente->clienteID,
             'user_id' => $this->admin->id,
             'estado_venta_id' => EstadoVenta::COMPLETADA,
             'medio_pago_id' => $medioPago->medioPagoID,
             'numero_comprobante' => 'V-ANTERIOR-001',
-            'fecha_venta' => Carbon::now()->subMonth(),
+            'fecha_venta' => Carbon::now()->subMonthNoOverflow(),
             'subtotal' => 80000,
             'total_descuentos' => 0,
             'total' => 80000,

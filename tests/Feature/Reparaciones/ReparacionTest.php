@@ -111,7 +111,7 @@ class ReparacionTest extends TestCase
             'productoID' => $this->repuesto->id,
             'tipoClienteID' => $tipoMinorista->tipoClienteID,
             'precio' => 50000,
-            'fechaDesde' => now()->subMonth(),
+            'fechaDesde' => now()->subMonthNoOverflow(),
             'fechaHasta' => null,
         ]);
 

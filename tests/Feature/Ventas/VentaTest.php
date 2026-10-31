@@ -105,7 +105,7 @@ class VentaTest extends TestCase
             'productoID' => $this->producto->id,
             'tipoClienteID' => $this->tipoMinorista->tipoClienteID,
             'precio' => 25000,
-            'fechaDesde' => now()->subMonth(),
+            'fechaDesde' => now()->subMonthNoOverflow(),
             'fechaHasta' => null,
         ]);
 
@@ -122,7 +122,7 @@ class VentaTest extends TestCase
             'productoID' => $this->servicio->id,
             'tipoClienteID' => $this->tipoMinorista->tipoClienteID,
             'precio' => 10000,
-            'fechaDesde' => now()->subMonth(),
+            'fechaDesde' => now()->subMonthNoOverflow(),
             'fechaHasta' => null,
         ]);
     }
