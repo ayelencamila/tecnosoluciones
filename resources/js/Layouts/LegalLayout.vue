@@ -7,6 +7,10 @@ const props = defineProps({
     // Fecha de última revisión del texto. Que sea visible es parte del
     // requisito legal: el usuario tiene que poder saber qué versión aceptó.
     actualizado: { type: String, default: null },
+    // Mientras sea true, el texto que se muestra es de EJEMPLO. Lo decide
+    // config/legal.php, no la vista: así no depende de que alguien se
+    // acuerde de sacar un cartel antes de publicar.
+    borrador: { type: Boolean, default: false },
 });
 
 const page = usePage();
@@ -41,6 +45,25 @@ const estaAutenticado = computed(() => !!page.props.auth?.user);
                 </nav>
             </div>
         </header>
+
+        <!-- Franja de borrador. Va FUERA del artículo y pegada arriba para
+             que no se pueda leer el texto sin verla primero, y para que siga
+             visible al imprimir la página. -->
+        <div
+            v-if="borrador"
+            class="border-b-2 border-amber-500 bg-amber-100 print:bg-amber-100"
+        >
+            <div class="mx-auto max-w-3xl px-6 py-3">
+                <p class="text-sm font-semibold uppercase tracking-wide text-amber-900">
+                    Borrador — texto de ejemplo
+                </p>
+                <p class="mt-1 text-sm text-amber-800">
+                    El contenido de esta página es una plantilla de referencia y
+                    <strong>no constituye un compromiso legal</strong>. Debe ser
+                    redactado y revisado antes de poner el sistema en producción.
+                </p>
+            </div>
+        </div>
 
         <!-- Ancho de lectura acotado y jerarquía tipográfica clara
              (Kendall & Kendall: legibilidad en salidas de texto extenso). -->
@@ -93,8 +116,10 @@ const estaAutenticado = computed(() => !!page.props.auth?.user);
     margin-bottom: 0.375rem;
 }
 
-/* Marca visualmente los bloques que todavía hay que redactar, para que sea
-   imposible publicar el sistema creyendo que el texto legal está completo. */
+/* Bloque para marcar una sección puntual que todavía hay que redactar.
+   El aviso general de borrador lo da la franja superior del layout, que
+   depende de config('legal.textos_definitivos'); esta clase queda para
+   señalar un párrafo suelto que haga falta completar. */
 .legal :deep(.pendiente) {
     margin-bottom: 1rem;
     border-left: 3px solid #f59e0b;
@@ -102,5 +127,10 @@ const estaAutenticado = computed(() => !!page.props.auth?.user);
     padding: 0.75rem 1rem;
     font-size: 0.875rem;
     color: #92400e;
+}
+
+.legal :deep(strong) {
+    font-weight: 600;
+    color: #1f2937;
 }
 </style>

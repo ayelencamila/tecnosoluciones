@@ -2,107 +2,172 @@
 import { Head } from '@inertiajs/vue3';
 import LegalLayout from '@/Layouts/LegalLayout.vue';
 
-/*
- * ESTRUCTURA de los Términos y Condiciones, lista para redactar.
+/**
+ * Términos y Condiciones — TEXTO DE EJEMPLO.
  *
- * Cada sección tiene su encabezado definitivo y un bloque .pendiente con lo
- * que hay que cubrir ahí. Al redactar, reemplazá el <div class="pendiente">
- * por los <p> del texto real.
+ * Redactado como referencia para mostrar qué debe cubrir cada cláusula. NO es
+ * asesoramiento legal y no debe publicarse sin revisión profesional,
+ * especialmente las cláusulas de responsabilidad, pago y rescisión, que son
+ * las que definen el riesgo comercial real.
  *
- * Contexto importante para la redacción: el sistema se vende como servicio a
- * varias empresas. Hay dos relaciones distintas que el texto debería
- * distinguir, porque las obligaciones no son las mismas:
+ * Mientras `config('legal.textos_definitivos')` sea false, el layout muestra
+ * una franja que declara la página como borrador.
  *
- *   - TecnoSoluciones con la EMPRESA que contrata el sistema.
- *   - La empresa con los USUARIOS que ella misma da de alta.
+ * Qué regula este documento
+ * -------------------------
+ * La relación entre el PROVEEDOR del sistema y la EMPRESA que lo contrata.
+ * No regula la relación entre esa empresa y sus propios clientes: las
+ * condiciones de reparación, garantía y abandono de equipos las fija cada
+ * empresa en su propia nota de recepción.
  */
+
+defineProps({
+    borrador: { type: Boolean, default: false },
+    actualizado: { type: String, default: null },
+    responsable: { type: Object, default: () => ({}) },
+});
 </script>
 
 <template>
     <Head title="Términos y Condiciones" />
 
-    <LegalLayout titulo="Términos y Condiciones de Uso">
-        <div class="pendiente">
-            Texto pendiente de redacción. La estructura y los encabezados ya están
-            definidos; falta el contenido legal de cada sección.
-        </div>
+    <LegalLayout titulo="Términos y Condiciones" :actualizado="actualizado" :borrador="borrador">
+        <p>
+            Estos términos regulan el uso del sistema de gestión provisto por
+            <strong>{{ responsable.razon_social }}</strong> (en adelante, «el
+            proveedor») por parte de las empresas que lo contratan (en
+            adelante, «la empresa usuaria»). El uso del sistema implica su
+            aceptación.
+        </p>
 
         <h2>1. Objeto</h2>
-        <div class="pendiente">
-            Qué se contrata: una licencia de uso del sistema de gestión, en la
-            modalidad de servicio, sin transferencia de la propiedad del software.
-        </div>
+        <p>
+            El proveedor otorga a la empresa usuaria una licencia de uso, no
+            exclusiva e intransferible, sobre un sistema de gestión comercial
+            que incluye administración de clientes, productos, stock, ventas,
+            reparaciones, compras, pagos y reportes, en la modalidad de
+            software como servicio.
+        </p>
 
-        <h2>2. Alta de la cuenta y de los usuarios</h2>
-        <div class="pendiente">
-            Aclarar que las cuentas de empresa las habilita el proveedor del
-            sistema, y que cada empresa es responsable de dar de alta y de baja a
-            sus propios usuarios, de los roles y permisos que les asigne, y de todo
-            lo que esos usuarios hagan con sus credenciales.
-        </div>
+        <h2>2. Alta y cuentas de usuario</h2>
+        <p>
+            El alta de la empresa usuaria la realiza el proveedor. A partir de
+            ese momento, el administrador designado por la empresa es quien
+            crea las cuentas de su personal y asigna los permisos
+            correspondientes.
+        </p>
+        <p>
+            Cada cuenta es personal e intransferible. La empresa usuaria es
+            responsable de la confidencialidad de las credenciales de su
+            personal y de toda actividad realizada desde sus cuentas, y debe
+            notificar al proveedor ante cualquier uso no autorizado.
+        </p>
 
-        <h2>3. Responsabilidades de la empresa usuaria</h2>
-        <div class="pendiente">
-            Veracidad de los datos cargados, uso de credenciales personales e
-            intransferibles, obligación de dar de baja los accesos de quien deja de
-            trabajar en la empresa, y de contar con el consentimiento de sus propios
-            clientes para cargar sus datos y notificarlos por WhatsApp.
-        </div>
+        <h2>3. Uso permitido</h2>
+        <p>
+            El sistema debe utilizarse conforme a la ley y a su finalidad
+            comercial. Queda prohibido intentar acceder a datos de otras
+            empresas usuarias, vulnerar los mecanismos de seguridad, realizar
+            ingeniería inversa sobre el software, revenderlo o cederlo a
+            terceros, y utilizarlo para almacenar contenido ilícito.
+        </p>
 
-        <h2>4. Responsabilidades del proveedor</h2>
-        <div class="pendiente">
-            Disponibilidad del servicio, resguardo de la información, aislamiento de
-            los datos entre empresas distintas, y alcance del soporte.
-        </div>
+        <h2>4. Datos de la empresa usuaria</h2>
+        <p>
+            Los datos cargados en el sistema son propiedad de la empresa
+            usuaria. El proveedor los trata únicamente para prestar el
+            servicio, en carácter de encargado del tratamiento, conforme a la
+            Política de Privacidad.
+        </p>
+        <p>
+            La empresa usuaria es responsable de la licitud de los datos que
+            carga y de contar con el consentimiento necesario de sus propios
+            clientes, así como de informarles el tratamiento de su información.
+        </p>
 
-        <h2>5. Uso aceptable</h2>
-        <div class="pendiente">
-            Conductas prohibidas: intentar acceder a datos de otra empresa, vulnerar
-            los controles de acceso, usar el sistema con fines ilícitos o cargar
-            datos de terceros sin su consentimiento.
-        </div>
+        <h2>5. Disponibilidad del servicio</h2>
+        <p>
+            El proveedor procura mantener el servicio disponible de forma
+            continua, pero no garantiza una disponibilidad ininterrumpida. El
+            servicio puede suspenderse temporalmente por tareas de
+            mantenimiento, que se comunicarán con antelación razonable cuando
+            sean programadas.
+        </p>
 
-        <h2>6. Suspensión del acceso</h2>
-        <div class="pendiente">
-            Causales por las que el proveedor puede suspender el acceso de una
-            empresa, incluido el incumplimiento del pago, con qué aviso previo, y
-            qué pasa con los datos durante la suspensión. Dejar constancia de que
-            suspender el acceso no elimina la información.
-        </div>
+        <h2>6. Respaldos</h2>
+        <p>
+            El proveedor realiza copias de respaldo periódicas de la base de
+            datos y de los archivos cargados. Los respaldos tienen por objeto
+            la recuperación ante fallas y se conservan durante un plazo
+            determinado. La empresa usuaria puede solicitar una exportación de
+            sus propios datos.
+        </p>
 
-        <h2>7. Propiedad de los datos</h2>
-        <div class="pendiente">
-            Punto central: los datos cargados pertenecen a la empresa usuaria, no al
-            proveedor. Definir cómo puede exportarlos y qué ocurre con ellos si
-            termina la relación.
-        </div>
+        <h2>7. Precio y facturación</h2>
+        <p>
+            El servicio se abona según el plan contratado, con la periodicidad
+            y los valores acordados. Los precios pueden actualizarse,
+            notificando a la empresa usuaria con antelación suficiente para que
+            pueda decidir si continúa con el servicio.
+        </p>
 
-        <h2>8. Propiedad intelectual</h2>
-        <div class="pendiente">
-            Titularidad del software, de su código y de su diseño, y los límites de
-            la licencia que se otorga.
-        </div>
+        <h2>8. Suspensión por falta de pago</h2>
+        <p>
+            La falta de pago habilita al proveedor a suspender el acceso al
+            sistema, previa notificación. La suspensión no implica la
+            eliminación de los datos, que se conservan durante un plazo
+            razonable para permitir la regularización o su exportación.
+        </p>
 
-        <h2>9. Limitación de responsabilidad</h2>
-        <div class="pendiente">
-            Alcance de la responsabilidad del proveedor por interrupciones, pérdida
-            de datos o decisiones de negocio tomadas con la información del sistema.
-        </div>
+        <h2>9. Límites del plan contratado</h2>
+        <p>
+            Cada plan define límites de uso. Los límites de capacidad —como la
+            cantidad de usuarios— impiden crear nuevos recursos una vez
+            alcanzados. Los límites de volumen operativo no interrumpen la
+            operación diaria: al superarse, se notifica a la empresa usuaria
+            para acordar la adecuación del plan.
+        </p>
 
-        <h2>10. Vigencia y baja del servicio</h2>
-        <div class="pendiente">
-            Plazo, renovación, cómo se solicita la baja y qué pasa con los datos
-            después de la baja.
-        </div>
+        <h2>10. Responsabilidad</h2>
+        <p>
+            El sistema se provee como herramienta de gestión. El proveedor no
+            es responsable por las decisiones comerciales de la empresa
+            usuaria, por los datos que esta carga ni por el uso que su personal
+            haga del sistema dentro de los permisos asignados.
+        </p>
+        <p>
+            La responsabilidad del proveedor se limita, en todos los casos, al
+            monto abonado por la empresa usuaria en los últimos períodos de
+            servicio, conforme a lo acordado contractualmente.
+        </p>
 
-        <h2>11. Modificaciones</h2>
-        <div class="pendiente">
-            Cómo se notifican los cambios a estos términos y desde cuándo rigen.
-        </div>
+        <h2>11. Rescisión</h2>
+        <p>
+            Cualquiera de las partes puede dar por terminada la relación
+            notificando a la otra con antelación razonable. Al finalizar, la
+            empresa usuaria tiene derecho a obtener una copia de sus datos
+            dentro de un plazo determinado, vencido el cual el proveedor podrá
+            eliminarlos definitivamente.
+        </p>
 
-        <h2>12. Ley aplicable y jurisdicción</h2>
-        <div class="pendiente">
-            Legislación argentina aplicable y tribunales competentes.
-        </div>
+        <h2>12. Modificaciones de estos términos</h2>
+        <p>
+            Estos términos pueden actualizarse. La fecha de última
+            actualización se indica al comienzo de esta página y los cambios
+            sustanciales se notificarán a las empresas usuarias.
+        </p>
+
+        <h2>13. Ley aplicable y jurisdicción</h2>
+        <p>
+            Estos términos se rigen por las leyes de la República Argentina.
+            Ante cualquier controversia, las partes se someten a los tribunales
+            ordinarios competentes, renunciando a cualquier otro fuero.
+        </p>
+
+        <h2>14. Contacto</h2>
+        <p>
+            {{ responsable.razon_social }} — {{ responsable.domicilio }} —
+            {{ responsable.email }}.
+        </p>
     </LegalLayout>
 </template>

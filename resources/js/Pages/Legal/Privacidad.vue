@@ -2,107 +2,183 @@
 import { Head } from '@inertiajs/vue3';
 import LegalLayout from '@/Layouts/LegalLayout.vue';
 
-/*
- * ESTRUCTURA de la Política de Privacidad, lista para redactar.
+/**
+ * Política de Privacidad — TEXTO DE EJEMPLO.
  *
- * Cada sección tiene su encabezado definitivo y un bloque .pendiente con lo
- * que hay que cubrir ahí. Al redactar, reemplazá el <div class="pendiente">
- * por los <p> del texto real.
+ * Está redactado como referencia sobre la Ley 25.326 de Protección de Datos
+ * Personales, para mostrar qué debe cubrir cada sección y con qué nivel de
+ * detalle. NO es asesoramiento legal y no debe publicarse sin revisión.
  *
- * Contexto importante para la redacción: el sistema es multi-empresa. Hay
- * dos roles distintos frente a la ley 25.326 de Protección de Datos
- * Personales, y conviene que el texto los separe:
+ * Mientras `config('legal.textos_definitivos')` sea false, el layout muestra
+ * una franja que declara la página como borrador.
  *
- *   - Cada EMPRESA cliente es responsable de los datos de SUS clientes
- *     (nombre, DNI, teléfono, dirección, historial de reparaciones).
- *   - TecnoSoluciones, como proveedor del software, es quien trata esos
- *     datos por cuenta de la empresa.
+ * La distinción clave al redactar el texto real
+ * ---------------------------------------------
+ * Hay DOS relaciones distintas y conviene no mezclarlas:
+ *
+ *  1. Entre la empresa cliente y SUS clientes: la empresa que contrata el
+ *     sistema es la RESPONSABLE de los datos que carga (art. 2). Decide qué
+ *     recolecta, para qué y cuánto lo conserva.
+ *
+ *  2. Entre el proveedor del sistema y la empresa cliente: el proveedor es
+ *     ENCARGADO del tratamiento (art. 25). Trata esos datos por cuenta de la
+ *     empresa, siguiendo sus instrucciones, y no puede usarlos para fines
+ *     propios.
+ *
+ * Esta página cubre el punto 2, que es lo que el proveedor declara. Cada
+ * empresa cliente necesita además su propia política hacia sus clientes.
  */
+
+defineProps({
+    borrador: { type: Boolean, default: false },
+    actualizado: { type: String, default: null },
+    responsable: { type: Object, default: () => ({}) },
+});
 </script>
 
 <template>
     <Head title="Política de Privacidad" />
 
-    <LegalLayout titulo="Política de Privacidad">
-        <div class="pendiente">
-            Texto pendiente de redacción. La estructura y los encabezados ya están
-            definidos; falta el contenido legal de cada sección.
-        </div>
+    <LegalLayout titulo="Política de Privacidad" :actualizado="actualizado" :borrador="borrador">
+        <p>
+            Esta política explica cómo se tratan los datos personales dentro de
+            este sistema de gestión, quién es responsable de ellos y qué
+            derechos tiene cada persona sobre su propia información. Está
+            redactada conforme a la Ley 25.326 de Protección de Datos
+            Personales de la República Argentina.
+        </p>
 
         <h2>1. Quién trata tus datos</h2>
-        <div class="pendiente">
-            Identificar a la empresa que opera el sistema (razón social, CUIT,
-            domicilio y correo de contacto) y aclarar la distinción entre la empresa
-            cliente, que es responsable de los datos de sus propios clientes, y
-            TecnoSoluciones, que los trata por cuenta de ella como proveedor del
-            software.
-        </div>
+        <p>
+            El sistema es provisto por <strong>{{ responsable.razon_social }}</strong>,
+            CUIT {{ responsable.cuit }}, con domicilio en {{ responsable.domicilio }}.
+        </p>
+        <p>
+            Es importante distinguir dos roles. La <strong>empresa que utiliza
+            este sistema</strong> es la responsable de los datos de sus propios
+            clientes: decide qué información carga, con qué finalidad y durante
+            cuánto tiempo la conserva. El <strong>proveedor del sistema</strong>
+            actúa como encargado del tratamiento: aloja y procesa esa
+            información por cuenta de la empresa, conforme a sus instrucciones,
+            y no la utiliza para fines propios ni la cede a terceros.
+        </p>
 
-        <h2>2. Qué datos recolectamos</h2>
-        <div class="pendiente">
-            Enumerar las categorías que el sistema efectivamente guarda hoy:
-            <ul>
-                <li>De los usuarios del sistema: nombre, correo, teléfono, foto de perfil.</li>
-                <li>De los clientes de cada empresa: nombre, apellido, DNI, correo, teléfono, WhatsApp, dirección.</li>
-                <li>De la operación: ventas, pagos, cuentas corrientes, reparaciones e imágenes de los equipos.</li>
-                <li>De seguridad: dirección IP, navegador y registro de auditoría de cada acción.</li>
-            </ul>
-        </div>
+        <h2>2. Qué datos se recolectan</h2>
+        <p>Según el tipo de usuario, el sistema almacena:</p>
+        <ul>
+            <li>
+                <strong>Usuarios del sistema</strong> (personal de la empresa):
+                nombre, correo electrónico, teléfono, fotografía de perfil,
+                rol asignado y registro de actividad dentro del sistema.
+            </li>
+            <li>
+                <strong>Clientes de la empresa</strong>: nombre y apellido,
+                documento de identidad, correo electrónico, teléfono,
+                domicilio, y el historial de operaciones asociadas (ventas,
+                reparaciones, pagos y cuenta corriente).
+            </li>
+            <li>
+                <strong>Proveedores</strong>: razón social, CUIT, datos de
+                contacto y domicilio comercial.
+            </li>
+            <li>
+                <strong>Datos técnicos</strong>: dirección IP, navegador y
+                fecha y hora de cada operación registrada en la auditoría.
+            </li>
+        </ul>
 
-        <h2>3. Para qué los usamos</h2>
-        <div class="pendiente">
-            Explicar las finalidades concretas: gestionar ventas y reparaciones,
-            avisar al cliente por WhatsApp el estado de su equipo, controlar cuentas
-            corrientes y dejar trazabilidad de quién hizo cada cosa.
-        </div>
+        <h2>3. Con qué finalidad se usan</h2>
+        <p>
+            Los datos se utilizan exclusivamente para prestar el servicio
+            contratado: registrar operaciones comerciales, dar seguimiento a
+            reparaciones, administrar cuentas corrientes, emitir comprobantes,
+            notificar al cliente el estado de su equipo y mantener un registro
+            de auditoría de quién hizo cada cosa dentro del sistema.
+        </p>
+        <p>
+            No se utilizan para publicidad, no se elaboran perfiles con fines
+            comerciales ni se toman decisiones automatizadas que afecten a las
+            personas.
+        </p>
 
-        <h2>4. Con quién los compartimos</h2>
-        <div class="pendiente">
-            Mencionar a los terceros que intervienen por el funcionamiento del
-            sistema: el proveedor de mensajería que entrega los WhatsApp y el de
-            correo electrónico. Aclarar que no se venden ni ceden datos.
-        </div>
+        <h2>4. Con quién se comparten</h2>
+        <p>
+            Los datos no se venden, alquilan ni ceden a terceros. Solo se
+            comparten en tres supuestos: con los proveedores de infraestructura
+            necesarios para operar el servicio (alojamiento, envío de correo y
+            mensajería), que actúan bajo contrato y con obligación de
+            confidencialidad; cuando lo exija una autoridad competente en el
+            marco de la ley; y cuando la persona titular lo autorice
+            expresamente.
+        </p>
+        <p>
+            Cada empresa cliente accede únicamente a sus propios datos. El
+            sistema impide técnicamente que una empresa vea la información de
+            otra.
+        </p>
 
-        <h2>5. Cuánto tiempo los conservamos</h2>
-        <div class="pendiente">
-            Definir los plazos de conservación, y aclarar que el registro de
-            auditoría se depura por antigüedad mientras los comprobantes se
-            conservan por el plazo que exige la normativa fiscal.
-        </div>
+        <h2>5. Cuánto tiempo se conservan</h2>
+        <p>
+            Los datos se conservan mientras dure la relación comercial y,
+            posteriormente, durante el plazo exigido por la legislación
+            comercial e impositiva aplicable. Cumplido ese plazo, se eliminan o
+            anonimizan. Los registros de auditoría se conservan por un período
+            determinado y luego se purgan automáticamente.
+        </p>
 
-        <h2>6. Cómo los protegemos</h2>
-        <div class="pendiente">
-            Describir las medidas ya implementadas: contraseñas cifradas, acceso
-            restringido por rol y permiso, aislamiento de los datos entre empresas,
-            bloqueo de cuenta por intentos fallidos, enmascaramiento de datos
-            sensibles en la auditoría y registro de IP de cada acceso.
-        </div>
+        <h2>6. Cómo se protegen</h2>
+        <p>
+            Se aplican medidas técnicas y organizativas conforme al artículo 9
+            de la Ley 25.326: acceso mediante usuario y contraseña personal,
+            contraseñas almacenadas cifradas, permisos diferenciados por rol de
+            modo que cada persona acceda solo a lo que su tarea requiere,
+            bloqueo automático ante intentos fallidos de acceso, registro de
+            auditoría de las operaciones, aislamiento entre empresas y copias
+            de respaldo periódicas y cifradas.
+        </p>
 
-        <h2>7. Tus derechos</h2>
-        <div class="pendiente">
-            Derechos de acceso, rectificación, actualización y supresión previstos
-            en la Ley 25.326, cómo ejercerlos y en cuánto tiempo se responde.
-            Incluir la mención a la Agencia de Acceso a la Información Pública como
-            órgano de control.
-        </div>
+        <h2>7. Derechos de las personas</h2>
+        <p>
+            Toda persona tiene derecho a solicitar el acceso, la rectificación,
+            la actualización y, cuando corresponda, la supresión de sus datos
+            personales, de forma gratuita, en los términos de los artículos 14
+            a 16 de la Ley 25.326.
+        </p>
+        <p>
+            Para ejercer estos derechos respecto de los datos cargados por una
+            empresa, la solicitud debe dirigirse a esa empresa, que es la
+            responsable. Para consultas sobre el funcionamiento del sistema
+            puede escribirse a {{ responsable.email }}.
+        </p>
+        <p>
+            La Agencia de Acceso a la Información Pública, en su carácter de
+            autoridad de aplicación, tiene atribuciones para atender las
+            denuncias y reclamos por incumplimiento de las normas vigentes en
+            materia de protección de datos personales.
+        </p>
 
         <h2>8. Cookies</h2>
-        <div class="pendiente">
-            Aclarar que el sistema usa únicamente cookies técnicas, necesarias para
-            mantener la sesión abierta, y que no se utilizan cookies de análisis ni
-            de publicidad. Si en el futuro se agregan scripts de seguimiento, habrá
-            que incorporar además un componente de consentimiento previo.
-        </div>
+        <p>
+            El sistema utiliza únicamente cookies técnicas, necesarias para
+            mantener la sesión iniciada y para proteger los formularios contra
+            falsificación de solicitudes. No se utilizan cookies de análisis,
+            publicidad ni seguimiento de terceros, por lo que no se requiere
+            consentimiento previo para su uso.
+        </p>
 
         <h2>9. Cambios en esta política</h2>
-        <div class="pendiente">
-            Cómo se comunican las modificaciones y desde cuándo rigen.
-        </div>
+        <p>
+            Esta política puede actualizarse para reflejar cambios en el
+            servicio o en la normativa aplicable. La fecha de última
+            actualización se indica al comienzo de esta página. Los cambios
+            sustanciales se comunicarán a las empresas usuarias por los medios
+            de contacto registrados.
+        </p>
 
         <h2>10. Contacto</h2>
-        <div class="pendiente">
-            Correo y domicilio donde dirigir consultas o reclamos sobre datos
-            personales.
-        </div>
+        <p>
+            Por consultas sobre esta política o sobre el tratamiento de datos
+            personales: {{ responsable.email }} — {{ responsable.domicilio }}.
+        </p>
     </LegalLayout>
 </template>
