@@ -122,12 +122,19 @@ return [
         'reportes' => [
             'label' => 'Reportes',
             'permisos' => [
-                'reportes.ver' => 'Ver reportes',
-                'reportes.ventas' => 'Reportes de ventas',
-                'reportes.stock' => 'Reportes de stock',
-                'reportes.reparaciones' => 'Reportes de reparaciones',
-                'reportes.compras' => 'Reportes de compras',
-                'reportes.exportar' => 'Exportar reportes',
+                // `reportes.ver` es solo la puerta de la seccion: deja entrar al
+                // modulo, no a un reporte en particular. Cada reporte exige
+                // ademas su propio permiso, porque muestran cosas muy
+                // distintas: el de ventas muestra facturacion, el mensual
+                // muestra el balance del negocio y el de reparaciones compara
+                // el rendimiento de los tecnicos entre si.
+                'reportes.ver' => 'Entrar a la seccion de reportes',
+                'reportes.ventas' => 'Reporte de ventas (facturacion del periodo)',
+                'reportes.stock' => 'Reportes de stock y uso de repuestos',
+                'reportes.reparaciones' => 'Reporte de reparaciones (incluye comparativa entre tecnicos)',
+                'reportes.compras' => 'Reporte de compras a proveedores',
+                'reportes.mensual' => 'Reporte mensual consolidado (entradas, salidas y balance)',
+                'reportes.exportar' => 'Descargar los reportes en PDF, Excel o CSV',
             ],
         ],
         

@@ -32,7 +32,7 @@ class ReporteReparacionController extends Controller
         // 2. Filtros
         $fechaDesde = $request->input('fecha_desde', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $fechaHasta = $request->input('fecha_hasta', Carbon::now()->endOfMonth()->format('Y-m-d'));
-        $tecnicoId = $request->input('tecnico_id');
+        $tecnicoId = $this->tecnicoIdEfectivo($request);
         $estadoId = $request->input('estado_id');
 
         // 3. Query Base
@@ -145,14 +145,14 @@ class ReporteReparacionController extends Controller
 
             case 'csv':
                 return Excel::download(
-                    new ReparacionExport($request->all()),
+                    new ReparacionExport($this->filtrosRestringidos($request)),
                     "reporte_reparaciones_{$timestamp}.csv",
                     \Maatwebsite\Excel\Excel::CSV
                 );
 
             default:
                 return Excel::download(
-                    new ReparacionExport($request->all()),
+                    new ReparacionExport($this->filtrosRestringidos($request)),
                     "reporte_reparaciones_{$timestamp}.xlsx"
                 );
         }
@@ -162,7 +162,7 @@ class ReporteReparacionController extends Controller
     {
         $fechaDesde = $request->input('fecha_desde', Carbon::now()->startOfMonth()->format('Y-m-d'));
         $fechaHasta = $request->input('fecha_hasta', Carbon::now()->endOfMonth()->format('Y-m-d'));
-        $tecnicoId = $request->input('tecnico_id');
+        $tecnicoId = $this->tecnicoIdEfectivo($request);
         $estadoId = $request->input('estado_id');
 
         $query = Reparacion::with(['cliente', 'tecnico', 'estado', 'marca', 'modelo'])
@@ -194,5 +194,46 @@ class ReporteReparacionController extends Controller
                 'ingresos' => $ingresos,
             ],
         ];
+    }
+
+    /**
+     * Técnico por el que se filtra el reporte, respetando la restricción del
+     * módulo de reparaciones.
+     *
+     * Quien no tiene `reparaciones.ver_todas` ve solo las propias en el
+     * listado; sin esto, el mismo dato quedaría disponible agregado en el
+     * reporte, que es la puerta de atrás del módulo. El valor se FUERZA: no
+     * alcanza con ignorar el `tecnico_id` recibido, hay que reemplazarlo,
+     * porque si no al no mandar ninguno se verían todas.
+     *
+     * Para quien sí tiene el permiso, el filtro sigue siendo opcional y lo
+     * elige desde la pantalla.
+     */
+    private function tecnicoIdEfectivo(Request $request): ?int
+    {
+        $usuario = $request->user();
+
+        if ($usuario && ! $usuario->puedeVerTodasLasReparaciones()) {
+            return $usuario->id;
+        }
+
+        $tecnicoId = $request->input('tecnico_id');
+
+        return $tecnicoId ? (int) $tecnicoId : null;
+    }
+
+    /**
+     * Filtros de exportación con el técnico ya restringido.
+     *
+     * El export arma su propia consulta a partir de este arreglo, así que la
+     * restricción tiene que viajar adentro: de nada sirve acotar la pantalla
+     * si el archivo descargado trae el taller completo.
+     */
+    private function filtrosRestringidos(Request $request): array
+    {
+        $filtros = $request->all();
+        $filtros['tecnico_id'] = $this->tecnicoIdEfectivo($request);
+
+        return $filtros;
     }
 }
