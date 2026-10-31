@@ -145,3 +145,24 @@ Schedule::command('backup:monitor')
     ->onFailure(function () {
         \Log::critical('❌ El monitoreo de respaldos detectó un problema.');
     });
+
+/*
+|--------------------------------------------------------------------------
+| SCHEDULER: Integridad del stock
+|--------------------------------------------------------------------------
+|
+| Compara el historial de movimientos contra el saldo de stock. Si alguna vez
+| un camino de código modifica las existencias sin registrar el movimiento,
+| el libro del depósito queda cortado y deja de poder auditarse.
+|
+| Ese tipo de falla no se ve: el número en pantalla parece razonable y nadie
+| nota que dejó de corresponderse con su historial. Por eso se revisa sola,
+| semanalmente, en vez de esperar a que alguien lo descubra.
+*/
+Schedule::command('stock:verificar-integridad')
+    ->weeklyOn(1, '04:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onFailure(function () {
+        \Log::warning('⚠️ El historial de movimientos no coincide con el stock. Revisar con: stock:verificar-integridad');
+    });

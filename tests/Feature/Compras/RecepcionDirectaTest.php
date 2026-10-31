@@ -142,6 +142,68 @@ class RecepcionDirectaTest extends TestCase
         $this->assertEquals(15, $movimiento->cantidad);
     }
 
+    /**
+     * El historial de movimientos es el libro contable del depósito: cada
+     * fila dice de cuánto a cuánto pasó la existencia. Si una recepción deja
+     * un `stockAnterior` que no coincide con el `stockNuevo` del movimiento
+     * previo, el libro queda cortado y ya no se puede reconstruir el saldo.
+     *
+     * Este test no mira la cantidad final --eso ya lo cubre el anterior--
+     * sino la CONTINUIDAD de la cadena, que es lo que no se ve a simple
+     * vista y lo que permite auditar el stock después.
+     *
+     * @test
+     */
+    public function recepcion_directa_no_corta_la_cadena_de_movimientos()
+    {
+        $stockInicial = Stock::where('productoID', $this->producto1->id)->first();
+        $saldoPrevio = $stockInicial->cantidad_disponible;
+
+        // Dos recepciones seguidas: si la segunda lee un saldo viejo, el
+        // corte aparece acá y no en una sola operación aislada.
+        foreach ([7, 4] as $cantidad) {
+            $this->actingAs($this->admin)->post(route('recepciones.store-directo'), [
+                'proveedor_id' => $this->proveedor->id,
+                'tipo' => 'total',
+                'observaciones' => 'Reposicion encadenada',
+                'productos' => [[
+                    'producto_id' => $this->producto1->id,
+                    'cantidad' => $cantidad,
+                    'precio_unitario' => 5000,
+                ]],
+            ]);
+        }
+
+        $stock = Stock::where('productoID', $this->producto1->id)->first();
+
+        $movimientos = MovimientoStock::where('stock_id', $stock->stock_id)
+            ->orderBy('fecha_movimiento')
+            ->orderBy('id')
+            ->get();
+
+        $this->assertGreaterThanOrEqual(2, $movimientos->count());
+
+        // La cadena tiene que encadenar eslabón con eslabón.
+        $esperado = null;
+
+        foreach ($movimientos as $mov) {
+            if ($esperado !== null) {
+                $this->assertSame(
+                    $esperado,
+                    $mov->stockAnterior,
+                    "El movimiento #{$mov->id} arranca en {$mov->stockAnterior} "
+                    ."pero el anterior terminó en {$esperado}: el saldo cambió sin registrarse."
+                );
+            }
+
+            $esperado = $mov->stockNuevo;
+        }
+
+        // Y el último eslabón tiene que ser el saldo real de hoy.
+        $this->assertSame($esperado, $stock->cantidad_disponible, 'El saldo no coincide con el último movimiento');
+        $this->assertSame($saldoPrevio + 11, $stock->cantidad_disponible);
+    }
+
     /** @test */
     public function recepcion_directa_actualiza_costo_ponderado()
     {

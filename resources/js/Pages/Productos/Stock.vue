@@ -189,6 +189,35 @@ const getPaginationLabel = (label, index, totalLinks) => {
                 </div>
 
                 <form @submit.prevent="submitAdjustment" class="space-y-4">
+                    <!--
+                        Cartel de error general.
+
+                        Hacía falta porque dos errores no tenían dónde mostrarse
+                        y el formulario fallaba EN SILENCIO: el modal quedaba
+                        abierto, no se guardaba nada y no aparecía ningún
+                        mensaje.
+
+                          · errors.error    -> lo devuelve el controlador cuando
+                                               el servicio lanza una excepción,
+                                               por ejemplo "Stock insuficiente
+                                               para realizar este ajuste".
+                          · errors.stock_id -> si la fila no trajo su stock_id.
+
+                        Kendall & Kendall: una acción que no se completó tiene
+                        que decir por qué. Un formulario que no responde lleva
+                        al usuario a reintentar y a concluir que el sistema
+                        "no guarda".
+                    -->
+                    <div
+                        v-if="adjustmentForm.errors.error || adjustmentForm.errors.stock_id"
+                        class="rounded-md border border-red-300 bg-red-50 p-3"
+                    >
+                        <p class="text-sm font-medium text-red-800">No se pudo registrar el movimiento</p>
+                        <p class="mt-1 text-sm text-red-700">
+                            {{ adjustmentForm.errors.error || adjustmentForm.errors.stock_id }}
+                        </p>
+                    </div>
+
                     <div>
                         <ConfigurableSelect
                             id="tipo_movimiento"
