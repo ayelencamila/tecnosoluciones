@@ -95,3 +95,53 @@ Schedule::command('auditoria:purgar')
     ->onFailure(function () {
         \Log::error('❌ Error al ejecutar la purga de auditoría.');
     });
+
+/*
+|--------------------------------------------------------------------------
+| SCHEDULER: Respaldo de la base y de los archivos subidos
+|--------------------------------------------------------------------------
+|
+| Es el único proceso de esta lista que protege contra pérdida de datos en
+| lugar de contra acceso indebido. Si falla un disco, una migración sale mal
+| o alguien ejecuta un DELETE sin WHERE, esto es lo único que permite volver
+| atrás: ningún control de permisos sirve para recuperar lo que ya no está.
+|
+| También es lo que exige el art. 9 de la Ley 25.326, que pide garantizar la
+| "seguridad" de los datos: eso incluye que no se pierdan, no solo que no se
+| filtren.
+|
+| Orden de las tareas: limpiar primero (borra los respaldos viejos según la
+| política de retención) y respaldar después, para que si el disco está al
+| límite el espacio ya esté liberado cuando se escribe el nuevo.
+*/
+
+Schedule::command('backup:clean')
+    ->daily()->at('01:30')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onFailure(function () {
+        \Log::error('❌ Falló la limpieza de respaldos antiguos.');
+    });
+
+Schedule::command('backup:run')
+    ->daily()->at('02:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->withoutOverlapping()
+    ->onSuccess(function () {
+        \Log::info('✅ Respaldo diario completado.');
+    })
+    ->onFailure(function () {
+        // Un respaldo que falla en silencio es peor que no tenerlo, porque
+        // da una seguridad que no existe. Esto queda en el log; cuando haya
+        // un canal de notificación configurado, el paquete además avisa.
+        \Log::critical('❌ FALLÓ EL RESPALDO DIARIO. Revisar de inmediato.');
+    });
+
+// Avisa si el último respaldo es demasiado viejo o si el destino no responde.
+// Sin este control, la falla recién se descubre el día que hace falta restaurar.
+Schedule::command('backup:monitor')
+    ->daily()->at('08:00')
+    ->timezone('America/Argentina/Buenos_Aires')
+    ->onFailure(function () {
+        \Log::critical('❌ El monitoreo de respaldos detectó un problema.');
+    });
