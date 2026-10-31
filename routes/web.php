@@ -48,8 +48,19 @@ Route::prefix('portal')->name('portal.')->group(function () {
 | despues para quien quiera volver a consultarlos.
 */
 Route::prefix('legal')->name('legal.')->group(function () {
-    Route::get('/privacidad', fn () => Inertia::render('Legal/Privacidad'))->name('privacidad');
-    Route::get('/terminos', fn () => Inertia::render('Legal/Terminos'))->name('terminos');
+    // `borrador` y `responsable` viajan desde el config para que el texto de
+    // ejemplo no se pueda confundir con uno definitivo y para no repetir los
+    // datos del responsable en cada vista. Ver config/legal.php.
+    $datosLegales = fn () => [
+        'borrador' => ! config('legal.textos_definitivos'),
+        'actualizado' => config('legal.actualizado'),
+        'responsable' => config('legal.responsable'),
+    ];
+
+    Route::get('/privacidad', fn () => Inertia::render('Legal/Privacidad', $datosLegales()))
+        ->name('privacidad');
+    Route::get('/terminos', fn () => Inertia::render('Legal/Terminos', $datosLegales()))
+        ->name('terminos');
 });
 
 // Ruta de inicio - Redirigir al login o dashboard
@@ -398,36 +409,88 @@ Route::middleware(['auth', 'tenant'])->group(function () {
 
 // --- RUTAS PROTEGIDAS (OPERATIVAS: VENTAS, PAGOS, ETC.) ---
 Route::middleware(['auth', 'tenant'])->group(function () {
-    // --- MÓDULO DE REPORTES Y ESTADÍSTICAS (CU-33 a CU-37) ---
-    // Acceso restringido solo a Administradores (y Gerentes si existiera el rol)
-    Route::prefix('reportes')->name('reportes.')->middleware(['role:administrador'])->group(function () {
+    /*
+    | --- MÓDULO DE REPORTES Y ESTADÍSTICAS (CU-33 a CU-37) ---
+    |
+    | Antes todo el prefijo estaba detrás de `role:administrador`, lo que dejaba
+    | los permisos `reportes.*` del config como casillas que no hacían nada: se
+    | asignaban en la pantalla de roles y nunca se verificaban. Ahora se valida
+    | por permiso, igual que el resto del sistema.
+    |
+    | `reportes.ver` es solo la puerta de la sección, y cada reporte exige
+    | ADEMÁS el suyo. Son dos middleware encadenados y no uno con dos
+    | parámetros, porque `permiso:a,b` significa "alcanza con uno" y acá hacen
+    | falta los dos. Si se gateara todo con `reportes.ver` a secas, dar acceso
+    | al reporte de reparaciones abriría también el de facturación.
+    |
+    | Exportar exige el permiso del reporte MÁS `reportes.exportar`: mirar una
+    | pantalla y llevarse el archivo son dos cosas distintas.
+    */
+    Route::prefix('reportes')->name('reportes.')->middleware('permiso:reportes.ver')->group(function () {
 
-        // Ruta base /reportes → redirige al Reporte Mensual
-        Route::get('/', fn () => redirect()->route('reportes.mensual'));
+        /*
+        | Ruta base /reportes → al primer reporte que el usuario pueda ver.
+        |
+        | Antes mandaba siempre al mensual, que ahora tiene su propio permiso:
+        | un técnico con `reportes.ver` y `reportes.reparaciones` entraría a
+        | /reportes y rebotaría contra un 403 sin haber hecho nada mal.
+        */
+        Route::get('/', function () {
+            $destinos = [
+                'reportes.mensual' => 'reportes.mensual',
+                'reportes.ventas' => 'reportes.ventas',
+                'reportes.reparaciones' => 'reportes.reparaciones',
+                'reportes.compras' => 'reportes.compras',
+                'reportes.stock' => 'reportes.stock',
+            ];
+
+            foreach ($destinos as $permiso => $ruta) {
+                if (auth()->user()?->hasPermission($permiso)) {
+                    return redirect()->route($ruta);
+                }
+            }
+
+            // Tiene `reportes.ver` pero ningún reporte concreto habilitado.
+            abort(403);
+        });
 
         // CU-33: Reporte de Ventas
-        Route::get('/ventas', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'index'])->name('ventas');
-        Route::get('/ventas/exportar', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'exportar'])->name('ventas.exportar');
+        Route::get('/ventas', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'index'])
+            ->middleware('permiso:reportes.ventas')->name('ventas');
+        Route::get('/ventas/exportar', [\App\Http\Controllers\Reportes\ReporteVentaController::class, 'exportar'])
+            ->middleware(['permiso:reportes.ventas', 'permiso:reportes.exportar'])->name('ventas.exportar');
 
         // CU-34: Reporte de Reparaciones
-        Route::get('/reparaciones', [\App\Http\Controllers\Reportes\ReporteReparacionController::class, 'index'])->name('reparaciones');
-        Route::get('/reparaciones/exportar', [\App\Http\Controllers\Reportes\ReporteReparacionController::class, 'exportar'])->name('reparaciones.exportar');
+        Route::get('/reparaciones', [\App\Http\Controllers\Reportes\ReporteReparacionController::class, 'index'])
+            ->middleware('permiso:reportes.reparaciones')->name('reparaciones');
+        Route::get('/reparaciones/exportar', [\App\Http\Controllers\Reportes\ReporteReparacionController::class, 'exportar'])
+            ->middleware(['permiso:reportes.reparaciones', 'permiso:reportes.exportar'])->name('reparaciones.exportar');
 
         // CU-35: Reporte de Compras
-        Route::get('/compras', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'index'])->name('compras');
-        Route::get('/compras/exportar', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'exportar'])->name('compras.exportar');
+        Route::get('/compras', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'index'])
+            ->middleware('permiso:reportes.compras')->name('compras');
+        Route::get('/compras/exportar', [\App\Http\Controllers\Reportes\ReporteCompraController::class, 'exportar'])
+            ->middleware(['permiso:reportes.compras', 'permiso:reportes.exportar'])->name('compras.exportar');
 
         // CU-36 y CU-37: Reporte de Stock
-        Route::get('/stock', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'index'])->name('stock');
-        Route::get('/stock/exportar', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'exportar'])->name('stock.exportar');
+        Route::get('/stock', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'index'])
+            ->middleware('permiso:reportes.stock')->name('stock');
+        Route::get('/stock/exportar', [\App\Http\Controllers\Reportes\ReporteStockController::class, 'exportar'])
+            ->middleware(['permiso:reportes.stock', 'permiso:reportes.exportar'])->name('stock.exportar');
 
-        // CU-36: Reporte de Uso de Repuestos
-        Route::get('/repuestos', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'index'])->name('repuestos');
-        Route::get('/repuestos/exportar', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'exportar'])->name('repuestos.exportar');
+        // CU-36: Reporte de Uso de Repuestos (consumo de stock, va con stock)
+        Route::get('/repuestos', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'index'])
+            ->middleware('permiso:reportes.stock')->name('repuestos');
+        Route::get('/repuestos/exportar', [\App\Http\Controllers\Reportes\ReporteRepuestoController::class, 'exportar'])
+            ->middleware(['permiso:reportes.stock', 'permiso:reportes.exportar'])->name('repuestos.exportar');
 
-        // Reporte Mensual Consolidado (Entradas, Salidas, Balance)
-        Route::get('/mensual', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'index'])->name('mensual');
-        Route::get('/mensual/exportar', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'exportar'])->name('mensual.exportar');
+        // Reporte Mensual Consolidado (Entradas, Salidas, Balance). Tiene su
+        // propio permiso porque es el balance del negocio, el dato más
+        // sensible del sistema después de los datos personales.
+        Route::get('/mensual', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'index'])
+            ->middleware('permiso:reportes.mensual')->name('mensual');
+        Route::get('/mensual/exportar', [\App\Http\Controllers\Reportes\ReporteMensualController::class, 'exportar'])
+            ->middleware(['permiso:reportes.mensual', 'permiso:reportes.exportar'])->name('mensual.exportar');
     });
 
     // --- MÓDULO DE GASTOS Y PÉRDIDAS ---
