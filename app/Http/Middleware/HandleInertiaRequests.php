@@ -65,6 +65,10 @@ class HandleInertiaRequests extends Middleware
                 // una empresa. Viaja por flash justamente para que exista una
                 // sola vez: no se guarda ni se vuelve a poder consultar.
                 'password_temporal' => fn () => $request->session()->get('password_temporal'),
+                // Aviso de consumo del plan (límite blando). Es informativo:
+                // nunca acompaña a un bloqueo, porque los límites blandos no
+                // bloquean.
+                'aviso_plan' => fn () => $request->session()->get('aviso_plan'),
             ],
 
             'ziggy' => fn () => [

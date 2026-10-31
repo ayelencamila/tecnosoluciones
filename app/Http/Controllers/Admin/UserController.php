@@ -7,6 +7,8 @@ use App\Http\Requests\Admin\UserRequest;
 use App\Models\Auditoria;
 use App\Models\Rol;
 use App\Models\User;
+use App\Exceptions\LimiteDePlanExcedido;
+use App\Services\Planes\ControlDeLimites;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -102,6 +104,21 @@ class UserController extends Controller
      */
     public function store(UserRequest $request): RedirectResponse
     {
+        /*
+         * Límite DURO del plan: la cantidad de usuarios es capacidad
+         * contratada, así que acá sí corresponde bloquear. Dar de alta un
+         * usuario es una acción administrativa y planificada: quien la
+         * intenta ve el motivo y el sistema sigue funcionando.
+         *
+         * Va ANTES de la transacción: no tiene sentido abrirla para
+         * cancelarla enseguida.
+         */
+        try {
+            ControlDeLimites::paraTenantActivo()->exigirCupo('usuarios');
+        } catch (LimiteDePlanExcedido $e) {
+            return back()->withInput()->withErrors(['limite_plan' => $e->getMessage()]);
+        }
+
         try {
             DB::beginTransaction();
 

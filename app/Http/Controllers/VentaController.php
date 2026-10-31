@@ -19,6 +19,7 @@ use App\Models\Descuento;
 
 // Requests
 use App\Http\Resources\ClienteResource;
+use App\Services\Planes\ControlDeLimites;
 use App\Http\Requests\Ventas\StoreVentaRequest;
 use App\Http\Requests\Ventas\AnularVentaRequest; // <--- Asegúrate de tener este archivo
 
@@ -125,8 +126,20 @@ class VentaController extends Controller
                 $request->user()->id
             );
 
+            /*
+             * Límite BLANDO del plan: la venta YA se registró. Esto solo
+             * avisa.
+             *
+             * Es deliberado y es la decisión de diseño más importante de los
+             * planes: bloquear la venta número 101 significa que el local no
+             * puede cobrar un martes a las 18 con gente en el mostrador. El
+             * cliente pierde la venta y la culpa termina siendo del sistema.
+             * Un tope comercial no puede convertirse en una caída de
+             * servicio: se cuenta, se avisa y se habla con el cliente.
+             */
             return redirect()->route('ventas.index')
-                ->with('success', 'Venta registrada exitosamente.');
+                ->with('success', 'Venta registrada exitosamente.')
+                ->with('aviso_plan', $this->avisoDePlan('ventas_mensuales'));
 
         } catch (SinStockException $e) {
             return back()->withErrors(['items' => $e->getMessage()])->withInput();
@@ -242,5 +255,34 @@ class VentaController extends Controller
 
         // Retornar vista Blade optimizada para impresión con window.print()
         return view('comprobantes.comprobante-anulacion', $datos);
+    }
+
+    /**
+     * Mensaje de aviso cuando el consumo de un límite blando llegó al tope o
+     * está cerca. Devuelve null si no hay nada que avisar.
+     *
+     * Nunca interrumpe nada: es informativo.
+     */
+    private function avisoDePlan(string $clave): ?string
+    {
+        $control = ControlDeLimites::paraTenantActivo();
+        $limite = $control->limite($clave);
+
+        if ($limite === null) {
+            return null;
+        }
+
+        $etiqueta = mb_strtolower((string) config("planes.limites.{$clave}.label", $clave));
+
+        if ($control->alcanzado($clave)) {
+            return "Se superaron las {$limite->valor} {$etiqueta} del plan contratado. "
+                .'El sistema sigue funcionando con normalidad; conviene revisar el plan.';
+        }
+
+        if ($control->cerca($clave)) {
+            return "Vas por {$control->consumo($clave)} de {$limite->valor} {$etiqueta} del plan.";
+        }
+
+        return null;
     }
 }

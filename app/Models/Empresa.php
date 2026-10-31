@@ -38,6 +38,7 @@ class Empresa extends Model
         'email',
         'direccion',
         'activa',
+        'plan_id',
     ];
 
     protected $casts = [
@@ -59,5 +60,14 @@ class Empresa extends Model
     public function roles(): HasMany
     {
         return $this->hasMany(Rol::class, 'empresa_id');
+    }
+
+    /**
+     * Plan comercial contratado. NULL = sin plan asignado, que se trata como
+     * sin limites (ver ControlDeLimites).
+     */
+    public function plan(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 }

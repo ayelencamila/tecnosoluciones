@@ -34,6 +34,10 @@ class ActualizarEmpresaRequest extends FormRequest
             'telefono'  => ['nullable', 'string', 'max:50'],
             'email'     => ['nullable', 'email', 'max:150'],
             'direccion' => ['nullable', 'string', 'max:255'],
+            // El plan lo asigna el operador de la plataforma, no la empresa.
+            // Nullable porque "sin plan" es un estado valido: se trata como
+            // sin limites (ver ControlDeLimites).
+            'plan_id' => ['nullable', 'integer', 'exists:planes,id'],
         ];
     }
 

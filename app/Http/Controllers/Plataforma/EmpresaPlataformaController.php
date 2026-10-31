@@ -7,7 +7,9 @@ use App\Http\Requests\Plataforma\ActualizarEmpresaRequest;
 use App\Http\Requests\Plataforma\AltaEmpresaRequest;
 use App\Models\Auditoria;
 use App\Models\Empresa;
+use App\Models\Plan;
 use App\Models\User;
+use App\Services\Planes\ControlDeLimites;
 use App\Services\Plataforma\AltaEmpresaService;
 use App\Support\TenantContext;
 use Illuminate\Http\RedirectResponse;
@@ -265,6 +267,8 @@ class EmpresaPlataformaController extends Controller
      */
     public function show(Empresa $empresa): Response
     {
+        $empresa->loadMissing('plan.limites');
+
         $usuarios = TenantContext::paraEmpresa($empresa->id, fn () => User::with('rol')
             ->where('empresa_id', $empresa->id)
             ->orderBy('name')
@@ -282,6 +286,12 @@ class EmpresaPlataformaController extends Controller
                 'bloqueado_hasta' => $usuario->bloqueado_hasta?->format('d/m/Y H:i'),
             ]));
 
+        // El consumo se calcula dentro del contexto de la empresa visitada.
+        $consumo = TenantContext::paraEmpresa(
+            $empresa->id,
+            fn () => ControlDeLimites::paraEmpresa($empresa)->resumen()
+        );
+
         return Inertia::render('Plataforma/Empresas/Show', [
             'empresa' => [
                 'id'        => $empresa->id,
@@ -292,9 +302,14 @@ class EmpresaPlataformaController extends Controller
                 'email'     => $empresa->email,
                 'direccion' => $empresa->direccion,
                 'activa'    => $empresa->activa,
+                'plan_id'   => $empresa->plan_id,
+                'plan'      => $empresa->plan?->nombre,
                 'creada'    => $empresa->created_at?->format('d/m/Y H:i'),
             ],
             'usuarios' => $usuarios,
+            'planes' => Plan::where('activo', true)->orderBy('orden')
+                ->get(['id', 'nombre', 'descripcion']),
+            'consumo' => $consumo,
         ]);
     }
 }

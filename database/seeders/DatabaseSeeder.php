@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
 
         // 1. Datos geográficos primero (requeridos por direcciones)
         $this->call([
+            PlanSeeder::class,
             ProvinciaSeeder::class,
             LocalidadSeeder::class,
         ]);

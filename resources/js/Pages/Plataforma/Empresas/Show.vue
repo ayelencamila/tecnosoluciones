@@ -6,6 +6,8 @@ import PlataformaLayout from '@/Layouts/PlataformaLayout.vue';
 const props = defineProps({
     empresa: Object,
     usuarios: Array,
+    planes: { type: Array, default: () => [] },
+    consumo: { type: Array, default: () => [] },
 });
 
 const entrar = () => {
@@ -26,6 +28,7 @@ const form = useForm({
     telefono: props.empresa.telefono ?? '',
     email: props.empresa.email ?? '',
     direccion: props.empresa.direccion ?? '',
+    plan_id: props.empresa.plan_id ?? '',
 });
 
 const guardar = () => {
@@ -169,6 +172,10 @@ const copiarPassword = async () => {
                         <dd class="text-gray-900">{{ empresa.direccion || '—' }}</dd>
                     </div>
                     <div>
+                        <dt class="text-gray-500">Plan</dt>
+                        <dd class="text-gray-900">{{ empresa.plan || 'Sin plan (sin límites)' }}</dd>
+                    </div>
+                    <div>
                         <dt class="text-gray-500">Alta</dt>
                         <dd class="text-gray-900">{{ empresa.creada }}</dd>
                     </div>
@@ -245,6 +252,19 @@ const copiarPassword = async () => {
                         <p v-if="form.errors.direccion" class="mt-1 text-sm text-red-600">{{ form.errors.direccion }}</p>
                     </div>
 
+                    <div>
+                        <label for="plan_id" class="block text-sm font-medium text-gray-700">Plan</label>
+                        <select
+                            id="plan_id"
+                            v-model="form.plan_id"
+                            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                        >
+                            <option value="">Sin plan (sin límites)</option>
+                            <option v-for="p in planes" :key="p.id" :value="p.id">{{ p.nombre }}</option>
+                        </select>
+                        <p v-if="form.errors.plan_id" class="mt-1 text-sm text-red-600">{{ form.errors.plan_id }}</p>
+                    </div>
+
                     <p class="text-xs text-gray-500">
                         El identificador y el estado del acceso no se editan acá: el primero se usa
                         en claves internas y el segundo tiene su propia acción, suspender o reactivar.
@@ -267,6 +287,57 @@ const copiarPassword = async () => {
                         </button>
                     </div>
                 </form>
+            </div>
+
+            <!-- Consumo del plan -->
+            <div v-if="consumo.length" class="rounded-lg bg-white p-6 shadow lg:col-span-3">
+                <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">
+                    Consumo del plan
+                </h2>
+                <p class="mt-1 text-xs text-gray-500">
+                    Los límites <strong>duros</strong> impiden crear más recursos al alcanzarse.
+                    Los <strong>blandos</strong> solo avisan: nunca interrumpen la operación
+                    del comercio.
+                </p>
+
+                <div class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    <div
+                        v-for="limite in consumo"
+                        :key="limite.clave"
+                        class="rounded-lg border p-4"
+                        :class="limite.alcanzado ? 'border-amber-300 bg-amber-50' : 'border-gray-200'"
+                    >
+                        <div class="flex items-start justify-between gap-2">
+                            <p class="text-sm font-medium text-gray-900">{{ limite.label }}</p>
+                            <span
+                                class="rounded-full px-2 py-0.5 text-xs"
+                                :class="limite.tipo === 'duro'
+                                    ? 'bg-gray-200 text-gray-700'
+                                    : 'bg-sky-100 text-sky-800'"
+                            >{{ limite.tipo }}</span>
+                        </div>
+
+                        <p class="mt-2 text-2xl font-semibold text-gray-900">
+                            {{ limite.consumo }}
+                            <span class="text-base font-normal text-gray-500">
+                                / {{ limite.ilimitado ? '∞' : limite.valor }}
+                            </span>
+                        </p>
+
+                        <p v-if="limite.periodo" class="mt-1 text-xs text-gray-500">
+                            por {{ limite.periodo }}
+                        </p>
+
+                        <p v-if="limite.alcanzado" class="mt-2 text-xs font-medium text-amber-800">
+                            {{ limite.tipo === 'duro'
+                                ? 'Tope alcanzado: no puede crear más.'
+                                : 'Superó el tope. Sigue operando con normalidad.' }}
+                        </p>
+                        <p v-else-if="limite.cerca" class="mt-2 text-xs text-gray-600">
+                            Cerca del tope.
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <!-- Usuarios de la empresa -->
