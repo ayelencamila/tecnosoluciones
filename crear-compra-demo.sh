@@ -25,6 +25,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 use App\Models\Producto;
 use App\Models\Proveedor;
 use App\Models\Stock;
+use App\Models\MovimientoStock;
+use App\Models\TipoMovimientoStock;
 use App\Models\Deposito;
 use App\Models\Configuracion;
 
@@ -53,10 +55,37 @@ foreach (\$productos as \$i => \$p) {
         ['productoID' => \$p->id, 'deposito_id' => \$deposito->deposito_id],
         ['cantidad_disponible' => 0, 'stock_minimo' => 0]
     );
+    // El stock se baja a mano para simular el escenario, pero SE REGISTRA el
+    // movimiento. Si no, el libro de movimientos queda cortado: el proximo
+    // movimiento real arranca de un saldo que ningun registro explica, y el
+    // stock deja de poder auditarse. Ver: sail artisan stock:verificar-integridad
+    \$anterior = \$stock->cantidad_disponible;
+    \$nuevo = rand(1, 3);
+
     \$stock->update([
-        'cantidad_disponible' => rand(1, 3),
+        'cantidad_disponible' => \$nuevo,
         'stock_minimo' => 15,
     ]);
+
+    if (\$anterior !== \$nuevo) {
+        \$tipoDemo = TipoMovimientoStock::where('signo', \$nuevo > \$anterior ? 1 : -1)
+            ->where('nombre', 'LIKE', '%Ajuste%')->first()
+            ?? TipoMovimientoStock::where('signo', \$nuevo > \$anterior ? 1 : -1)->first();
+
+        MovimientoStock::create([
+            'stock_id' => \$stock->stock_id,
+            'productoID' => \$p->id,
+            'tipo_movimiento_id' => \$tipoDemo?->id,
+            'cantidad' => abs(\$nuevo - \$anterior),
+            'stockAnterior' => \$anterior,
+            'stockNuevo' => \$nuevo,
+            'motivo' => 'Preparacion de demostracion (PA#3): se fuerza stock bajo',
+            'referenciaTabla' => 'demo',
+            'user_id' => 1,
+            'fecha_movimiento' => now(),
+        ]);
+    }
+
     echo '   🔴 ' . \$p->nombre . ' → Stock: ' . \$stock->cantidad_disponible . ' (Mín: 15)' . PHP_EOL;
 }
 

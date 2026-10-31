@@ -16,6 +16,8 @@ use App\Models\SolicitudCotizacion;
 use App\Models\CotizacionProveedor;
 use App\Models\RespuestaCotizacion;
 use App\Models\Stock;
+use App\Models\MovimientoStock;
+use App\Models\TipoMovimientoStock;
 use App\Models\Configuracion;
 
 echo '🧹 Limpiando datos de demo...' . PHP_EOL . PHP_EOL;
@@ -55,9 +57,39 @@ foreach (\$solicitudes as \$sol) {
 echo '   ✅ Solicitudes eliminadas: ' . \$solEliminadas . PHP_EOL;
 
 // 5. Restaurar stocks a valores normales
-\$stocksRestaurados = Stock::where('stock_minimo', 15)
-    ->where('cantidad_disponible', '<', 5)
-    ->update(['cantidad_disponible' => 20, 'stock_minimo' => 5]);
+//
+// Se recorre uno por uno en vez de hacer un update masivo, para poder
+// REGISTRAR el movimiento de cada restauracion. El update masivo cambiaba el
+// saldo sin dejar rastro y cortaba el libro de movimientos: el siguiente
+// movimiento real arrancaba de un numero que ningun registro explicaba.
+// Comprobable con: sail artisan stock:verificar-integridad
+\$stocksRestaurados = 0;
+
+foreach (Stock::where('stock_minimo', 15)->where('cantidad_disponible', '<', 5)->get() as \$st) {
+    \$anterior = \$st->cantidad_disponible;
+
+    \$st->update(['cantidad_disponible' => 20, 'stock_minimo' => 5]);
+
+    \$tipoDemo = TipoMovimientoStock::where('signo', 1)
+        ->where('nombre', 'LIKE', '%Ajuste%')->first()
+        ?? TipoMovimientoStock::where('signo', 1)->first();
+
+    MovimientoStock::create([
+        'stock_id' => \$st->stock_id,
+        'productoID' => \$st->productoID,
+        'tipo_movimiento_id' => \$tipoDemo?->id,
+        'cantidad' => 20 - \$anterior,
+        'stockAnterior' => \$anterior,
+        'stockNuevo' => 20,
+        'motivo' => 'Limpieza de demostracion (PA#3): restauracion de stock',
+        'referenciaTabla' => 'demo',
+        'user_id' => 1,
+        'fecha_movimiento' => now(),
+    ]);
+
+    \$stocksRestaurados++;
+}
+
 echo '   ✅ Stocks restaurados: ' . \$stocksRestaurados . PHP_EOL;
 
 // 6. Desactivar automatización

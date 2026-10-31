@@ -33,6 +33,9 @@ class MovimientoStock extends Model
         'cantidad' => 'integer',
         'stockAnterior' => 'integer',
         'stockNuevo' => 'integer',
+        // Faltaba: sin el cast, `fecha_movimiento` llegaba como string y
+        // cualquier codigo que la tratara como fecha fallaba.
+        'fecha_movimiento' => 'datetime',
     ];
 
     // Relaciones
